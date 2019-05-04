@@ -69,7 +69,8 @@ class Monitor:
         # input for plotting
         self.ts_plt =    np.linspace(t_min, t_max, 100) 
         # input for neural network
-        self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1)) 
+        self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1))
+        
     def check(self, nets, ode_system, conditions, loss_history):
         n_dependent = len(conditions)
     
@@ -94,6 +95,40 @@ class Monitor:
 
         self.fig.canvas.draw()
 
+def solve(ode, condition, t_min, t_max,
+          net=None, example_generator=None, optimizer=None, criterion=None, batch_size=16, 
+          max_epochs=100000, tol=1e-4,
+          monitor=None):
+    """
+    Train a neural network to solve an ODE.
+    
+    :param ode: 
+    The ODE to solve. If the ODE is F(x, t) = 0 where x is the dependent 
+    variable and t is the independent variable,It should be a function the maps
+    (x, t) to F(x, t).
+    :param condition: 
+    the initial value/boundary condition as Condition instance.
+    :param net: 
+    the networks to be used as a torch.nn.Module instance. 
+    :param t_min: lower bound of the domain (t) on which the ODE is solved
+    :param t_max: upper bound of the domain (t) on which the ODE is solved
+    :param example_generator: an ExampleGenerator instance
+    :param optimizer: an optimizer from torch.optim
+    :param criterion: a loss function from torch.nn
+    :param batch_size: the size of the minibatch
+    :param max_epochs: the maximum number of epochs
+    :param tol: the training stops if the loss is lower than this value
+    :param monitor: a Monitor instance
+    """
+    nets = None if not net else [net]
+    return solve_system(ode_system=lambda x, t: [ode(x, t)], 
+                        conditions=[condition], t_min=t_min, t_max=t_max, 
+                        nets=nets, example_generator=example_generator, 
+                        optimizer=optimizer, criterion=criterion, 
+                        batch_size=batch_size, max_epochs=max_epochs, tol=tol,
+                        monitor=monitor)
+
+
 def solve_system(ode_system, conditions, t_min, t_max,
           nets=None, example_generator=None, optimizer=None, criterion=None, batch_size=16, 
           max_epochs=100000, tol=1e-4,
@@ -111,13 +146,13 @@ def solve_system(ode_system, conditions, t_min, t_max,
     should be in an order such that the first condition constraints the first 
     variable in F_i's (see above) signature. The second the second, and so on.
     :param nets: 
-    the networds to be used as a list of torch.nn.Module instances. They should
+    the networks to be used as a list of torch.nn.Module instances. They should
     be ina na order such that the first network will be used to solve the first
     variable in F_i's (see above) signature. The second the second, and so on.
-    :param t_min: lower bound of the domain (t) on which the ode is solved
-    :param t_max: upper bound of the domain (t) on which the ode is solved
-    :param example_generator: a ExampleGenerator instance
-    :param optimizer: a optimizer from torch.optim
+    :param t_min: lower bound of the domain (t) on which the ODE system is solved
+    :param t_max: upper bound of the domain (t) on which the ODE system is solved
+    :param example_generator: an ExampleGenerator instance
+    :param optimizer: an optimizer from torch.optim
     :param criterion: a loss function from torch.nn
     :param batch_size: the size of the minibatch
     :param max_epochs: the maximum number of epochs
@@ -184,6 +219,7 @@ def solve_system(ode_system, conditions, t_min, t_max,
                 xs = conditions[i].enforce(ts, xs)
                 results.append( xs.detach().numpy().flatten() )
             return results
+        
     if loss_history[-1] > tol:
         print('The solution has not converged.')
         
