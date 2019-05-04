@@ -121,12 +121,13 @@ def solve(ode, condition, t_min, t_max,
     :param monitor: a Monitor instance
     """
     nets = None if not net else [net]
-    return solve_system(ode_system=lambda x, t: [ode(x, t)], 
-                        conditions=[condition], t_min=t_min, t_max=t_max, 
-                        nets=nets, example_generator=example_generator, 
-                        optimizer=optimizer, criterion=criterion, 
-                        batch_size=batch_size, max_epochs=max_epochs, tol=tol,
-                        monitor=monitor)
+    solution, loss_history  = solve_system(
+        ode_system=lambda x, t: [ode(x, t)], conditions=[condition], 
+        t_min=t_min, t_max=t_max, nets=nets, example_generator=example_generator, 
+        optimizer=optimizer, criterion=criterion, batch_size=batch_size, 
+        max_epochs=max_epochs, tol=tol, monitor=monitor
+    )
+    return lambda t: solution(t)[0], loss_history
 
 
 def solve_system(ode_system, conditions, t_min, t_max,
