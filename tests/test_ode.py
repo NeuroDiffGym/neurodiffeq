@@ -2,7 +2,17 @@ import numpy as np
 from numpy import isclose
 
 from neurodiffeq import diff
-from neurodiffeq.ode import InitialValueProblem, solve_system
+from neurodiffeq.ode import InitialValueProblem, solve, solve_system
+
+def test_ode_system_exponential():
+    exponential = lambda x, t: diff(x, t) - x
+    init_val_ex = InitialValueProblem(t_0=0.0, x_0=1.0)
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
+                           t_min=0.0, t_max=2.0)
+    ts = np.linspace(0, 2.0, 100)
+    x_net = solution_ex(ts)
+    x_ana = np.exp(ts)
+    assert isclose(x_net, x_ana, atol=0.1).all()
 
 def test_ode_system_parametric_circle():
     
