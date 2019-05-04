@@ -27,3 +27,10 @@ class FCNN(nn.Module):
     def forward(self, t):
         x = self.NN(t)
         return x
+
+class SinActv(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+    def forward(self, input_):
+        return torch.sin(input_)
