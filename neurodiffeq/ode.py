@@ -140,8 +140,8 @@ def solve_system(ode_system, conditions, t_min, t_max,
     :param ode_system: 
     ODE system as a list of functions. If the ODE system is F_i(x, y, ... t) = 0
     for i = 0, 1, ..., n-1 where x, y, ... are dependent variables and t is the 
-    independent variable, then ode_system should be a list where the ith element
-    is a function the maps (x, y, ... t) to F_i(x, y, ... t).
+    independent variable, then ode_system should map (x, y, ... t) to a list where 
+    the ith entry is F_i(x, y, ... t).
     :param conditions: 
     the initial value/boundary conditions as a list of Condition instance. They
     should be in an order such that the first condition constraints the first 
