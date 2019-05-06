@@ -4,8 +4,5 @@ python:
 install:
   - pip install -r requirements.txt > /dev/null # discard installation output
   - pip install .
-  - pip install coveralls
 script:
   - pytest
-after_success:
-  - coveralls
