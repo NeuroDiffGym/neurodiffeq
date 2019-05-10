@@ -14,7 +14,7 @@ Currently `neurodiffeq` is not in PyPI, so it needs to be installed from this re
 
 # Getting Started
 
-For basic use of `neurodiff`, please check the [User Guide](http://htmlpreview.github.com/?https://github.com/feiyu-chen96/neurodiffeq/blob/master/User_Guide.html)
+For basic use of `neurodiff`, please check the [User Guide](https://feiyu-chen96.github.io/neurodiffeq_User_Guide.html)
 
 # Contributing
 
