@@ -4,5 +4,9 @@ python:
 install:
   - pip install -r requirements.txt > /dev/null # discard installation output
   - pip install .
+  - pip install pytest-cov pytest
+  - pip install codecov
 script:
-  - pytest
+  - pytest --cov-report term --cov=neurodiffeq/
+after_success:
+  - codecov
