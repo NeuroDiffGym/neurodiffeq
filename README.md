@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.com/feiyu-chen96/neurodiffeq.svg?branch=master)](https://travis-ci.com/feiyu-chen96/neurodiffeq)
 
+[![codecov](https://codecov.io/gh/feiyu-chen96/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/feiyu-chen96/neurodiffeq)
+
 # Introduction
 
 `neurodiffeq` is a package for solving differential equations with neural networks. Differential equations are equations that relate some function with its derivatives. They emerge in various scientific and engineering domains. Traditionally these problems can be solved by numerical methods (e.g. finite difference, finite element). While these methods are effective and adequate, their solutions are discrete. It would be interesting if we can compute solutions for differential equations that are continuous and differentiable.
