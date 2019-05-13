@@ -9,14 +9,7 @@ import matplotlib.pyplot as plt
 
 from .networks import FCNN
 
-class Condition:
-    def __init__(self):
-        pass
-    @abc.abstractmethod
-    def enforce(self, t, x):
-        pass
-
-class InitialValueProblem(Condition):
+class IVP:
     """
     A initial value problem: 
     x (t=t_0) = x_0
@@ -28,11 +21,9 @@ class InitialValueProblem(Condition):
         if self.x_0_prime: 
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
-            # TODO: what the right re-parameterization?
-            # return torch.exp(-t+self.t_0)*self.x_0 + (1-torch.exp(-t+self.t_0))*x
             return self.x_0 + (1-torch.exp(-t+self.t_0))*x
         
-class TwoPointDirichletBoundaryCondition(Condition):
+class DirichletBVP:
     """
     A two point Dirichlet boundary condition: 
     x(t=t_0) = x_0
