@@ -26,7 +26,7 @@ class InitialValueProblem(Condition):
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
     def enforce(self, t, x):
         if self.x_0_prime: 
-            return self.x_0 + (1-torch.exp(-t+self.t_0))*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
+            return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
             # TODO: what the right re-parameterization?
             # return torch.exp(-t+self.t_0)*self.x_0 + (1-torch.exp(-t+self.t_0))*x
