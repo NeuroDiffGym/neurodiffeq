@@ -4,14 +4,14 @@ from scipy.integrate import odeint
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN, SinActv
-from neurodiffeq.ode import InitialValueProblem, TwoPointDirichletBoundaryCondition
+from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor, ExampleGenerator
 
 from pytest import raises
     
 def test_monitor():
     exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = InitialValueProblem(t_0=0.0, x_0=1.0)
+    init_val_ex = IVP(t_0=0.0, x_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
                            t_min=0.0, t_max=2.0,
                            max_epochs=3,
@@ -20,7 +20,7 @@ def test_monitor():
 
 def test_example_generator():
     exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = InitialValueProblem(t_0=0.0, x_0=1.0)
+    init_val_ex = IVP(t_0=0.0, x_0=1.0)
     
     train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='uniform')
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
@@ -43,7 +43,7 @@ def test_example_generator():
         
 def test_ode():
     exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = InitialValueProblem(t_0=0.0, x_0=1.0)
+    init_val_ex = IVP(t_0=0.0, x_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
                            t_min=0.0, t_max=2.0)
     ts = np.linspace(0, 2.0, 100)
@@ -57,8 +57,8 @@ def test_ode_system():
     parametric_circle = lambda x1, x2, t : [diff(x1, t) - x2, 
                                             diff(x2, t) + x1]
     init_vals_pc = [
-        InitialValueProblem(t_0=0.0, x_0=0.0),
-        InitialValueProblem(t_0=0.0, x_0=1.0)
+        IVP(t_0=0.0, x_0=0.0),
+        IVP(t_0=0.0, x_0=1.0)
     ]
     
     solution_pc, _ = solve_system(ode_system=parametric_circle, 
@@ -74,7 +74,7 @@ def test_ode_system():
 
 def test_ode_ivp():
     oscillator = lambda x, t: diff(x, t, order=2) + x
-    init_val_ho = InitialValueProblem(t_0=0.0, x_0=0.0, x_0_prime=1.0)
+    init_val_ho = IVP(t_0=0.0, x_0=0.0, x_0_prime=1.0)
     solution_ho, _ = solve(ode=oscillator, condition=init_val_ho, 
                            t_min=0.0, t_max=2*np.pi)
     ts = np.linspace(0, 2*np.pi, 100)
@@ -85,7 +85,7 @@ def test_ode_ivp():
 
 def test_ode_bvp():
     oscillator = lambda x, t: diff(x, t, order=2) + x
-    bound_val_ho = TwoPointDirichletBoundaryCondition(t_0=0.0, x_0=0.0, t_1=1.5*np.pi, x_1=-1.0)
+    bound_val_ho = DirichletBVP(t_0=0.0, x_0=0.0, t_1=1.5*np.pi, x_1=-1.0)
     solution_ho, _ = solve(ode=oscillator, condition=bound_val_ho, 
                            t_min=0.0, t_max=1.5*np.pi)
     ts = np.linspace(0, 1.5*np.pi, 100)
@@ -99,8 +99,8 @@ def test_lotka_volterra():
     lotka_volterra = lambda x, y, t : [diff(x, t) - (alpha*x  - beta*x*y), 
                                        diff(y, t) - (delta*x*y - gamma*y)]
     init_vals_lv = [
-        InitialValueProblem(t_0=0.0, x_0=1.5),
-        InitialValueProblem(t_0=0.0, x_0=1.0)
+        IVP(t_0=0.0, x_0=1.5),
+        IVP(t_0=0.0, x_0=1.0)
     ]
     nets_lv = [
         FCNN(n_hidden_units=32, n_hidden_layers=1, actv=SinActv),
