@@ -63,7 +63,8 @@ def test_ode_system():
     
     solution_pc, _ = solve_system(ode_system=parametric_circle, 
                                   conditions=init_vals_pc, 
-                                  t_min=0.0, t_max=2*np.pi)
+                                  t_min=0.0, t_max=2*np.pi,
+                                  tol=1e-5)
     
     ts = np.linspace(0, 2*np.pi, 100)
     x1_net, x2_net = solution_pc(ts)
