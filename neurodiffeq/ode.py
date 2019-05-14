@@ -89,7 +89,8 @@ class Monitor:
         self.fig.canvas.draw()
 
 def solve(ode, condition, t_min, t_max,
-          net=None, example_generator=None, optimizer=None, criterion=None, batch_size=16, 
+          net=None, example_generator=None, shuffle=True,
+          optimizer=None, criterion=None, batch_size=16, 
           max_epochs=100000, tol=1e-4,
           monitor=None):
     """
@@ -116,7 +117,8 @@ def solve(ode, condition, t_min, t_max,
     nets = None if not net else [net]
     solution, loss_history  = solve_system(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition], 
-        t_min=t_min, t_max=t_max, nets=nets, example_generator=example_generator, 
+        t_min=t_min, t_max=t_max, nets=nets, 
+        example_generator=example_generator, shuffle=shuffle,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size, 
         max_epochs=max_epochs, tol=tol, monitor=monitor
     )
@@ -124,7 +126,8 @@ def solve(ode, condition, t_min, t_max,
 
 
 def solve_system(ode_system, conditions, t_min, t_max,
-          nets=None, example_generator=None, optimizer=None, criterion=None, batch_size=16, 
+          nets=None, example_generator=None, shuffle=True,
+          optimizer=None, criterion=None, batch_size=16, 
           max_epochs=100000, tol=1e-4,
           monitor=None):
     """
@@ -177,11 +180,14 @@ def solve_system(ode_system, conditions, t_min, t_max,
 
         examples = example_generator.get_examples()
         examples = examples.reshape(n_examples, 1)
+        idx = np.random.permutation(n_examples) if shuffle else np.arange(n_examples)
         batch_start, batch_end = 0, batch_size
         while batch_start < n_examples:     
             
             if batch_end >= n_examples: batch_end = n_examples
-            ts = examples[batch_start:batch_end]
+            batch_idx = idx[batch_start:batch_end]
+            ts = examples[batch_idx]
+#            ts = examples[batch_start:batch_end]
             
             # the dependent variables
             vs = []

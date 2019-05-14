@@ -45,7 +45,7 @@ def test_ode():
     exponential = lambda x, t: diff(x, t) - x
     init_val_ex = IVP(t_0=0.0, x_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
-                           t_min=0.0, t_max=2.0)
+                           t_min=0.0, t_max=2.0, shuffle=False)
     ts = np.linspace(0, 2.0, 100)
     x_net = solution_ex(ts)
     x_ana = np.exp(ts)
