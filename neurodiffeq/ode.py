@@ -168,9 +168,6 @@ def solve_system(ode_system, conditions, t_min, t_max,
         criterion = nn.MSELoss()
     
     n_examples = example_generator.size
-#    if n_examples%batch_size != 0:
-#        raise RuntimeError('Please choose a batch_size such that it is a factor of the size of the training set.')
-#    n_batches = n_examples//batch_size
     zeros = torch.zeros(batch_size)
     
     loss_history = []
@@ -179,7 +176,6 @@ def solve_system(ode_system, conditions, t_min, t_max,
         loss_epoch = 0.0
 
         examples = example_generator.get_examples()
-#        ts_batches = examples.reshape((n_batches, batch_size, 1))
         examples = examples.reshape(n_examples, 1)
         batch_start, batch_end = 0, batch_size
         while batch_start < n_examples:     
