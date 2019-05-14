@@ -193,7 +193,7 @@ def solve_system(ode_system, conditions, t_min, t_max,
             Fvts = ode_system(*vs, ts)
             loss = 0.0
             for Fvt in Fvts: loss += criterion(Fvt, zeros)
-            loss_epoch += loss.item()/(batch_end-batch_start) # assume the loss is a mean over all examples
+            loss_epoch += loss.item() * (batch_end-batch_start)/n_examples # assume the loss is a mean over all examples
 
             optimizer.zero_grad()
             loss.backward()
