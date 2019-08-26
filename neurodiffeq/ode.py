@@ -18,11 +18,11 @@ class IVP:
     def __init__(self, t_0, x_0, x_0_prime=None):
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
     def enforce(self, t, x):
-        if self.x_0_prime: 
+        if self.x_0_prime:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
             return self.x_0 + (1-torch.exp(-t+self.t_0))*x
-        
+
 class DirichletBVP:
     """
     A two point Dirichlet boundary condition: 
@@ -60,13 +60,13 @@ class Monitor:
         self.ax1 = self.fig.add_subplot(121)
         self.ax2 = self.fig.add_subplot(122)
         # input for plotting
-        self.ts_plt =    np.linspace(t_min, t_max, 100) 
+        self.ts_plt =    np.linspace(t_min, t_max, 100)
         # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1))
-        
+
     def check(self, nets, ode_system, conditions, loss_history):
         n_dependent = len(conditions)
-    
+
         vs = []
         for i in range(n_dependent):
             v_i = nets[i](self.ts_ann)
@@ -90,9 +90,9 @@ class Monitor:
 
 def solve(ode, condition, t_min, t_max,
           net=None, example_generator=None, shuffle=True,
-          optimizer=None, criterion=None, batch_size=16, 
+          optimizer=None, criterion=None, batch_size=16,
           max_epochs=100000, tol=1e-4,
-          monitor=None):
+          monitor=None, return_internal=False):
     """
     Train a neural network to solve an ODE.
     
@@ -115,21 +115,26 @@ def solve(ode, condition, t_min, t_max,
     :param monitor: a Monitor instance
     """
     nets = None if not net else [net]
-    solution, loss_history  = solve_system(
-        ode_system=lambda x, t: [ode(x, t)], conditions=[condition], 
-        t_min=t_min, t_max=t_max, nets=nets, 
+    returned_tuple = solve_system(
+        ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
+        t_min=t_min, t_max=t_max, nets=nets,
         example_generator=example_generator, shuffle=shuffle,
-        optimizer=optimizer, criterion=criterion, batch_size=batch_size, 
-        max_epochs=max_epochs, tol=tol, monitor=monitor
+        optimizer=optimizer, criterion=criterion, batch_size=batch_size,
+        max_epochs=max_epochs, tol=tol, monitor=monitor, return_internal=return_internal
     )
-    return lambda t: solution(t)[0], loss_history
+    if return_internal:
+        solution, loss_history, internal = returned_tuple
+        return lambda t: solution(t)[0], loss_history, internal
+    else:
+        solution, loss_history = returned_tuple
+        return lambda t: solution(t)[0], loss_history
 
 
 def solve_system(ode_system, conditions, t_min, t_max,
           nets=None, example_generator=None, shuffle=True,
-          optimizer=None, criterion=None, batch_size=16, 
+          optimizer=None, criterion=None, batch_size=16,
           max_epochs=100000, tol=1e-4,
-          monitor=None):
+          monitor=None, return_internal=False):
     """
     Train a neural network to solve an ODE.
     
@@ -156,12 +161,12 @@ def solve_system(ode_system, conditions, t_min, t_max,
     :param tol: the training stops if the loss is lower than this value
     :param monitor: a Monitor instance
     """
-    
+
     # default values
     n_dependent_vars = len(conditions)
-    if not nets: 
+    if not nets:
         nets = [FCNN() for _ in range(n_dependent_vars)]
-    if not example_generator: 
+    if not example_generator:
         example_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced-noisy')
     if not optimizer:
         all_parameters = []
@@ -169,12 +174,21 @@ def solve_system(ode_system, conditions, t_min, t_max,
         optimizer = optim.Adam(all_parameters, lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
-    
+
+    if return_internal:
+        internal = {
+            'nets': nets,
+            'conditions': conditions,
+            'example_generator': example_generator,
+            'optimizer': optimizer,
+            'criterion': criterion
+        }
+
     n_examples = example_generator.size
     zeros = torch.zeros(batch_size)
-    
+
     loss_history = []
-    
+
     for epoch in range(max_epochs):
         loss_epoch = 0.0
 
@@ -182,20 +196,20 @@ def solve_system(ode_system, conditions, t_min, t_max,
         examples = examples.reshape(n_examples, 1)
         idx = np.random.permutation(n_examples) if shuffle else np.arange(n_examples)
         batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples:     
-            
+        while batch_start < n_examples:
+
             if batch_end >= n_examples: batch_end = n_examples
             batch_idx = idx[batch_start:batch_end]
             ts = examples[batch_idx]
 #            ts = examples[batch_start:batch_end]
-            
+
             # the dependent variables
             vs = []
             for i in range(n_dependent_vars):
                 v_i = nets[i](ts)
                 if conditions[i]: v_i = conditions[i].enforce(ts, v_i)
                 vs.append(v_i)
-            
+
             Fvts = ode_system(*vs, ts)
             loss = 0.0
             for Fvt in Fvts: loss += criterion(Fvt, zeros)
@@ -204,16 +218,16 @@ def solve_system(ode_system, conditions, t_min, t_max,
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             batch_start += batch_size
             batch_end   += batch_size
-        
+
         loss_history.append(loss_epoch)
         if loss_history[-1] < tol: break
-        
+
         if monitor and epoch%monitor.check_every == 0:
             monitor.check(nets, ode_system, conditions, loss_history)
-            
+
         def solution(ts):
             if not isinstance(ts, torch.Tensor): ts = torch.tensor([ts], dtype=torch.float32)
             ts = ts.reshape(-1, 1)
@@ -223,8 +237,11 @@ def solve_system(ode_system, conditions, t_min, t_max,
                 xs = conditions[i].enforce(ts, xs)
                 results.append( xs.detach().numpy().flatten() )
             return results
-        
+
     if loss_history[-1] > tol:
         print('The solution has not converged.')
-        
-    return solution, loss_history
+
+    if return_internal:
+        return solution, loss_history, internal
+    else:
+        return solution, loss_history
