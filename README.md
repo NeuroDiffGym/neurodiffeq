@@ -12,7 +12,7 @@ As universal function approximators, artificial neural networks have been shown 
 
 # Installation
 
-Currently `neurodiffeq` is not in PyPI, so it needs to be installed from this repo. To install `neurodiffeq`, use `pip install git+https://github.com/feiyu-chen96/neurodiffeq.git`
+Currently `neurodiffeq` is not in PyPI, so it needs to be installed from this repo. To install `neurodiffeq`, use `pip install git+https://github.com/odegym/neurodiffeq.git`
 
 # Getting Started
 
