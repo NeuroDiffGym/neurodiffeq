@@ -122,12 +122,15 @@ def solve(ode, condition, t_min, t_max,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size,
         max_epochs=max_epochs, tol=tol, monitor=monitor, return_internal=return_internal
     )
+
+    def solution_wrapped(ts, as_type='tf'):
+        return solution(ts, as_type)[0]
     if return_internal:
         solution, loss_history, internal = returned_tuple
-        return lambda t: solution(t)[0], loss_history, internal
+        return solution_wrapped, loss_history, internal
     else:
         solution, loss_history = returned_tuple
-        return lambda t: solution(t)[0], loss_history
+        return solution_wrapped, loss_history
 
 
 def solve_system(ode_system, conditions, t_min, t_max,
@@ -228,14 +231,17 @@ def solve_system(ode_system, conditions, t_min, t_max,
         if monitor and epoch%monitor.check_every == 0:
             monitor.check(nets, ode_system, conditions, loss_history)
 
-        def solution(ts):
+        def solution(ts, as_type='tf'):
             if not isinstance(ts, torch.Tensor): ts = torch.tensor([ts], dtype=torch.float32)
             ts = ts.reshape(-1, 1)
             results = []
             for i in range(len(conditions)):
                 xs = nets[i](ts)
                 xs = conditions[i].enforce(ts, xs)
-                results.append( xs.detach().numpy().flatten() )
+                if   as_type == 'tf': results.append(xs)
+                elif as_type == 'np': results.append(xs.detach().numpy().flatten())
+                else:
+                    raise ValueError("The valid return types are 'tf' and 'np'.")
             return results
 
     if loss_history[-1] > tol:
