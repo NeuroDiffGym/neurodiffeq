@@ -47,7 +47,7 @@ def test_ode():
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
                            t_min=0.0, t_max=2.0, shuffle=False)
     ts = np.linspace(0, 2.0, 100)
-    x_net = solution_ex(ts)
+    x_net = solution_ex(ts, as_type='np')
     x_ana = np.exp(ts)
     assert isclose(x_net, x_ana, atol=0.1).all()
     print('solve basic test passed.')
@@ -66,7 +66,7 @@ def test_ode_system():
                                   t_min=0.0, t_max=2*np.pi)
     
     ts = np.linspace(0, 2*np.pi, 100)
-    x1_net, x2_net = solution_pc(ts)
+    x1_net, x2_net = solution_pc(ts, as_type='np')
     x1_ana, x2_ana = np.sin(ts), np.cos(ts)
     assert isclose(x1_net, x1_ana, atol=0.1).all()
     assert isclose(x2_net, x2_ana, atol=0.1).all()
@@ -78,7 +78,7 @@ def test_ode_ivp():
     solution_ho, _ = solve(ode=oscillator, condition=init_val_ho, 
                            t_min=0.0, t_max=2*np.pi)
     ts = np.linspace(0, 2*np.pi, 100)
-    x_net = solution_ho(ts)
+    x_net = solution_ho(ts, as_type='np')
     x_ana = np.sin(ts)
     assert isclose(x_net, x_ana, atol=0.1).all()
     print('IVP basic test passed.')
@@ -89,7 +89,7 @@ def test_ode_bvp():
     solution_ho, _ = solve(ode=oscillator, condition=bound_val_ho, 
                            t_min=0.0, t_max=1.5*np.pi)
     ts = np.linspace(0, 1.5*np.pi, 100)
-    x_net = solution_ho(ts)
+    x_net = solution_ho(ts, as_type='np')
     x_ana = np.sin(ts)
     assert isclose(x_net, x_ana, atol=0.1).all()
     print('BVP basic test passed.')
@@ -111,7 +111,7 @@ def test_lotka_volterra():
                                   tol=1e-5,
                                   monitor=Monitor(t_min=0.0, t_max=12, check_every=100))
     ts = np.linspace(0, 12, 100)
-    prey_net, pred_net = solution_lv(ts)
+    prey_net, pred_net = solution_lv(ts, as_type='np')
 
     def dPdt(P, t):
         return [P[0]*alpha - beta*P[0]*P[1], delta*P[0]*P[1] - gamma*P[1]]
