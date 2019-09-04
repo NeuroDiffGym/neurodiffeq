@@ -91,7 +91,7 @@ class Monitor:
 def solve(ode, condition, t_min, t_max,
           net=None, example_generator=None, shuffle=True,
           optimizer=None, criterion=None, batch_size=16,
-          max_epochs=100000, tol=1e-4,
+          max_epochs=1000,
           monitor=None, return_internal=False):
     """
     Train a neural network to solve an ODE.
@@ -111,7 +111,6 @@ def solve(ode, condition, t_min, t_max,
     :param criterion: a loss function from torch.nn
     :param batch_size: the size of the minibatch
     :param max_epochs: the maximum number of epochs
-    :param tol: the training stops if the loss is lower than this value
     :param monitor: a Monitor instance
     """
     nets = None if not net else [net]
@@ -120,7 +119,7 @@ def solve(ode, condition, t_min, t_max,
         t_min=t_min, t_max=t_max, nets=nets,
         example_generator=example_generator, shuffle=shuffle,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size,
-        max_epochs=max_epochs, tol=tol, monitor=monitor, return_internal=return_internal
+        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal
     )
 
     def solution_wrapped(ts, as_type='tf'):
@@ -136,7 +135,7 @@ def solve(ode, condition, t_min, t_max,
 def solve_system(ode_system, conditions, t_min, t_max,
           nets=None, example_generator=None, shuffle=True,
           optimizer=None, criterion=None, batch_size=16,
-          max_epochs=100000, tol=1e-4,
+          max_epochs=1000,
           monitor=None, return_internal=False):
     """
     Train a neural network to solve an ODE.
@@ -161,7 +160,6 @@ def solve_system(ode_system, conditions, t_min, t_max,
     :param criterion: a loss function from torch.nn
     :param batch_size: the size of the minibatch
     :param max_epochs: the maximum number of epochs
-    :param tol: the training stops if the loss is lower than this value
     :param monitor: a Monitor instance
     """
 
@@ -226,7 +224,6 @@ def solve_system(ode_system, conditions, t_min, t_max,
             batch_end   += batch_size
 
         loss_history.append(loss_epoch)
-        if loss_history[-1] < tol: break
 
         if monitor and epoch%monitor.check_every == 0:
             monitor.check(nets, ode_system, conditions, loss_history)
@@ -243,9 +240,6 @@ def solve_system(ode_system, conditions, t_min, t_max,
                 else:
                     raise ValueError("The valid return types are 'tf' and 'np'.")
             return results
-
-    if loss_history[-1] > tol:
-        print('The solution has not converged.')
 
     if return_internal:
         return solution, loss_history, internal
