@@ -80,16 +80,18 @@ class Monitor:
         self.ax1.set_title('solutions')
 
         self.ax2.clear()
-        self.ax2.plot(loss_history)
+        self.ax2.plot(loss_history['train'], label='training loss')
+        self.ax2.plot(loss_history['valid'], label='validation loss')
         self.ax2.set_title('loss during training')
         self.ax2.set_ylabel('loss')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
+        self.ax2.legend()
 
         self.fig.canvas.draw()
 
 def solve(ode, condition, t_min, t_max,
-          net=None, example_generator=None, shuffle=True,
+          net=None, train_generator=None, shuffle=True, valid_generator=None,
           optimizer=None, criterion=None, batch_size=16,
           max_epochs=1000,
           monitor=None, return_internal=False):
@@ -106,7 +108,8 @@ def solve(ode, condition, t_min, t_max,
     the networks to be used as a torch.nn.Module instance. 
     :param t_min: lower bound of the domain (t) on which the ODE is solved
     :param t_max: upper bound of the domain (t) on which the ODE is solved
-    :param example_generator: an ExampleGenerator instance
+    :param train_generator: an ExampleGenerator instance for training purpose
+    :param valid_generator: an ExampleGenerator instance for validation purpose
     :param optimizer: an optimizer from torch.optim
     :param criterion: a loss function from torch.nn
     :param batch_size: the size of the minibatch
@@ -117,7 +120,7 @@ def solve(ode, condition, t_min, t_max,
     returned_tuple = solve_system(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
-        example_generator=example_generator, shuffle=shuffle,
+        train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal
     )
@@ -133,7 +136,7 @@ def solve(ode, condition, t_min, t_max,
 
 
 def solve_system(ode_system, conditions, t_min, t_max,
-          nets=None, example_generator=None, shuffle=True,
+          nets=None, train_generator=None, shuffle=True, valid_generator=None,
           optimizer=None, criterion=None, batch_size=16,
           max_epochs=1000,
           monitor=None, return_internal=False):
@@ -155,7 +158,8 @@ def solve_system(ode_system, conditions, t_min, t_max,
     variable in F_i's (see above) signature. The second the second, and so on.
     :param t_min: lower bound of the domain (t) on which the ODE system is solved
     :param t_max: upper bound of the domain (t) on which the ODE system is solved
-    :param example_generator: an ExampleGenerator instance
+    :param train_generator: an ExampleGenerator instance for training purpose
+    :param valid_generator: an ExampleGenerator instance for validation purpose
     :param optimizer: an optimizer from torch.optim
     :param criterion: a loss function from torch.nn
     :param batch_size: the size of the minibatch
@@ -167,8 +171,10 @@ def solve_system(ode_system, conditions, t_min, t_max,
     n_dependent_vars = len(conditions)
     if not nets:
         nets = [FCNN() for _ in range(n_dependent_vars)]
-    if not example_generator:
-        example_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced-noisy')
+    if not train_generator:
+        train_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced-noisy')
+    if not valid_generator:
+        valid_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced')
     if not optimizer:
         all_parameters = []
         for net in nets: all_parameters += list(net.parameters())
@@ -180,29 +186,31 @@ def solve_system(ode_system, conditions, t_min, t_max,
         internal = {
             'nets': nets,
             'conditions': conditions,
-            'example_generator': example_generator,
+            'train_generator': train_generator,
+            'valid_generator': valid_generator,
             'optimizer': optimizer,
             'criterion': criterion
         }
 
-    n_examples = example_generator.size
-    zeros = torch.zeros(batch_size)
+    n_examples_train = train_generator.size
+    n_examples_valid = valid_generator.size
+    train_zeros = torch.zeros(batch_size)
+    valid_zeros = torch.zeros(n_examples_valid)
 
-    loss_history = []
+    loss_history = {'train': [], 'valid': []}
 
     for epoch in range(max_epochs):
-        loss_epoch = 0.0
+        train_loss_epoch = 0.0
 
-        examples = example_generator.get_examples()
-        examples = examples.reshape(n_examples, 1)
-        idx = np.random.permutation(n_examples) if shuffle else np.arange(n_examples)
+        train_examples = train_generator.get_examples()
+        train_examples = train_examples.reshape(n_examples_train, 1)
+        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
         batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples:
+        while batch_start < n_examples_train:
 
-            if batch_end >= n_examples: batch_end = n_examples
+            if batch_end >= n_examples_train: batch_end = n_examples_train
             batch_idx = idx[batch_start:batch_end]
-            ts = examples[batch_idx]
-#            ts = examples[batch_start:batch_end]
+            ts = train_examples[batch_idx]
 
             # the dependent variables
             vs = []
@@ -213,8 +221,8 @@ def solve_system(ode_system, conditions, t_min, t_max,
 
             Fvts = ode_system(*vs, ts)
             loss = 0.0
-            for Fvt in Fvts: loss += criterion(Fvt, zeros)
-            loss_epoch += loss.item() * (batch_end-batch_start)/n_examples # assume the loss is a mean over all examples
+            for Fvt in Fvts: loss += criterion(Fvt, train_zeros)
+            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train # assume the loss is a mean over all examples
 
             optimizer.zero_grad()
             loss.backward()
@@ -223,7 +231,21 @@ def solve_system(ode_system, conditions, t_min, t_max,
             batch_start += batch_size
             batch_end   += batch_size
 
-        loss_history.append(loss_epoch)
+        loss_history['train'].append(train_loss_epoch)
+
+        # calculate the validation loss
+        ts = valid_generator.get_examples().reshape(n_examples_valid, 1)
+        vs = []
+        for i in range(n_dependent_vars):
+            v_i = nets[i](ts)
+            if conditions[i]: v_i = conditions[i].enforce(ts, v_i)
+            vs.append(v_i)
+        Fvts = ode_system(*vs, ts)
+        valid_loss_epoch = 0.0
+        for Fvt in Fvts: valid_loss_epoch += criterion(Fvt, valid_zeros)
+        valid_loss_epoch = valid_loss_epoch.item()
+
+        loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch%monitor.check_every == 0:
             monitor.check(nets, ode_system, conditions, loss_history)
