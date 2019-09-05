@@ -2,12 +2,13 @@ import abc
 
 import torch
 import torch.optim as optim
-import torch.nn    as nn
+import torch.nn as nn
 
-import numpy             as np
+import numpy as np
 import matplotlib.pyplot as plt
 
 from .networks import FCNN
+
 
 class IVP:
     """
@@ -17,11 +18,13 @@ class IVP:
     """
     def __init__(self, t_0, x_0, x_0_prime=None):
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
+
     def enforce(self, t, x):
         if self.x_0_prime:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
             return self.x_0 + (1-torch.exp(-t+self.t_0))*x
+
 
 class DirichletBVP:
     """
@@ -31,27 +34,30 @@ class DirichletBVP:
     """
     def __init__(self, t_0, x_0, t_1, x_1):
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
+
     def enforce(self, t, x):
         t_tilde = (t-self.t_0) / (self.t_1-self.t_0)
         return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
+
 
 class ExampleGenerator:
     def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform'):
         self.size = size
         self.t_min, self.t_max = t_min, t_max
-        if   method=='uniform':
+        if method == 'uniform':
             self.examples = torch.zeros(self.size, requires_grad=True)
             self.get_examples = lambda: self.examples + torch.rand(self.size)*(self.t_max-self.t_min) + self.t_min
-        elif method=='equally-spaced':
+        elif method == 'equally-spaced':
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.get_examples = lambda: self.examples
-        elif method=='equally-spaced-noisy':
+        elif method == 'equally-spaced-noisy':
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.noise_mean = torch.zeros(self.size)
             self.noise_std  = torch.ones(self.size) * ( (t_max-t_min)/size ) / 4.0
             self.get_examples = lambda: self.examples + torch.normal(mean=self.noise_mean, std=self.noise_std)
         else:
             raise ValueError(f'Unknown method: {method}')
+
 
 class Monitor:
     def __init__(self, t_min, t_max, check_every=100):
@@ -60,7 +66,7 @@ class Monitor:
         self.ax1 = self.fig.add_subplot(121)
         self.ax2 = self.fig.add_subplot(122)
         # input for plotting
-        self.ts_plt =    np.linspace(t_min, t_max, 100)
+        self.ts_plt = np.linspace(t_min, t_max, 100)
         # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1))
 
@@ -90,11 +96,14 @@ class Monitor:
 
         self.fig.canvas.draw()
 
-def solve(ode, condition, t_min, t_max,
-          net=None, train_generator=None, shuffle=True, valid_generator=None,
-          optimizer=None, criterion=None, batch_size=16,
-          max_epochs=1000,
-          monitor=None, return_internal=False):
+
+def solve(
+        ode, condition, t_min, t_max,
+        net=None, train_generator=None, shuffle=True, valid_generator=None,
+        optimizer=None, criterion=None, batch_size=16,
+        max_epochs=1000,
+        monitor=None, return_internal=False
+):
     """
     Train a neural network to solve an ODE.
     
@@ -109,12 +118,15 @@ def solve(ode, condition, t_min, t_max,
     :param t_min: lower bound of the domain (t) on which the ODE is solved
     :param t_max: upper bound of the domain (t) on which the ODE is solved
     :param train_generator: an ExampleGenerator instance for training purpose
+    :param shuffle: if set to true, shuffle the training examples every epoch
     :param valid_generator: an ExampleGenerator instance for validation purpose
     :param optimizer: an optimizer from torch.optim
     :param criterion: a loss function from torch.nn
-    :param batch_size: the size of the minibatch
+    :param batch_size: the size of the mini-batch
     :param max_epochs: the maximum number of epochs
     :param monitor: a Monitor instance
+    :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
+    optimizer and loss function as a dictionary
     """
     nets = None if not net else [net]
     returned_tuple = solve_system(
@@ -135,11 +147,13 @@ def solve(ode, condition, t_min, t_max,
         return solution_wrapped, loss_history
 
 
-def solve_system(ode_system, conditions, t_min, t_max,
-          nets=None, train_generator=None, shuffle=True, valid_generator=None,
-          optimizer=None, criterion=None, batch_size=16,
-          max_epochs=1000,
-          monitor=None, return_internal=False):
+def solve_system(
+        ode_system, conditions, t_min, t_max,
+        nets=None, train_generator=None, shuffle=True, valid_generator=None,
+        optimizer=None, criterion=None, batch_size=16,
+        max_epochs=1000,
+        monitor=None, return_internal=False
+):
     """
     Train a neural network to solve an ODE.
     
@@ -159,12 +173,15 @@ def solve_system(ode_system, conditions, t_min, t_max,
     :param t_min: lower bound of the domain (t) on which the ODE system is solved
     :param t_max: upper bound of the domain (t) on which the ODE system is solved
     :param train_generator: an ExampleGenerator instance for training purpose
+    :param shuffle: if set to true, shuffle the training examples every epoch
     :param valid_generator: an ExampleGenerator instance for validation purpose
     :param optimizer: an optimizer from torch.optim
     :param criterion: a loss function from torch.nn
-    :param batch_size: the size of the minibatch
+    :param batch_size: the size of the mini-batch
     :param max_epochs: the maximum number of epochs
     :param monitor: a Monitor instance
+    :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
+    optimizer and loss function as a dictionary
     """
 
     # default values
@@ -229,7 +246,7 @@ def solve_system(ode_system, conditions, t_min, t_max,
             optimizer.step()
 
             batch_start += batch_size
-            batch_end   += batch_size
+            batch_end += batch_size
 
         loss_history['train'].append(train_loss_epoch)
 
