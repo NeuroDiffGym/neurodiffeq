@@ -2,6 +2,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from .networks import FCNN
@@ -93,7 +94,7 @@ class Monitor2D:
 
 def solve2D(
         pde, condition, xy_min, xy_max,
-        net=None, example_generator=None, optimizer=None, criterion=None, batch_size=32,
+        net=None, example_generator=None, shuffle=True, optimizer=None, criterion=None, batch_size=32,
         max_epochs=1000,
         monitor=None
 ):
@@ -108,10 +109,6 @@ def solve2D(
         criterion = nn.MSELoss()
 
     n_examples = example_generator.size
-    if n_examples % batch_size != 0:
-        # TODO: allow non-factor batch size
-        raise RuntimeError('Please choose a batch_size such that it is a factor of the size of the training set.')
-    n_batches = n_examples // batch_size
     zeros = torch.zeros(batch_size)
 
     loss_history = []
@@ -120,10 +117,18 @@ def solve2D(
         loss_epoch = 0.0
 
         examples_x, examples_y = example_generator.get_examples()
+        examples_x, examples_y = examples_x.reshape((-1, 1)), examples_y.reshape((-1, 1))
+        idx = np.random.permutation(n_examples) if shuffle else np.arange(n_examples)
+        batch_start, batch_end = 0, batch_size
 
-        xs_batches = examples_x.reshape((n_batches, batch_size, 1))
-        ys_batches = examples_y.reshape((n_batches, batch_size, 1))
-        for xs, ys in zip(xs_batches, ys_batches):
+        while batch_start < n_examples:
+            if batch_end >= n_examples:
+                batch_end = n_examples
+            batch_idx = idx[batch_start:batch_end]
+            batch_start += batch_size
+            batch_end   += batch_size
+            xs, ys = examples_x[batch_idx], examples_y[batch_idx]
+
             xys = torch.cat((xs, ys), 1)
             us = net(xys)
             us = condition.enforce(us, xs, ys)
@@ -136,7 +141,7 @@ def solve2D(
             loss.backward()
             optimizer.step()
 
-        loss_history.append(loss_epoch / n_batches)
+        loss_history.append(loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:
             monitor.check(net, pde, condition, loss_history)
