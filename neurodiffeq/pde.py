@@ -1,0 +1,158 @@
+import torch
+import torch.optim as optim
+import torch.nn as nn
+
+import matplotlib.pyplot as plt
+
+from .networks import FCNN
+
+
+class DirichletBVP2D:
+
+    def __init__(self, x_min, x_min_val, x_max, x_max_val, y_min, y_min_val, y_max, y_max_val):
+        self.x_min, self.x_min_val = x_min, x_min_val
+        self.x_max, self.x_max_val = x_max, x_max_val
+        self.y_min, self.y_min_val = y_min, y_min_val
+        self.y_max, self.y_max_val = y_max, y_max_val
+
+    def enforce(self, u, x, y):
+        x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
+        y_tilde = (y-self.y_min) / (self.y_max-self.y_min)
+        Axy = (1-x_tilde)*self.x_min_val(y) + x_tilde*self.x_max_val(y) + \
+              (1-y_tilde)*( self.y_min_val(x) - ((1-x_tilde)*self.y_min_val(torch.zeros_like(x_tilde))
+                                                  + x_tilde *self.y_min_val(torch.ones_like(x_tilde))) ) + \
+                 y_tilde *( self.y_max_val(x) - ((1-x_tilde)*self.y_max_val(torch.zeros_like(x_tilde))
+                                                  + x_tilde *self.y_max_val(torch.ones_like(x_tilde))) )
+        return Axy + x_tilde*(1-x_tilde)*y_tilde*(1-y_tilde)*u
+
+
+class ExampleGenerator2D:
+
+    def __init__(self, grid=[10, 10], xy_min=[0.0, 0.0], xy_max=[1.0, 1.0], method='equally-spaced-noisy'):
+        self.size = grid[0] * grid[1]
+
+        if method == 'equally-spaced':
+            x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
+            y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+
+            self.get_examples = lambda: (self.grid_x, self.grid_y)
+
+        elif method == 'equally-spaced-noisy':
+            x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
+            y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+
+            self.noise_xmean = torch.zeros(self.size)
+            self.noise_ymean = torch.zeros(self.size)
+            self.noise_xstd = torch.ones(self.size) * ((xy_max[0] - xy_min[0]) / grid[0]) / 4.0
+            self.noise_ystd = torch.ones(self.size) * ((xy_max[1] - xy_min[1]) / grid[1]) / 4.0
+            self.get_examples = lambda: (
+                self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd),
+                self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd)
+            )
+        else:
+            raise ValueError(f'Unknown method: {method}')
+
+
+class Monitor2D:
+    def __init__(self, xy_min, xy_max, check_every=100):
+        self.check_every = check_every
+        self.fig = plt.figure(figsize=(20, 8))
+        self.ax1 = self.fig.add_subplot(121)
+        self.ax2 = self.fig.add_subplot(122)
+        self.cb1 = None
+        # input for neural network
+        gen = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+        xs_ann, ys_ann = gen.get_examples()
+        self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
+        self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
+
+    def check(self, net, pde, condition, loss_history):
+        us = net(self.xy_ann)
+        us = condition.enforce(us, self.xs_ann, self.ys_ann)
+        us = us.detach().numpy().flatten()
+
+        self.ax1.clear()
+        cax1 = self.ax1.matshow(us.reshape((32, 32)), cmap='hot', interpolation='nearest')
+        if self.cb1: self.cb1.remove()
+        self.cb1 = self.fig.colorbar(cax1, ax=self.ax1)
+        self.ax1.set_title('u(x, y)')
+
+        self.ax2.clear()
+        self.ax2.plot(loss_history)
+        self.ax2.set_title('loss during training')
+        self.ax2.set_ylabel('loss')
+        self.ax2.set_xlabel('epochs')
+        self.ax2.set_yscale('log')
+
+        self.fig.canvas.draw()
+
+
+def solve2D(pde, condition, xy_min, xy_max,
+                net=None, example_generator=None, optimizer=None, criterion=None, batch_size=32,
+                max_epochs=100000, tol=1e-4,
+                monitor=None):
+    # default values
+    if not net:
+        net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
+    if not example_generator:
+        example_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
+    if not optimizer:
+        optimizer = optim.Adam(net.parameters(), lr=0.001)
+    if not criterion:
+        criterion = nn.MSELoss()
+    if not monitor:
+        monitor = Monitor2D(xy_min, xy_max, check_every=10)
+
+    n_examples = example_generator.size
+    if n_examples % batch_size != 0:
+        # TODO: allow non-factor batch size
+        raise RuntimeError('Please choose a batch_size such that it is a factor of the size of the training set.')
+    n_batches = n_examples // batch_size
+    zeros = torch.zeros(batch_size)
+
+    loss_history = []
+
+    for epoch in range(max_epochs):
+        loss_epoch = 0.0
+
+        examples_x, examples_y = example_generator.get_examples()
+
+        xs_batches = examples_x.reshape((n_batches, batch_size, 1))
+        ys_batches = examples_y.reshape((n_batches, batch_size, 1))
+        for xs, ys in zip(xs_batches, ys_batches):
+            xys = torch.cat((xs, ys), 1)
+            us = net(xys)
+            us = condition.enforce(us, xs, ys)
+
+            Fuxy = pde(us, xs, ys)
+            loss = criterion(Fuxy, zeros)
+            loss_epoch += loss.item()
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        loss_history.append(loss_epoch / n_batches)
+        if loss_history[-1] < tol: break
+
+        if epoch % monitor.check_every == 0:
+            monitor.check(net, pde, condition, loss_history)
+
+    def solution(xs, ys):
+        original_shape = xs.shape
+        if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
+        if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
+        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
+        xys = torch.cat((xs, ys), 1)
+        us = net(xys)
+        us = condition.enforce(us, xs, ys)
+        return us.detach().numpy().reshape(original_shape)
+
+    if loss_history[-1] > tol:
+        print('The solution has not converged.')
+
+    return solution, loss_history
