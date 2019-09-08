@@ -91,10 +91,12 @@ class Monitor2D:
         self.fig.canvas.draw()
 
 
-def solve2D(pde, condition, xy_min, xy_max,
-                net=None, example_generator=None, optimizer=None, criterion=None, batch_size=32,
-                max_epochs=100000, tol=1e-4,
-                monitor=None):
+def solve2D(
+        pde, condition, xy_min, xy_max,
+        net=None, example_generator=None, optimizer=None, criterion=None, batch_size=32,
+        max_epochs=1000,
+        monitor=None
+):
     # default values
     if not net:
         net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
@@ -104,8 +106,6 @@ def solve2D(pde, condition, xy_min, xy_max,
         optimizer = optim.Adam(net.parameters(), lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
-    if not monitor:
-        monitor = Monitor2D(xy_min, xy_max, check_every=10)
 
     n_examples = example_generator.size
     if n_examples % batch_size != 0:
@@ -137,9 +137,8 @@ def solve2D(pde, condition, xy_min, xy_max,
             optimizer.step()
 
         loss_history.append(loss_epoch / n_batches)
-        if loss_history[-1] < tol: break
 
-        if epoch % monitor.check_every == 0:
+        if monitor and epoch % monitor.check_every == 0:
             monitor.check(net, pde, condition, loss_history)
 
     def solution(xs, ys):
