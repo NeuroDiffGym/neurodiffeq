@@ -83,65 +83,82 @@ class Monitor2D:
         self.ax1.set_title('u(x, y)')
 
         self.ax2.clear()
-        self.ax2.plot(loss_history)
+        self.ax2.plot(loss_history['train'], label='training loss')
+        self.ax2.plot(loss_history['valid'], label='validation loss')
         self.ax2.set_title('loss during training')
         self.ax2.set_ylabel('loss')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
+        self.ax2.legend()
 
         self.fig.canvas.draw()
 
 
 def solve2D(
         pde, condition, xy_min, xy_max,
-        net=None, example_generator=None, shuffle=True, optimizer=None, criterion=None, batch_size=32,
+        net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, batch_size=32,
         max_epochs=1000,
         monitor=None
 ):
     # default values
     if not net:
         net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
-    if not example_generator:
-        example_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
+    if not train_generator:
+        train_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
+    if not valid_generator:
+        valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
     if not optimizer:
         optimizer = optim.Adam(net.parameters(), lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
 
-    n_examples = example_generator.size
-    zeros = torch.zeros(batch_size)
+    n_examples_train = train_generator.size
+    n_examples_valid = valid_generator.size
+    train_zeros = torch.zeros(batch_size)
+    valid_zeros = torch.zeros(n_examples_valid)
 
-    loss_history = []
+    loss_history = {'train': [], 'valid': []}
 
     for epoch in range(max_epochs):
-        loss_epoch = 0.0
+        train_loss_epoch = 0.0
 
-        examples_x, examples_y = example_generator.get_examples()
-        examples_x, examples_y = examples_x.reshape((-1, 1)), examples_y.reshape((-1, 1))
-        idx = np.random.permutation(n_examples) if shuffle else np.arange(n_examples)
+        train_examples_x, train_examples_y = train_generator.get_examples()
+        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
+        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
         batch_start, batch_end = 0, batch_size
+        while batch_start < n_examples_train:
 
-        while batch_start < n_examples:
-            if batch_end >= n_examples:
-                batch_end = n_examples
+            if batch_end >= n_examples_train:
+                batch_end = n_examples_train
             batch_idx = idx[batch_start:batch_end]
             batch_start += batch_size
             batch_end   += batch_size
-            xs, ys = examples_x[batch_idx], examples_y[batch_idx]
+            xs, ys = train_examples_x[batch_idx], train_examples_x[batch_idx]
 
             xys = torch.cat((xs, ys), 1)
             us = net(xys)
             us = condition.enforce(us, xs, ys)
 
             Fuxy = pde(us, xs, ys)
-            loss = criterion(Fuxy, zeros)
-            loss_epoch += loss.item()
+            loss = criterion(Fuxy, train_zeros)
+            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        loss_history.append(loss_epoch)
+        loss_history['train'].append(train_loss_epoch)
+
+        # calculate the validation loss
+        valid_examples_x, valid_examples_y = valid_generator.get_examples()
+        xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
+        xys = torch.cat((xs, ys), 1)
+        us = net(xys)
+        us = condition.enforce(us, xs, ys)
+        Fuxy = pde(us, xs, ys)
+        valid_loss_epoch = criterion(Fuxy, valid_zeros).item()
+
+        loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:
             monitor.check(net, pde, condition, loss_history)
