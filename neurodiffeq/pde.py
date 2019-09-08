@@ -141,7 +141,7 @@ def solve2D(
         if monitor and epoch % monitor.check_every == 0:
             monitor.check(net, pde, condition, loss_history)
 
-    def solution(xs, ys):
+    def solution(xs, ys, as_type='tf'):
         original_shape = xs.shape
         if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
         if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
@@ -149,9 +149,11 @@ def solve2D(
         xys = torch.cat((xs, ys), 1)
         us = net(xys)
         us = condition.enforce(us, xs, ys)
-        return us.detach().numpy().reshape(original_shape)
-
-    if loss_history[-1] > tol:
-        print('The solution has not converged.')
+        if   as_type == 'tf':
+            return us.reshape(original_shape)
+        elif as_type == 'np':
+            return us.detach().numpy().reshape(original_shape)
+        else:
+            raise ValueError("The valid return types are 'tf' and 'np'.")
 
     return solution, loss_history
