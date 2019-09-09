@@ -98,7 +98,7 @@ def solve2D(
         pde, condition, xy_min, xy_max,
         net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, batch_size=32,
         max_epochs=1000,
-        monitor=None
+        monitor=None, return_internal=False
 ):
     # default values
     if not net:
@@ -111,6 +111,16 @@ def solve2D(
         optimizer = optim.Adam(net.parameters(), lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
+
+    if return_internal:
+        internal = {
+            'net': net,
+            'condition': condition,
+            'train_generator': train_generator,
+            'valid_generator': valid_generator,
+            'optimizer': optimizer,
+            'criterion': criterion
+        }
 
     n_examples_train = train_generator.size
     n_examples_valid = valid_generator.size
@@ -128,11 +138,9 @@ def solve2D(
         batch_start, batch_end = 0, batch_size
         while batch_start < n_examples_train:
 
-            if batch_end >= n_examples_train:
+            if batch_end > n_examples_train:
                 batch_end = n_examples_train
             batch_idx = idx[batch_start:batch_end]
-            batch_start += batch_size
-            batch_end   += batch_size
             xs, ys = train_examples_x[batch_idx], train_examples_x[batch_idx]
 
             xys = torch.cat((xs, ys), 1)
@@ -146,6 +154,9 @@ def solve2D(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            batch_start += batch_size
+            batch_end += batch_size
 
         loss_history['train'].append(train_loss_epoch)
 
@@ -178,4 +189,7 @@ def solve2D(
         else:
             raise ValueError("The valid return types are 'tf' and 'np'.")
 
-    return solution, loss_history
+    if return_internal:
+        return solution, loss_history, internal
+    else:
+        return solution, loss_history
