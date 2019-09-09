@@ -141,7 +141,7 @@ def solve2D(
             if batch_end > n_examples_train:
                 batch_end = n_examples_train
             batch_idx = idx[batch_start:batch_end]
-            xs, ys = train_examples_x[batch_idx], train_examples_x[batch_idx]
+            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
 
             xys = torch.cat((xs, ys), 1)
             us = net(xys)
