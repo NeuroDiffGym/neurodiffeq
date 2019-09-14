@@ -4,6 +4,7 @@ import torch.nn as nn
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 from .networks import FCNN
 
@@ -193,3 +194,27 @@ def solve2D(
         return solution, loss_history, internal
     else:
         return solution, loss_history
+
+
+def make_animation(solution, xs, ts):
+    xx, tt = np.meshgrid(xs, ts)
+    sol_net = solution(xx, tt, as_type='np')
+
+    def u_gen():
+        for i in range( len(sol_net) ):
+            yield sol_net[i]
+
+    fig, ax = plt.subplots()
+    line, = ax.plot([], [], lw=2)
+
+    umin, umax = sol_net.min(), sol_net.max()
+    scale = umax - umin
+    ax.set_ylim(umin-scale*0.1, umax+scale*0.1)
+    ax.set_xlim(xs.min(), xs.max())
+    def run(data):
+        line.set_data(xs, data)
+        return line,
+
+    return animation.FuncAnimation(
+        fig, run, u_gen, blit=True, interval=50, repeat=False
+    )
