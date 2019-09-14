@@ -21,10 +21,10 @@ class DirichletBVP2D:
         x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
         y_tilde = (y-self.y_min) / (self.y_max-self.y_min)
         Axy = (1-x_tilde)*self.x_min_val(y) + x_tilde*self.x_max_val(y) + \
-              (1-y_tilde)*( self.y_min_val(x) - ((1-x_tilde)*self.y_min_val(torch.zeros_like(x_tilde))
-                                                  + x_tilde *self.y_min_val(torch.ones_like(x_tilde))) ) + \
-                 y_tilde *( self.y_max_val(x) - ((1-x_tilde)*self.y_max_val(torch.zeros_like(x_tilde))
-                                                  + x_tilde *self.y_max_val(torch.ones_like(x_tilde))) )
+              (1-y_tilde)*( self.y_min_val(x) - ((1-x_tilde)*self.y_min_val(self.x_min * torch.ones_like(x_tilde))
+                                                  + x_tilde *self.y_min_val(self.x_max * torch.ones_like(x_tilde))) ) + \
+                 y_tilde *( self.y_max_val(x) - ((1-x_tilde)*self.y_max_val(self.x_min * torch.ones_like(x_tilde))
+                                                  + x_tilde *self.y_max_val(self.x_max * torch.ones_like(x_tilde))) )
         return Axy + x_tilde*(1-x_tilde)*y_tilde*(1-y_tilde)*u
 
 
