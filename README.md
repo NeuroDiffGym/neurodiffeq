@@ -1,6 +1,6 @@
 # neurodiffeq
 
-[![Build Status](https://travis-ci.com/feiyu-chen96/neurodiffeq.svg?branch=master)](https://travis-ci.com/feiyu-chen96/neurodiffeq)
+[![Build Status](https://travis-ci.org/odegym/neurodiffeq.svg?branch=master)](https://travis-ci.org/odegym/neurodiffeq)
 
 [![codecov](https://codecov.io/gh/feiyu-chen96/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/feiyu-chen96/neurodiffeq)
 
