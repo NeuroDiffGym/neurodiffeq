@@ -28,6 +28,24 @@ class DirichletBVP2D:
         return Axy + x_tilde*(1-x_tilde)*y_tilde*(1-y_tilde)*u
 
 
+class DirichletIBVP2D:
+
+    def __init__(self, x_min, x_min_val, x_max, x_max_val, t_min, t_min_val, t_max):
+        self.x_min, self.x_min_val = x_min, x_min_val
+        self.x_max, self.x_max_val = x_max, x_max_val
+        self.t_min, self.t_min_val = t_min, t_min_val
+        self.t_max = t_max
+
+    def enforce(self, u, x, t):
+        x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
+        t_tilde = (t - self.t_min) / (self.t_max - self.t_min)
+        Axt = (1 - x_tilde) * self.x_min_val(t) + x_tilde * self.x_max_val(t) + \
+              (1 - t_tilde) * (self.t_min_val(x) - (1 - x_tilde) * self.t_min_val(self.x_min * torch.ones_like(x_tilde))
+                               - x_tilde * self.t_min_val(self.x_max * torch.ones_like(x_tilde))
+                               )
+        return Axt + x_tilde * (1 - x_tilde) * t_tilde * u
+
+
 class ExampleGenerator2D:
 
     def __init__(self, grid=[10, 10], xy_min=[0.0, 0.0], xy_max=[1.0, 1.0], method='equally-spaced-noisy'):
