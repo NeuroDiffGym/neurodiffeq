@@ -1,13 +1,12 @@
 import numpy as np
 from numpy import isclose
+from pytest import raises
 from scipy.integrate import odeint
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor, ExampleGenerator
-
-from pytest import raises
 
 
 def test_monitor():
@@ -39,6 +38,17 @@ def test_train_generator():
                            t_min=0.0, t_max=2.0,
                            train_generator=train_gen,
                            max_epochs=3)
+    train_gen = ExampleGenerator(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced')
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                           t_min=0.1, t_max=2.0,
+                           train_generator=train_gen,
+                           max_epochs=3)
+    train_gen = ExampleGenerator(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy')
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                           t_min=0.1, t_max=2.0,
+                           train_generator=train_gen,
+                           max_epochs=3)
+
     with raises(ValueError):
         train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='magic')
     print('ExampleGenerator test passed.')

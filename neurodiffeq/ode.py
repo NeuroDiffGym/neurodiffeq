@@ -1,11 +1,10 @@
 import abc
 
-import torch
-import torch.optim as optim
-import torch.nn as nn
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 from .networks import FCNN
 
@@ -55,9 +54,16 @@ class ExampleGenerator:
             self.noise_mean = torch.zeros(self.size)
             self.noise_std  = torch.ones(self.size) * ( (t_max-t_min)/size ) / 4.0
             self.get_examples = lambda: self.examples + torch.normal(mean=self.noise_mean, std=self.noise_std)
+        elif method == 'log-spaced':
+            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            self.get_examples = lambda: self.examples
+        elif method == 'log-spaced-noisy':
+            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            self.noise_mean = torch.zeros(self.size)
+            self.noise_std = torch.ones(self.size) * ((t_max - t_min) / size) / 4.0
+            self.get_examples = lambda: self.examples + torch.normal(mean=self.noise_mean, std=self.noise_std)
         else:
             raise ValueError(f'Unknown method: {method}')
-
 
 class Monitor:
     def __init__(self, t_min, t_max, check_every=100):
