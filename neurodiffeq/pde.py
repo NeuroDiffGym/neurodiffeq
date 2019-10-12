@@ -17,7 +17,9 @@ class DirichletBVP2D:
         self.y_min, self.y_min_val = y_min, y_min_val
         self.y_max, self.y_max_val = y_max, y_max_val
 
-    def enforce(self, u, x, y):
+    def enforce(self, net, x, y):
+        xys = torch.cat((x, y), 1)
+        u = net(xys)
         x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
         y_tilde = (y-self.y_min) / (self.y_max-self.y_min)
         Axy = (1-x_tilde)*self.x_min_val(y) + x_tilde*self.x_max_val(y) + \
@@ -36,7 +38,9 @@ class DirichletIBVP2D:
         self.t_min, self.t_min_val = t_min, t_min_val
         self.t_max = t_max
 
-    def enforce(self, u, x, t):
+    def enforce(self, net, x, t):
+        xts = torch.cat((x, t), 1)
+        u = net(xts)
         x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
         t_tilde = (t - self.t_min) / (self.t_max - self.t_min)
         Axt = (1 - x_tilde) * self.x_min_val(t) + x_tilde * self.x_max_val(t) + \
@@ -91,8 +95,7 @@ class Monitor2D:
         self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
 
     def check(self, net, pde, condition, loss_history):
-        us = net(self.xy_ann)
-        us = condition.enforce(us, self.xs_ann, self.ys_ann)
+        us = condition.enforce(net, self.xs_ann, self.ys_ann)
         us = us.detach().numpy().flatten()
 
         self.ax1.clear()
@@ -162,9 +165,7 @@ def solve2D(
             batch_idx = idx[batch_start:batch_end]
             xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
 
-            xys = torch.cat((xs, ys), 1)
-            us = net(xys)
-            us = condition.enforce(us, xs, ys)
+            us = condition.enforce(net, xs, ys)
 
             Fuxy = pde(us, xs, ys)
             loss = criterion(Fuxy, train_zeros)
@@ -182,9 +183,7 @@ def solve2D(
         # calculate the validation loss
         valid_examples_x, valid_examples_y = valid_generator.get_examples()
         xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        xys = torch.cat((xs, ys), 1)
-        us = net(xys)
-        us = condition.enforce(us, xs, ys)
+        us = condition.enforce(net, xs, ys)
         Fuxy = pde(us, xs, ys)
         valid_loss_epoch = criterion(Fuxy, valid_zeros).item()
 
@@ -198,9 +197,7 @@ def solve2D(
         if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
         if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
-        xys = torch.cat((xs, ys), 1)
-        us = net(xys)
-        us = condition.enforce(us, xs, ys)
+        us = condition.enforce(net, xs, ys)
         if   as_type == 'tf':
             return us.reshape(original_shape)
         elif as_type == 'np':
