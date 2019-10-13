@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from .networks import FCNN
+from .neurodiffeq import diff
 
 
 class DirichletBVP2D:
@@ -30,24 +31,116 @@ class DirichletBVP2D:
         return Axy + x_tilde*(1-x_tilde)*y_tilde*(1-y_tilde)*u
 
 
-class DirichletIBVP2D:
+class IBVP1D:
 
-    def __init__(self, x_min, x_min_val, x_max, x_max_val, t_min, t_min_val, t_max):
-        self.x_min, self.x_min_val = x_min, x_min_val
-        self.x_max, self.x_max_val = x_max, x_max_val
+    def __init__(
+            self, x_min, x_max, t_min,
+            x_min_val=None, x_min_prime=None,
+            x_max_val=None, x_max_prime=None,
+            t_min_val=None
+    ):
+        self.x_min, self.x_min_val, self.x_min_prime = x_min, x_min_val, x_min_prime
+        self.x_max, self.x_max_val, self.x_max_prime = x_max, x_max_val, x_max_prime
         self.t_min, self.t_min_val = t_min, t_min_val
-        self.t_max = t_max
+        if self.x_min_val and self.x_max_val:
+            if self.x_min_prime or self.x_max_prime:
+                raise ValueError('Problem is over-conditioned.')
+            self.enforce = self._enforce_dd
+        elif self.x_min_val and self.x_max_prime:
+            if self.x_min_prime or self.x_max_val:
+                raise ValueError('Problem is over-conditioned.')
+            self.enforce = self._enforce_dn
+        elif self.x_min_prime and self.x_max_val:
+            if self.x_min_val or self.x_max_prime:
+                raise ValueError('Problem is over-conditioned.')
+            self.enforce = self._enforce_nd
+        elif self.x_min_prime and self.x_max_prime:
+            if self.x_min_val or self.x_max_val:
+                raise ValueError('Problem is over-conditioned.')
+            self.enforce = self._enforce_nn
 
-    def enforce(self, net, x, t):
+    def _enforce_dd(self, net, x, t):
         xts = torch.cat((x, t), 1)
-        u = net(xts)
+        uxt = net(xts)
+
+        t_ones = torch.ones_like(t, requires_grad=True)
+        t_ones_min = self.t_min * t_ones
+
         x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
-        t_tilde = (t - self.t_min) / (self.t_max - self.t_min)
-        Axt = (1 - x_tilde) * self.x_min_val(t) + x_tilde * self.x_max_val(t) + \
-              (1 - t_tilde) * (self.t_min_val(x) - (1 - x_tilde) * self.t_min_val(self.x_min * torch.ones_like(x_tilde))
-                               - x_tilde * self.t_min_val(self.x_max * torch.ones_like(x_tilde))
-                               )
-        return Axt + x_tilde * (1 - x_tilde) * t_tilde * u
+        t_tilde = t - self.t_min
+
+        Axt = self.t_min_val(x) + \
+            x_tilde     * (self.x_max_val(t) - self.x_max_val(t_ones_min)) + \
+            (1-x_tilde) * (self.x_min_val(t) - self.x_min_val(t_ones_min))
+        return Axt + x_tilde * (1 - x_tilde) * (1 - torch.exp(-t_tilde)) * uxt
+
+    def _enforce_dn(self, net, x, t):
+        xts = torch.cat((x, t), 1)
+        uxt = net(xts)
+
+        x_ones = torch.ones_like(x, requires_grad=True)
+        t_ones = torch.ones_like(t, requires_grad=True)
+        x_ones_max = self.x_max * x_ones
+        t_ones_min = self.t_min * t_ones
+        xmaxts  = torch.cat((x_ones_max, t), 1)
+        uxmaxt  = net(xmaxts)
+
+        x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
+        t_tilde = t-self.t_min
+
+        Axt = (self.x_min_val(t) - self.x_min_val(t_ones_min)) + self.t_min_val(x) + \
+            x_tilde * (self.x_max-self.x_min) * (self.x_max_prime(t) - self.x_max_prime(t_ones_min))
+        return Axt + x_tilde*(1-torch.exp(-t_tilde))*(
+            uxt - (self.x_max-self.x_min)*diff(uxmaxt, x_ones_max) - uxmaxt
+        )
+
+    def _enforce_nd(self, net, x, t):
+        xts = torch.cat((x, t), 1)
+        uxt = net(xts)
+
+        x_ones = torch.ones_like(x, requires_grad=True)
+        t_ones = torch.ones_like(t, requires_grad=True)
+        x_ones_min = self.x_min * x_ones
+        t_ones_min = self.t_min * t_ones
+        xmints = torch.cat((x_ones_min, t), 1)
+        uxmint = net(xmints)
+
+        x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
+        t_tilde = t - self.t_min
+
+        Axt = (self.x_max_val(t) - self.x_max_val(t_ones_min)) + self.t_min_val(x) + \
+              (x_tilde - 1) * (self.x_max - self.x_min) * (self.x_min_prime(t) - self.x_min_prime(t_ones_min))
+        return Axt + (1 - x_tilde) * (1 - torch.exp(-t_tilde)) * (
+                uxt + (self.x_max - self.x_min) * diff(uxmint, x_ones_min) - uxmint
+        )
+
+    def _enforce_nn(self, net, x, t):
+        xts = torch.cat((x, t), 1)
+        uxt = net(xts)
+
+        x_ones = torch.ones_like(x, requires_grad=True)
+        t_ones = torch.ones_like(t, requires_grad=True)
+        x_ones_min = self.x_min * x_ones
+        x_ones_max = self.x_max * x_ones
+        t_ones_min = self.t_min * t_ones
+        xmints = torch.cat((x_ones_min, t), 1)
+        xmaxts = torch.cat((x_ones_max, t), 1)
+        uxmint = net(xmints)
+        uxmaxt = net(xmaxts)
+
+        x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
+        t_tilde = t - self.t_min
+
+        Axt = self.t_min_val(x) - 0.5 * (1 - x_tilde) ** 2 * (self.x_max - self.x_min) * (
+                self.x_min_prime(t) - self.x_min_prime(t_ones_min)
+        ) + 0.5 * x_tilde ** 2 * (self.x_max - self.x_min) * (
+                      self.x_max_prime(t) - self.x_max_prime(t_ones_min)
+              )
+        return Axt + (1 - torch.exp(-t_tilde)) * (
+                uxt - x_tilde * (self.x_max - self.x_min) * diff(uxmint, x_ones_min) \
+                + 0.5 * x_tilde ** 2 * (self.x_max - self.x_min) * (
+                        diff(uxmint, x_ones_min) - diff(uxmaxt, x_ones_max)
+                ))
 
 
 class ExampleGenerator2D:
