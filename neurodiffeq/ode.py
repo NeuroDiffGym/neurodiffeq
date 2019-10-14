@@ -1,7 +1,6 @@
-import abc
-
 import matplotlib.pyplot as plt
 import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,7 +17,8 @@ class IVP:
     def __init__(self, t_0, x_0, x_0_prime=None):
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
-    def enforce(self, t, x):
+    def enforce(self, net, t):
+        x = net(t)
         if self.x_0_prime:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
@@ -34,7 +34,8 @@ class DirichletBVP:
     def __init__(self, t_0, x_0, t_1, x_1):
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
 
-    def enforce(self, t, x):
+    def enforce(self, net, t):
+        x = net(t)
         t_tilde = (t-self.t_0) / (self.t_1-self.t_0)
         return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
 
@@ -81,8 +82,8 @@ class Monitor:
 
         vs = []
         for i in range(n_dependent):
-            v_i = nets[i](self.ts_ann)
-            if conditions[i]: v_i = conditions[i].enforce(self.ts_ann, v_i)
+            if conditions[i]:
+                v_i = conditions[i].enforce(nets[i], self.ts_ann)
             vs.append(v_i.detach().numpy().flatten())
 
         self.ax1.clear()
@@ -238,8 +239,8 @@ def solve_system(
             # the dependent variables
             vs = []
             for i in range(n_dependent_vars):
-                v_i = nets[i](ts)
-                if conditions[i]: v_i = conditions[i].enforce(ts, v_i)
+                if conditions[i]:
+                    v_i = conditions[i].enforce(nets[i], ts)
                 vs.append(v_i)
 
             Fvts = ode_system(*vs, ts)
@@ -260,8 +261,8 @@ def solve_system(
         ts = valid_generator.get_examples().reshape(n_examples_valid, 1)
         vs = []
         for i in range(n_dependent_vars):
-            v_i = nets[i](ts)
-            if conditions[i]: v_i = conditions[i].enforce(ts, v_i)
+            if conditions[i]:
+                v_i = conditions[i].enforce(nets[i], ts)
             vs.append(v_i)
         Fvts = ode_system(*vs, ts)
         valid_loss_epoch = 0.0
@@ -278,8 +279,7 @@ def solve_system(
             ts = ts.reshape(-1, 1)
             results = []
             for i in range(len(conditions)):
-                xs = nets[i](ts)
-                xs = conditions[i].enforce(ts, xs)
+                xs = conditions[i].enforce(nets[i], ts)
                 if   as_type == 'tf': results.append(xs)
                 elif as_type == 'np': results.append(xs.detach().numpy().flatten())
                 else:
