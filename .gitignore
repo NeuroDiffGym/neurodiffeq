@@ -108,3 +108,6 @@ notebooks/
 
 # PyCharm related
 .idea/
+
+# Sphinx build
+docs/_build/
