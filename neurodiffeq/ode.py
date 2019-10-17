@@ -9,15 +9,32 @@ from .networks import FCNN
 
 
 class IVP:
-    """
-    A initial value problem: 
-    x (t=t_0) = x_0
-    x'(t=t_0) = x_0_prime
+    """An initial value problem.
+        For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0`.
+        For Neumann condition, we are solving :math:`x(t)` given :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`.
+
+    :param t_0: The initial time.
+    :type t_0: float
+    :param x_0: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_0} = x_0`.
+    :type x_0: float
+    :param x_0_prime: The inital derivative of :math:`x` wrt :math:`t`. :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`, defaults to None.
+    :type x_0_prime: float, optional
     """
     def __init__(self, t_0, x_0, x_0_prime=None):
+        """Initializer method
+        """
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
     def enforce(self, net, t):
+        """Enforce the output of a neural network to satisfy the initial condition.
+
+        :param net: The neural network that approximates the ODE.
+        :type net: `torch.nn.Module`
+        :param t: The points where the neural network output is evaluated.
+        :type t: `torch.tensor`
+        :return: The modified output which now satisfies the initial condition.
+        :rtype: `torch.tensor`
+        """
         x = net(t)
         if self.x_0_prime:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
@@ -26,22 +43,61 @@ class IVP:
 
 
 class DirichletBVP:
-    """
-    A two point Dirichlet boundary condition: 
-    x(t=t_0) = x_0
-    x(t=t_0) = x_1
+    """A two-point Dirichlet boundary condition.
+        We are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0` and :math:`x(t)\\bigg|_{t = t_1} = x_1`.
+
+    :param t_0: The initial time.
+    :type t_0: float
+    :param t_1: The final time.
+    :type t_1: float
+    :param x_0: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_0} = x_0`.
+    :type x_0: float
+    :param x_1: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_1} = x_1`.
+    :type x_1: float
     """
     def __init__(self, t_0, x_0, t_1, x_1):
+        """Initializer method
+        """
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
 
     def enforce(self, net, t):
+        """Enforce the output of a neural network to satisfy the boundary condition.
+
+        :param net: The neural network that approximates the ODE.
+        :type net: `torch.nn.Module`
+        :param t: The points where the neural network output is evaluated.
+        :type t: `torch.tensor`
+        :return: The modified output which now satisfies the boundary condition.
+        :rtype: `torch.tensor`
+        """
         x = net(t)
         t_tilde = (t-self.t_0) / (self.t_1-self.t_0)
         return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
 
 
 class ExampleGenerator:
+    """An example generator for generating 1-D training points.
+
+    :param size: The number of points to generate each time `get_examples` is called.
+    :type size: int
+    :param t_min: The lower bound of the 1-D points generated, defaults to 0.0.
+    :type t_min: float, optional
+    :param t_max: The upper boound of the 1-D points generated, defaults to 1.0.
+    :type t_max: float, optional
+    :param method: The distribution of the 1-D points generated.
+        If set to 'uniform', the points will be drew from a uniform distribution Unif(t_min, t_max).
+        If set to 'equally-spaced', the points will be fixed to a set of linearly-spaced points that go from t_min to t_max.
+        If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+        If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
+        If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'uniform'.
+    :type method: str, optional
+    :raises ValueError: When provided with an unknown method.
+    """
     def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform'):
+        """Initializer method
+
+        A instance method `get_examples` is dynamically created to generate 1-D training points.
+        """
         self.size = size
         self.t_min, self.t_max = t_min, t_max
         if method == 'uniform':
@@ -67,7 +123,18 @@ class ExampleGenerator:
             raise ValueError(f'Unknown method: {method}')
 
 class Monitor:
+    """A monitor for checking the status of the neural network during training.
+
+    :param t_min: The lower bound of time domain that we want to monitor.
+    :type t_min: float
+    :param t_max: The upper bound of time domain that we want to monitor.
+    :type t_max: float
+    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
+    :type check_every: int, optional
+    """
     def __init__(self, t_min, t_max, check_every=100):
+        """Initializer method
+        """
         self.check_every = check_every
         self.fig = plt.figure(figsize=(20, 8))
         self.ax1 = self.fig.add_subplot(121)
@@ -77,7 +144,16 @@ class Monitor:
         # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1))
 
-    def check(self, nets, ode_system, conditions, loss_history):
+    def check(self, nets, conditions, loss_history):
+        """Draw 2 plots: One shows the shape of the current solution. The other shows the history training loss and validation loss.
+
+        :param nets: The neural networks that approximates the ODE (system).
+        :type nets: list[`torch.nn.Module`]
+        :param conditions: The initial/boundary conditions of the ODE (system).
+        :type conditions: list [`neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`]
+        :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :type loss_history: dict['train': list[float], 'valid': list[float]]
+        """
         n_dependent = len(conditions)
 
         vs = []
@@ -111,29 +187,40 @@ def solve(
         max_epochs=1000,
         monitor=None, return_internal=False
 ):
-    """
-    Train a neural network to solve an ODE.
+    """Train a neural network to solve an ODE.
     
-    :param ode: 
-        The ODE to solve. If the ODE is F(x, t) = 0 where x is the dependent
-        variable and t is the independent variable,It should be a function the maps
-        (x, t) to F(x, t).
-    :param condition: 
-        the initial value/boundary condition as Condition instance.
-    :param net: 
-        the networks to be used as a torch.nn.Module instance.
-    :param t_min: lower bound of the domain (t) on which the ODE is solved
-    :param t_max: upper bound of the domain (t) on which the ODE is solved
-    :param train_generator: an ExampleGenerator instance for training purpose
-    :param shuffle: if set to true, shuffle the training examples every epoch
-    :param valid_generator: an ExampleGenerator instance for validation purpose
-    :param optimizer: an optimizer from torch.optim
-    :param criterion: a loss function from torch.nn
-    :param batch_size: the size of the mini-batch
-    :param max_epochs: the maximum number of epochs
-    :param monitor: a Monitor instance
-    :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
-        optimizer and loss function as a dictionary
+    :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
+        then ode should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
+    :type ode: function
+    :param condition: The initial/boundary condition.
+    :type condition: `neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`
+    :param net: The neural network used to approximate the solution, defaults to None.
+    :type net: `torch.nn.Module`, optional
+    :param t_min: The lower bound of the domain (t) on which the ODE is solved.
+    :type t_min: float
+    :param t_max: The upper bound of the domain (t) on which the ODE is solved.
+    :type t_max: float
+    :param train_generator: The example generator to generate 1-D training points, default to None.
+    :type train_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+    :type shuffle: bool, optional
+    :param valid_generator: The example generator to generate 1-D validation points, default to None.
+    :type valid_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :param optimizer: The optimization method to use for training, defaults to None.
+    :type optimizer: `torch.optim.Optimizer`, optional
+    :param criterion: The loss function to use for training, defaults to None.
+    :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param batch_size: The size of the mini-batch to use, defaults to 16.
+    :type batch_size: int, optional
+    :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+    :type max_epochs: int, optional
+    :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+    :type monitor: `neurodiffeq.ode.Monitor`, optional
+    :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+    :type return_internal: bool, optional
+    :return: The solution of the ODE. The history of training loss and validation loss.
+        Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+    :rtype: tuple[function, dict]; or tuple[function, dict, dict]
     """
     nets = None if not net else [net]
     returned_tuple = solve_system(
@@ -161,34 +248,40 @@ def solve_system(
         max_epochs=1000,
         monitor=None, return_internal=False
 ):
-    """
-    Train a neural network to solve an ODE.
-    
-    :param ode_system: 
-        ODE system as a list of functions. If the ODE system is F_i(x, y, ... t) = 0
-        for i = 0, 1, ..., n-1 where x, y, ... are dependent variables and t is the
-        independent variable, then ode_system should map (x, y, ... t) to a list where
-        the ith entry is F_i(x, y, ... t).
-    :param conditions: 
-        the initial value/boundary conditions as a list of Condition instance. They
-        should be in an order such that the first condition constraints the first
-        variable in F_i's (see above) signature. The second the second, and so on.
-    :param nets: 
-        the networks to be used as a list of torch.nn.Module instances. They should
-        be ina na order such that the first network will be used to solve the first
-        variable in F_i's (see above) signature. The second the second, and so on.
-    :param t_min: lower bound of the domain (t) on which the ODE system is solved
-    :param t_max: upper bound of the domain (t) on which the ODE system is solved
-    :param train_generator: an ExampleGenerator instance for training purpose
-    :param shuffle: if set to true, shuffle the training examples every epoch
-    :param valid_generator: an ExampleGenerator instance for validation purpose
-    :param optimizer: an optimizer from torch.optim
-    :param criterion: a loss function from torch.nn
-    :param batch_size: the size of the mini-batch
-    :param max_epochs: the maximum number of epochs
-    :param monitor: a Monitor instance
-    :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
-        optimizer and loss function as a dictionary
+    """Train a neural network to solve an ODE.
+
+    :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent variable and :math:`t` is the independent variable,
+        then ode_system should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
+    :type ode_system: function
+    :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
+    :type conditions: list [`neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`]
+    :param nets: The neural networks used to approximate the solution, defaults to None.
+    :type nets: list [`torch.nn.Module`], optional
+    :param t_min: The lower bound of the domain (t) on which the ODE is solved.
+    :type t_min: float
+    :param t_max: The upper bound of the domain (t) on which the ODE is solved.
+    :type t_max: float
+    :param train_generator: The example generator to generate 1-D training points, default to None.
+    :type train_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+    :type shuffle: bool, optional
+    :param valid_generator: The example generator to generate 1-D validation points, default to None.
+    :type valid_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :param optimizer: The optimization method to use for training, defaults to None.
+    :type optimizer: `torch.optim.Optimizer`, optional
+    :param criterion: The loss function to use for training, defaults to None.
+    :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param batch_size: The size of the mini-batch to use, defaults to 16.
+    :type batch_size: int, optional
+    :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+    :type max_epochs: int, optional
+    :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+    :type monitor: `neurodiffeq.ode.Monitor`, optional
+    :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+    :type return_internal: bool, optional
+    :return: The solution of the ODE. The history of training loss and validation loss.
+        Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+    :rtype: tuple[function, dict]; or tuple[function, dict, dict]
     """
 
     # default values
