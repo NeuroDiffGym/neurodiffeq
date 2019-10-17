@@ -10,6 +10,10 @@ Welcome to neurodiffeq's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   intro
+   getstart
+   api
+
 
 
 Indices and tables

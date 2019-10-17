@@ -115,13 +115,13 @@ def solve(
     Train a neural network to solve an ODE.
     
     :param ode: 
-    The ODE to solve. If the ODE is F(x, t) = 0 where x is the dependent 
-    variable and t is the independent variable,It should be a function the maps
-    (x, t) to F(x, t).
+        The ODE to solve. If the ODE is F(x, t) = 0 where x is the dependent
+        variable and t is the independent variable,It should be a function the maps
+        (x, t) to F(x, t).
     :param condition: 
-    the initial value/boundary condition as Condition instance.
+        the initial value/boundary condition as Condition instance.
     :param net: 
-    the networks to be used as a torch.nn.Module instance. 
+        the networks to be used as a torch.nn.Module instance.
     :param t_min: lower bound of the domain (t) on which the ODE is solved
     :param t_max: upper bound of the domain (t) on which the ODE is solved
     :param train_generator: an ExampleGenerator instance for training purpose
@@ -133,7 +133,7 @@ def solve(
     :param max_epochs: the maximum number of epochs
     :param monitor: a Monitor instance
     :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
-    optimizer and loss function as a dictionary
+        optimizer and loss function as a dictionary
     """
     nets = None if not net else [net]
     returned_tuple = solve_system(
@@ -165,18 +165,18 @@ def solve_system(
     Train a neural network to solve an ODE.
     
     :param ode_system: 
-    ODE system as a list of functions. If the ODE system is F_i(x, y, ... t) = 0
-    for i = 0, 1, ..., n-1 where x, y, ... are dependent variables and t is the 
-    independent variable, then ode_system should map (x, y, ... t) to a list where 
-    the ith entry is F_i(x, y, ... t).
+        ODE system as a list of functions. If the ODE system is F_i(x, y, ... t) = 0
+        for i = 0, 1, ..., n-1 where x, y, ... are dependent variables and t is the
+        independent variable, then ode_system should map (x, y, ... t) to a list where
+        the ith entry is F_i(x, y, ... t).
     :param conditions: 
-    the initial value/boundary conditions as a list of Condition instance. They
-    should be in an order such that the first condition constraints the first 
-    variable in F_i's (see above) signature. The second the second, and so on.
+        the initial value/boundary conditions as a list of Condition instance. They
+        should be in an order such that the first condition constraints the first
+        variable in F_i's (see above) signature. The second the second, and so on.
     :param nets: 
-    the networks to be used as a list of torch.nn.Module instances. They should
-    be ina na order such that the first network will be used to solve the first
-    variable in F_i's (see above) signature. The second the second, and so on.
+        the networks to be used as a list of torch.nn.Module instances. They should
+        be ina na order such that the first network will be used to solve the first
+        variable in F_i's (see above) signature. The second the second, and so on.
     :param t_min: lower bound of the domain (t) on which the ODE system is solved
     :param t_max: upper bound of the domain (t) on which the ODE system is solved
     :param train_generator: an ExampleGenerator instance for training purpose
@@ -188,7 +188,7 @@ def solve_system(
     :param max_epochs: the maximum number of epochs
     :param monitor: a Monitor instance
     :param return_internal: if set to true, return the nets, conditions, training generator, validation generator,
-    optimizer and loss function as a dictionary
+        optimizer and loss function as a dictionary
     """
 
     # default values
