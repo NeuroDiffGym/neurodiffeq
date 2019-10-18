@@ -1,23 +1,25 @@
 API Reference
 =============
 
+`neurodiffeq.neurodiffeq`
+-------------------------
 .. automodule:: neurodiffeq.neurodiffeq
     :members:
 
-The “networks” module
----------------------
+`neurodiffeq.networks`
+-------------------------
 
 .. automodule:: neurodiffeq.networks
     :members:
 
-The “ode” module
----------------------
+`neurodiffeq.ode`
+-------------------------
 
 .. automodule:: neurodiffeq.ode
     :members:
 
-The “pde” module
----------------------
+`neurodiffeq.pde`
+-------------------------
 
 .. automodule:: neurodiffeq.pde
     :members:
