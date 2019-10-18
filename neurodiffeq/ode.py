@@ -365,7 +365,7 @@ def solve_system(
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch%monitor.check_every == 0:
-            monitor.check(nets, ode_system, conditions, loss_history)
+            monitor.check(nets, conditions, loss_history)
 
         def solution(ts, as_type='tf'):
             if not isinstance(ts, torch.Tensor): ts = torch.tensor([ts], dtype=torch.float32)
