@@ -9,7 +9,7 @@ from .networks import FCNN
 
 
 class IVP:
-    r"""An initial value problem.
+    """An initial value problem.
         For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0`.
         For Neumann condition, we are solving :math:`x(t)` given :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`.
 
@@ -21,12 +21,12 @@ class IVP:
     :type x_0_prime: float, optional
     """
     def __init__(self, t_0, x_0, x_0_prime=None):
-        r"""Initializer method
+        """Initializer method
         """
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
     def enforce(self, net, t):
-        r"""Enforce the output of a neural network to satisfy the initial condition.
+        """Enforce the output of a neural network to satisfy the initial condition.
 
         :param net: The neural network that approximates the ODE.
         :type net: `torch.nn.Module`
@@ -43,7 +43,7 @@ class IVP:
 
 
 class DirichletBVP:
-    r"""A two-point Dirichlet boundary condition.
+    """A two-point Dirichlet boundary condition.
         We are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0` and :math:`x(t)\\bigg|_{t = t_1} = x_1`.
 
     :param t_0: The initial time.
@@ -56,7 +56,7 @@ class DirichletBVP:
     :type x_1: float
     """
     def __init__(self, t_0, x_0, t_1, x_1):
-        r"""Initializer method
+        """Initializer method
         """
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
 
@@ -80,7 +80,7 @@ class DirichletBVP:
 
 
 class ExampleGenerator:
-    r"""An example generator for generating 1-D training points.
+    """An example generator for generating 1-D training points.
 
     :param size: The number of points to generate each time `get_examples` is called.
     :type size: int
@@ -128,7 +128,7 @@ class ExampleGenerator:
             raise ValueError(f'Unknown method: {method}')
 
 class Monitor:
-    r"""A monitor for checking the status of the neural network during training.
+    """A monitor for checking the status of the neural network during training.
 
     :param t_min: The lower bound of time domain that we want to monitor.
     :type t_min: float
@@ -195,7 +195,7 @@ def solve(
         max_epochs=1000,
         monitor=None, return_internal=False
 ):
-    r"""Train a neural network to solve an ODE.
+    """Train a neural network to solve an ODE.
     
     :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
         then ode should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
@@ -256,7 +256,7 @@ def solve_system(
         max_epochs=1000,
         monitor=None, return_internal=False
 ):
-    r"""Train a neural network to solve an ODE.
+    """Train a neural network to solve an ODE.
 
     :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent variable and :math:`t` is the independent variable,
         then ode_system should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.

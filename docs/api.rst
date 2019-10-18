@@ -1,7 +1,7 @@
-The neurodiffeq API reference
-=============================
+API Reference
+=============
 
-.. automodule:: neurodiffeq
+.. automodule:: neurodiffeq.neurodiffeq
     :members:
 
 The “networks” module
