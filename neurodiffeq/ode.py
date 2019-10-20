@@ -26,7 +26,7 @@ class IVP:
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
     def enforce(self, net, t):
-        """Enforce the output of a neural network to satisfy the initial condition.
+        r"""Enforce the output of a neural network to satisfy the initial condition.
 
         :param net: The neural network that approximates the ODE.
         :type net: `torch.nn.Module`
@@ -34,6 +34,9 @@ class IVP:
         :type t: `torch.tensor`
         :return: The modified output which now satisfies the initial condition.
         :rtype: `torch.tensor`
+
+        .. note::
+            `enforce` is meant to be called by the function `solve` and `solve_system`.
         """
         x = net(t)
         if self.x_0_prime:
@@ -138,7 +141,7 @@ class Monitor:
     :type check_every: int, optional
     """
     def __init__(self, t_min, t_max, check_every=100):
-        r"""Initializer method
+        """Initializer method
         """
         self.check_every = check_every
         self.fig = plt.figure(figsize=(20, 8))
@@ -198,7 +201,7 @@ def solve(
     """Train a neural network to solve an ODE.
     
     :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
-        then ode should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
+        then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: function
     :param condition: The initial/boundary condition.
     :type condition: `neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`
@@ -259,7 +262,7 @@ def solve_system(
     """Train a neural network to solve an ODE.
 
     :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent variable and :math:`t` is the independent variable,
-        then ode_system should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
+        then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
     :type ode_system: function
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
     :type conditions: list [`neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`]
@@ -289,6 +292,9 @@ def solve_system(
     :type return_internal: bool, optional
     :return: The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+        The solution is a function that has the signature `solution(ts, as_type)`.
+        `ts (torch.tensor)` are the points on which :math:`x(t)` is evaluated.
+        `as_type (str)` indicates whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
     :rtype: tuple[function, dict]; or tuple[function, dict, dict]
     """
 
