@@ -94,7 +94,6 @@ class IBVP1D:
             :type x_max_val: function, optioonal
             :param x_max_prime: The Neumann boundary condition when :math:`x = x_1`, the :math:`\\displaystyle\\frac{\\partial u(x, t)}{\\partial x}\\bigg|_{x = x_1}`, defaults to None.
             :type x_max_prime: function, optional
-            :raises ValueError: When provided problem is over-conditioned.
             :raises NotImplementedError: When unimplemented boundary conditions are configured.
         """
 
@@ -112,21 +111,16 @@ class IBVP1D:
         self.x_min, self.x_min_val, self.x_min_prime = x_min, x_min_val, x_min_prime
         self.x_max, self.x_max_val, self.x_max_prime = x_max, x_max_val, x_max_prime
         self.t_min, self.t_min_val = t_min, t_min_val
+        n_conditions = sum(c is None for c in [x_min_val, x_min_prime, x_max_val, x_max_prime])
+        if n_conditions != 2:
+            raise NotImplementedError('Sorry, this boundary condition is not implemented.')
         if self.x_min_val and self.x_max_val:
-            if self.x_min_prime or self.x_max_prime:
-                raise ValueError('Problem is over-conditioned.')
             self.enforce = self._enforce_dd
         elif self.x_min_val and self.x_max_prime:
-            if self.x_min_prime or self.x_max_val:
-                raise ValueError('Problem is over-conditioned.')
             self.enforce = self._enforce_dn
         elif self.x_min_prime and self.x_max_val:
-            if self.x_min_val or self.x_max_prime:
-                raise ValueError('Problem is over-conditioned.')
             self.enforce = self._enforce_nd
         elif self.x_min_prime and self.x_max_prime:
-            if self.x_min_val or self.x_max_val:
-                raise ValueError('Problem is over-conditioned.')
             self.enforce = self._enforce_nn
         else:
             raise NotImplementedError('Sorry, this boundary condition is not implemented.')

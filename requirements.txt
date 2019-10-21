@@ -2,3 +2,4 @@ matplotlib
 numpy
 torch
 scipy
+pytest
