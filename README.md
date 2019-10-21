@@ -4,6 +4,8 @@
 
 [![codecov](https://codecov.io/gh/odegym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/odegym/neurodiffeq)
 
+[![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest)
+
 # Introduction
 
 `neurodiffeq` is a package for solving differential equations with neural networks. Differential equations are equations that relate some function with its derivatives. They emerge in various scientific and engineering domains. Traditionally these problems can be solved by numerical methods (e.g. finite difference, finite element). While these methods are effective and adequate, their solutions are discrete. It would be interesting if we can compute solutions for differential equations that are continuous and differentiable.
@@ -16,7 +18,7 @@ Currently `neurodiffeq` is not in PyPI, so it needs to be installed from this re
 
 # Getting Started
 
-For basic use of `neurodiffeq`, please check the [User Guide](https://feiyu-chen96.github.io/neurodiffeq_User_Guide.html)
+For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on [ReadTheDocs](https://readthedocs.org)
 
 # Contributing
 
