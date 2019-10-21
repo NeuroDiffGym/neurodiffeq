@@ -14,6 +14,7 @@ Welcome to neurodiffeq's documentation!
    getstart
    advanced
    api
+   how
 
 
 
