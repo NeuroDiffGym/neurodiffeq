@@ -75,6 +75,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 pygments_style = None
 
 
+# Mock Modules
+import mock
+
+MOCK_MODULES = [
+    'numpy', 'scipy',
+    'matplotlib', 'matplotlib.pyplot', 'matplotlib.animation', 
+    'torch', 'torch.autograd', 'torch.nn', 'torch.optim'
+]
+for mod_name in MOCK_MODULES:
+   sys.modules[mod_name] = mock.Mock() 
+
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
