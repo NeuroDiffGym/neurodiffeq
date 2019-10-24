@@ -26,29 +26,8 @@ Differential equations emerge in various scientific and engineering domains. Tra
 
 # Methods
 
-The key idea of solving differential equations with ANN is to reformulate the problem as an optimization problem, in which we minimize the difference between two sides of the equation. For example, if we are solving
-$$
-\frac{dx}{dt} - x = 0
-$$
-and we choose L2-loss as our loss function, then we can reformulate the differential equation as the following optimization problem:
-$$
-\min_{\vec{p}}(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2
-$$
-where $\vec{p}$ are the weights of the ANN and $NN(\vec{p}, t)}$ is the output of the ANN. We can see that when this objective function is driven to 0, the original equation is satisfied. 
+The key idea of solving differential equations with ANN is to reformulate the problem as an optimization problem, in which we minimize the difference between two sides of the equation. For example, if we are solving $$\frac{dx}{dt} - x = 0$$ and we choose L2-loss as our loss function, then we can reformulate the differential equation as the following optimization problem: $$\min_{\vec{p}}(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2$$ where $\vec{p}$ are the weights of the ANN and $NN(\vec{p}, t)}$ is the output of the ANN. We can see that when this objective function is driven to 0, the original equation is satisfied. 
 
-One twist is that a differential equation typically have inifite number of solutions. We reach a particular solution only when some initial/boundary conditions are imposed. Since $NN(\vec{p}, t)$ will not automatically satisfy the initial/boundary conditions, we need to 'constrain' the solution. This constrain can be done in 2 ways: （1) We can add the initial/boundary conditions to the objective function. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can change our objective function so our problem becomes:
-$$
-\min_{\vec{p}}\left[(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2 + \lambda(NN(\vec{p}, t_0) - x_0)^2\right]
-$$
-We can see that the larger the $\lambda$, the stricter we satisfy the initial/boundary conditions
-（2) We can transform the $NN(\vec{p}, t)$ in a way such that the initial/boundary conditions are bound to be satisfied. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can let
-$$
-\tilde{NN}(\vec{p}, t) = (1-e^{t_0-t})NN(\vec{p}, t) + x_0
-$$
-so our problem becomes:
-$$
-\min_{\vec{p}}(\frac{d\tilde{NN}(\vec{p}, t)}{dt} - \tilde{NN}(\vec{p}, t))^2
-$$
-Both these two methods have their advantages. The first way is simpler and more elegant from a software perspective, and can be more easily adapted to be used on high-dimensional PDEs. The second way assures that the initial/boundary conditions are met exactly, considering that differential equations can be sensitive to initial/boundary conditions, this would be desirable. Another advantage of the second method is that fixing these conditions can reduce the effort required during training of the ANN[`@mcfall2009artificial`]. ``DeepXDE`` uses the first way to impose initial/boundary conditions. ``PyDEns`` uses the second way to impose initial/boundary conditions. In ``NeuroDiffEq``, we choose the second way.  
+One twist is that a differential equation typically have inifite number of solutions. We reach a particular solution only when some initial/boundary conditions are imposed. Since $NN(\vec{p}, t)$ will not automatically satisfy the initial/boundary conditions, we need to 'constrain' the solution. This constrain can be done in 2 ways: （1) We can add the initial/boundary conditions to the objective function. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can change our objective function so our problem becomes: $$\min_{\vec{p}}\left[(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2 + \lambda(NN(\vec{p}, t_0) - x_0)^2\right]$$ We can see that the larger the $\lambda$, the stricter we satisfy the initial/boundary conditions;（2) We can transform the $NN(\vec{p}, t)$ in a way such that the initial/boundary conditions are bound to be satisfied. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can let $$\tilde{NN}(\vec{p}, t) = (1-e^{t_0-t})NN(\vec{p}, t) + x_0$$ so our problem becomes: $$\min_{\vec{p}}(\frac{d\tilde{NN}(\vec{p}, t)}{dt} - \tilde{NN}(\vec{p}, t))^2$$ Both these two methods have their advantages. The first way is simpler and more elegant from a software perspective, and can be more easily adapted to be used on high-dimensional PDEs. The second way assures that the initial/boundary conditions are met exactly, considering that differential equations can be sensitive to initial/boundary conditions, this would be desirable. Another advantage of the second method is that fixing these conditions can reduce the effort required during training of the ANN[`@mcfall2009artificial`]. ``DeepXDE`` uses the first way to impose initial/boundary conditions. ``PyDEns`` uses the second way to impose initial/boundary conditions. In ``NeuroDiffEq``, we choose the second way.  
 
 # References
