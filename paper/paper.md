@@ -13,7 +13,7 @@ authors:
   - name: Pavlos Protopapas
     affiliation: 1
 affiliations:
- - name: SEAS, Harvard University, Cambridge, MA, United States
+ - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
 date: 29 October 2019
 bibliography: paper.bib
@@ -21,9 +21,40 @@ bibliography: paper.bib
 
 # Summary
 
-Differential equations emerge in various scientific and engineering domains. Traditionally these problems can be solved by numerical methods like finite difference method (FDM), finite volume method (FVM), and finite element method (FEM). While these methods are effective and adequate, the numerical solutions are usually discrete and not differentiable. Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to learn function mappings. As the most basic form of ANN, multilayer perceptrons are proven to be universal function approximators. This suggests the possibility of using ANN to solve differential equations. Previous studies have demonstrated that ANN has the potential to solve ordinary differential equations (ODEs) and partial differential equations (PDEs) with certain initial/boundary conditions[@lagaris1998artificial]. These methods show nice properties include: (1) continuous and differentiable solutions (2) better interpolation properties (3) smaller number of parameters thus less memory intensive. ``NeuroDiffEq`` is a Python package built with ``PyTorch`` that uses ANNs to solve ODEs and PDEs. It is not the only software package that aims to encapsulate this technique. Unbeknownst to us, two other similar packages ``DeepXDE``[@lu2019deepxde] and ``PyDEns``[@koryagin2019pydens]built with ``TensorFlow`` are also developed this year.
+Differential equations emerge in various scientific and engineering domains for modeling physical phenomena.  Most
+differential equations of practical interest are analytically intractable.  Traditionally, differential equations are solved
+by numerical methods.  Sophistical algorithms exist to integrate differential equations in time and space.  Time integration
+techniques continue to be an active area of research and include backward difference formulas and Runge-Kutta methods.
+Common spatial discretization approaches include the finite difference method (FDM), finite volume method (FVM), and finite
+element method (FEM) as well as spectral methods such as the Fourier-spectral method.  These classical methods have been
+studied in detail and much is known about their convergence properties.  Moreover, highly optimized codes exist for solving
+differential equations of practical interest with these techniques.  While these methods are efficient and well-studied,
+their expressibility is limited by their function representation.  For example, piecewise linear finite element methods
+represent complex dynamics as piecewise linear functions.  Mesh adaptivity can provide more fidelity for complicated physics
+but terms involving higher-order derivatives are still neglected.  This difficulty can be offset to some degree by increasing
+the order of the basis, but the piecewise nature of the expansion does ultimately lead to non-differentiablity at element
+boundaries.  Fourier-spectral methods are very high-order methods with excellent convergence properties, but they
+suffer from limited expressibility near boundaries.
 
-``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What ANN architecture and loss function should be used? What are the training hyperparameters?) when they want to.  ``NeuroDiffEq`` is already being used to study the convergence properties of ANN for solving differential equations. It is also used in another ongoing project for solving equations in the field of general relativity. 
+Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to
+learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function 
+approximators[@hornik1989multilayer]. This suggests the possibility of using ANN to solve differential equations. Previous 
+studies have demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
+differential equations (PDEs) with certain initial/boundary conditions[@lagaris1998artificial]. These methods show nice
+properties including: (1) continuous and differentiable solutions (2) good interpolation properties (3) [DLS:  I don't
+understand this point] smaller number of parameters thus less memory intensive.  Given the interest in developing neural
+networks for solving differential equations, it would be extremely beneficial to have an easy-to-use software project that
+allows researchers to quickly set up and solve problems.
+
+``NeuroDiffEq`` is a Python package built with ``PyTorch`` that uses ANNs to solve ordinary and partial differential
+equations (ODEs and PDEs).  During the release of ``NeuroDiffEq`` we discovered that two other groups had simultaneously
+released their own software packages for solving differential equations with neural networks:  ``DeepXDE``[@lu2019deepxde]
+and ``PyDEns``[@koryagin2019pydens]. [DLS:  Say something about each of these projects.  How are they different / similar?]
+``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we
+need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What
+ANN architecture and loss function should be used? What are the training hyperparameters?) when they want to.  ``NeuroDiffEq`` 
+is already currently being  used to study the convergence properties of ANNs for solving differential equations as well as
+solving the equations in the field of general relativity (Schwarzchild and Kerr black holes). 
 
 # Methods
 
