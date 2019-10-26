@@ -53,31 +53,57 @@ and ``PyDEns``[@koryagin2019pydens]. [DLS:  Say something about each of these pr
 ``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we
 need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What
 ANN architecture and loss function should be used? What are the training hyperparameters?) when they want to.  ``NeuroDiffEq`` 
-is already currently being  used to study the convergence properties of ANNs for solving differential equations as well as
-solving the equations in the field of general relativity (Schwarzchild and Kerr black holes). 
+can solve a variety of canonical PDEs including the heat equation and Poisson equation in a Cartesian domain with up to three
+spatial dimensions.  ``NeuroDiffEq`` can also solve arbitrary systems on nonlinear ordinary differential equations.
+Currently, ``NeuroDiffEq`` is being used in a variety of reearch projects including to study the convergence properties of ANNs 
+for solving differential equations as well as solving the equations in the field of general relativity (Schwarzchild and Kerr 
+black holes). 
 
 # Methods
 
-The key idea of solving differential equations with ANN is to reformulate the problem as an optimization problem in which we minimize the difference between two sides of the equation. For example, if we are solving 
-$$\frac{dx}{dt} - x = 0$$
-we can choose to use L2-loss and reformulate the differential equation as the following optimization problem: 
+The key idea of solving differential equations with ANNs is to reformulate the problem as an optimization problem in which we
+minimize the residual of the differential equations.  In a very general sense, a differential equation can be expressed as
+$$\mathcal{L}u - f = 0$$
+where $\mathcal{L}$ is the differential operator, $u$ is the solution that we wish to find, and $f$ is a known forcing
+function.  We denote that output of the neural network as $\widehat{u}_{N}$.  If $\widehat{u}_{N}$ is a solution to the differential
+equation, then the residual $$\mathcal{R}\left(\widehat{u}_{N}\right) = \mathcal{L}\widehat{u}_{N} - f $$ will be identically zero.
+One way to incorporate this into the training process of a neural network is to use the residual as the loss function.  In
+general, the $L^{2}$ loss of the residual is used.  This is the convention that ``NeuroDiffEq`` follows, although we note
+that other loss functions could be conceived.  Solving the differential equation is re-case as the following optimization
+problem: 
 $$
-\min_{\vec{p}}(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2
+\min_{\vec{p}}\left(\mathcal{L}\widehat{u}_{N} - f\right)^2
 $$
-where $\vec{p}$ are the weights of the ANN and $NN(\vec{p}, t)$ is the output of the ANN given input $t$. We can see that when this objective function is driven to 0, the original equation is satisfied. 
+where $\vec{p}$ are the weights of the ANN.
 
-One additional problem we need to take care of is that a differential equation typically have inifite number of solutions. We reach a particular solution only when some initial/boundary conditions are imposed. Since $NN(\vec{p}, t)$ will not automatically satisfy the initial/boundary conditions, we need to 'constrain' the solution. This constrain can be done in 2 ways: (1) We can add the initial/boundary conditions to the objective function. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can change our objective function into
+## Boundary and Initial Conditions
+It is necessary to inform the neural network about any boundary and initial conditions since it has no way of enforcing these *a priori*.
+There are two primary ways to satisfy the boundary and initial conditions.  First, one can the initial/boundary conditions to the
+loss function.  For example, given an initial condition $u\left(x,t_{0}\right) = u_{0}\left(x\right)$, the loss function can
+be modified to:
 $$
-\min_{\vec{p}}\left[(\frac{dNN(\vec{p}, t)}{dt} - NN(\vec{p}, t))^2 + \lambda(NN(\vec{p}, t_0) - x_0)^2\right]
+\min_{\vec{p}}\left[\left(\mathcal{L}\widehat{u}_{N} - f\right)^2 + \lambda\left(\widehat{u}_{N}\left(x,t_{0}\right) - u_0\left(x\right)\right)^2\right]
 $$
-where the second term penalize solutions that don't satisfy the initial condition. We can see that the larger the $\lambda$, the stricter we satisfy the initial condition; (2) We can transform the $NN(\vec{p}, t)$ in a way such that the initial/boundary conditions are bound to be satisfied. If we have a initial condition $x(t)\bigg|_{t = t_0} = x_0$, we can let
+where the second term penalizes solutions that don't satisfy the initial condition.  Larger $\lambda$ results in stricter
+satisfaction of the initial condition.  However, this approach does not lead to *exact* satisfaction of the initial and
+boundary conditions.
+
+Another option is to transform the $\widehat{u}_{N}$ in a way such that the initial/boundary conditions are satisfied by
+construction.  Given an initial condition $u_{0}\left(x\right)$ the neural network can be transformed according to:
 $$
-\widetilde{NN}(\vec{p}, t) = (1-e^{t_0-t})NN(\vec{p}, t) + x_0
+\widehat{u} = u_{0}\left(x\right) + \left(1-e^{-\left(t-t_{0}\right)}\right)\widehat{u}_{N}
 $$
-so that when $t = t_0$, $\widetilde{NN}(\vec{p}, t)$ will always be $x_0$. Accordingly, we change our objective function into 
+so that when $t = t_0$, $\widehat{u}$ will always be $u_0$. Accordingly, the objective function becomes 
 $$
-\min_{\vec{p}}(\frac{d\widetilde{NN}(\vec{p}, t)}{dt} - \widetilde{NN}(\vec{p}, t))^2
+\min_{\vec{p}}\left(\mathcal{L}\widehat{u} - f\right)^2
 $$
-Both these two methods have their advantages. The first way is simpler and more elegant to implement, and can be more easily extended to be used on high-dimensional PDEs. The second way assures that the initial/boundary conditions are met exactly, considering that differential equations can be sensitive to initial/boundary conditions, this would be desirable. Another advantage of the second method is that fixing these conditions can reduce the effort required during training of the ANN[@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary conditions. ``PyDEns`` uses the second way to impose initial/boundary conditions. In ``NeuroDiffEq``, we choose the second way.  
+
+Both these two methods have their advantages. The first way is simpler to implement, and can be more easily extended to
+high-dimensional PDEs and PDEs formulated on complicated domains. The second way assures that the initial/boundary conditions
+ are exactly satisfied.  Considering that differential equations can be sensitive to initial/boundary conditions, this is
+expected to play an important role. Another advantage of the second method is that fixing these conditions can reduce the
+effort required during training of the ANN[@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary 
+conditions. ``PyDEns`` uses a variation of the second approach to impose initial/boundary conditions. ``NeuroDiffEq``, the
+software described herein, employs the second approach. 
 
 # References
