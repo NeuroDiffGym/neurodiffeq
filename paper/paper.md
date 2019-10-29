@@ -65,14 +65,14 @@ The key idea of solving differential equations with ANNs is to reformulate the p
 minimize the residual of the differential equations.  In a very general sense, a differential equation can be expressed as
 $$\mathcal{L}u - f = 0$$
 where $\mathcal{L}$ is the differential operator, $u$ is the solution that we wish to find, and $f$ is a known forcing
-function.  We denote the output of the neural network as $u_{N}$.  If $\widehat{u}_{N}$ is a solution to the differential
-equation, then the residual $$\mathcal{R}\left(\widehat{u}_{N}\right) = \mathcal{L}\widehat{u}_{N} - f $$ will be identically zero.
+function.  We denote the output of the neural network as $u_{N}$.  If $u_{N}$ is a solution to the differential
+equation, then the residual $$\mathcal{R}\left(u_{N}\right) = \mathcal{L}u_{N} - f $$ will be identically zero.
 One way to incorporate this into the training process of a neural network is to use the residual as the loss function.  In
 general, the $L^{2}$ loss of the residual is used.  This is the convention that ``NeuroDiffEq`` follows, although we note
 that other loss functions could be conceived.  Solving the differential equation is re-case as the following optimization
 problem: 
 $$
-\min_{\vec{p}}\left(\mathcal{L}\widehat{u}_{N} - f\right)^2
+\min_{\vec{p}}\left(\mathcal{L}u_{N} - f\right)^2
 $$
 where $\vec{p}$ are the weights of the ANN.
 
@@ -82,20 +82,20 @@ There are two primary ways to satisfy the boundary and initial conditions.  Firs
 loss function.  For example, given an initial condition $u\left(x,t_{0}\right) = u_{0}\left(x\right)$, the loss function can
 be modified to:
 $$
-\min_{\vec{p}}\left[\left(\mathcal{L}\widehat{u}_{N} - f\right)^2 + \lambda\left(\widehat{u}_{N}\left(x,t_{0}\right) - u_0\left(x\right)\right)^2\right]
+\min_{\vec{p}}\left[\left(\mathcal{L}u_{N} - f\right)^2 + \lambda\left(u_{N}\left(x,t_{0}\right) - u_0\left(x\right)\right)^2\right]
 $$
 where the second term penalizes solutions that don't satisfy the initial condition.  Larger $\lambda$ results in stricter
 satisfaction of the initial condition.  However, this approach does not lead to *exact* satisfaction of the initial and
 boundary conditions.
 
-Another option is to transform the $\widehat{u}_{N}$ in a way such that the initial/boundary conditions are satisfied by
+Another option is to transform the $u_{N}$ in a way such that the initial/boundary conditions are satisfied by
 construction.  Given an initial condition $u_{0}\left(x\right)$ the neural network can be transformed according to:
 $$
-\widehat{u} = u_{0}\left(x\right) + \left(1-e^{-\left(t-t_{0}\right)}\right)\widehat{u}_{N}
+\widetilde{u} = u_{0}\left(x\right) + \left(1-e^{-\left(t-t_{0}\right)}\right)u_{N}
 $$
-so that when $t = t_0$, $\widehat{u}$ will always be $u_0$. Accordingly, the objective function becomes 
+so that when $t = t_0$, $\widetilde{u}$ will always be $u_0$. Accordingly, the objective function becomes 
 $$
-\min_{\vec{p}}\left(\mathcal{L}\widehat{u} - f\right)^2
+\min_{\vec{p}}\left(\mathcal{L}\widetilde{u} - f\right)^2
 $$
 
 Both these two methods have their advantages. The first way is simpler to implement, and can be more easily extended to
