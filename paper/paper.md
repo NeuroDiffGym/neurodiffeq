@@ -65,7 +65,7 @@ The key idea of solving differential equations with ANNs is to reformulate the p
 minimize the residual of the differential equations.  In a very general sense, a differential equation can be expressed as
 $$\mathcal{L}u - f = 0$$
 where $\mathcal{L}$ is the differential operator, $u$ is the solution that we wish to find, and $f$ is a known forcing
-function.  We denote the output of the neural network as $\hat{u}_{N}$.  If $\widehat{u}_{N}$ is a solution to the differential
+function.  We denote the output of the neural network as $u_{N}$.  If $\widehat{u}_{N}$ is a solution to the differential
 equation, then the residual $$\mathcal{R}\left(\widehat{u}_{N}\right) = \mathcal{L}\widehat{u}_{N} - f $$ will be identically zero.
 One way to incorporate this into the training process of a neural network is to use the residual as the loss function.  In
 general, the $L^{2}$ loss of the residual is used.  This is the convention that ``NeuroDiffEq`` follows, although we note
