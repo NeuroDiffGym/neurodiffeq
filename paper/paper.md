@@ -15,7 +15,7 @@ authors:
 affiliations:
  - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
-date: 29 October 2019
+date: 31 October 2019
 bibliography: paper.bib
 ---
 
