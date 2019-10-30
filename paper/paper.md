@@ -123,10 +123,10 @@ a fully connected neural network with one hidden layer of 32 nodes.
 The Lotka–Volterra equations are a system of first-order, nonlinear ODEs that have been used to model predator-prey dynamics
 in biological systems as well as problems in chemical kinetics.  They are given by:
 $$
-\begin{align}
+\begin{aligned}
 \frac{dx(t)}{dt} &= \alpha x(t) - \beta x(t)y(t), \quad x\left(0\right) = x_{0} \\
 \frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t), \quad y\left(0\right) = y_{0}.
-\end{align}
+\end{aligned}
 $$
 The time-evoluation of the population of the prey and predator are given by $x$ and $y$, respectively, with $x_{0}$ and
 $y_{0}$ the initial populations. The coupling parameters $\alpha$, $\beta$, $\delta$ and $\gamma$ describe the interaction of
