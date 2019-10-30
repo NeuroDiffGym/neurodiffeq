@@ -101,7 +101,7 @@ $$
 $$
 so that when $t = t_0$, $\widetilde{u}$ will always be $u_0$. Accordingly, the objective function becomes 
 $$
-\min_{\vec{p}}\left(\mathcal{L}\widetilde{u} - f\right)^2
+\min_{\vec{p}}\left(\mathcal{L}\widetilde{u} - f\right)^2.
 $$
 
 Both of these two methods have their advantages. The first way is simpler to implement and can be more easily extended to
