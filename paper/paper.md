@@ -152,7 +152,7 @@ $$
 u(x, y) = x(1-x)y(1-y)e^{x-y}.
 $$
 Figure 2 presents contours of the neural network solution (left), the analytical solution (middle), and the error between the
-analytical and neural network solution (right).  The largest error in the neural network solution is around $10^{-5}$.
+analytical and neural network solution (right).  The largest error in the neural network solution is around $6\cdot 10^{-5}$.
 
 ![case2](case2.png)
 *Figure 2: Comparing analytical and ANN-based solutions of Poisson's equation.* 
