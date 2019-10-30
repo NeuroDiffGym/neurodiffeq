@@ -119,20 +119,19 @@ a fully connected neural network with one hidden layer of 32 nodes.
 
 ### Lotka–Volterra equations
 
-Lotka–Volterra equations are a ODE system with a pair of first-order nonlinear ODEs. They are often used to describe 
-the predator-prey dynamics in a biological system:
+The Lotka–Volterra equations are a system of first-order, nonlinear ODEs that have been used to model predator-prey dynamics
+in biological systems as well as problems in chemical kinetics.  They are given by:
 $$
 \begin{align}
-\frac{dx(t)}{dt} &= \alpha x(t) - \beta x(t)y(t) \\
-\frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t)
+\frac{dx(t)}{dt} &= \alpha x(t) - \beta x(t)y(t), \quad x\left(0\right) = x_{0} \\
+\frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t), \quad y\left(0\right) = y_{0}.
 \end{align}
 $$
-Here $x$ and $y$ are the population of the prey and predator over time. $\alpha$, $\beta$, $\delta$ and $\gamma$ are parameters 
-describing the interaction of the two species. Let $\alpha = \beta = \delta = \gamma = 1$ and the initial condition be 
-$x = 1.5$ and $y = 1.0$. We can solve this problem both numerically (with ``scipy.integrate.odeint``) and by ANN 
-(with ``neurodiff.ode.solve_system``). 
-
-If we plot $x$ and $t$ against $t$ for both solutions, we can see that they overlap with each other. We conclude that``NeuroDiffEq`` arrived at the correct solution.
+The time-evoluation of the population of the prey and predator are given by $x$ and $y$, respectively, with $x_{0}$ and
+$y_{0}$ the initial populations. The coupling parameters $\alpha$, $\beta$, $\delta$ and $\gamma$ describe the interaction of
+the two species. Let $\alpha = \beta = \delta = \gamma = 1$, $x_{0} = 1.5$, and $y_{0} = 1.0$. For comparison purposes, we
+solve this problem numerically with ``scipy`` and ``NeuroDiffEq``.  Figure 1 compares the predator and prey populations from
+the numerical integrator and the neural network.  The solutions are qualitatively the same. 
 
 ![case1](case1.png)
 *Figure 1: Comparing numerial and ANN-based solutions of Lotka–Volterra equations.* 
@@ -140,25 +139,23 @@ If we plot $x$ and $t$ against $t$ for both solutions, we can see that they over
 ### Poisson's equation
 
 Poisson's equation is a second-order linear PDE. It can be used to describe the potential field caused by a given charge 
-or mass density distribution. In a two dimensional cartesian coordinates, it takes the form:
+or mass density distribution. In a two dimensional Cartesian coordinates, it takes the form:
 $$
-(\frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2})u(x, y) = f(x, y)
+\left(\frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2}\right)u(x, y) = f(x, y).
 $$
-Let $f(x, y) = 2x(y-1)(y-2x+xy+2)e^{x-y}$. Here we solve the equation on a cartesian domain $(x, y) \in (0, 1) \times (0, 1)$ with
-the boundary conditions 
+We solve the equation in the domain $(x, y) \in (0, 1) \times (0, 1)$ with homogeneous Dirichlet boundary conditions, 
 $$
-u(x, 0) = u(x, 1) = u(0, y) = u(1, y) = 0
+u(x, 0) = u(x, 1) = u(0, y) = u(1, y) = 0.
 $$
-We can solve this problem both analytically and by ANN (with ``neurodiff.pde.solve2D``).
-
-If we plot the contour of $u$ and compare with the analytical solution
+With $f(x, y) = 2x(y-1)(y-2x+xy+2)e^{x-y}$ the analytical solution is
 $$
-u(x, y) = x(1-x)y(1-y)e^{x-y},
+u(x, y) = x(1-x)y(1-y)e^{x-y}.
 $$
-we can see that the residual of the ANN-based solution is at the scale of $10^{-5}$.
+Figure 2 presents contours of the neural network solution (left), the analytical solution (middle), and the error between the
+analytical and neural network solution (right).  The largest error in the neural network solution is around $10^{-5}$.
 
 ![case2](case2.png)
-*Figure 1: Comparing analytical and ANN-based solutions of Poisson's equation.* 
+*Figure 2: Comparing analytical and ANN-based solutions of Poisson's equation.* 
 
 
 # References
