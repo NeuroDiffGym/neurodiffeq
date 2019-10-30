@@ -32,30 +32,32 @@ differential equations of practical interest with these techniques.  While these
 their expressibility is limited by their function representation.  For example, piecewise linear finite element methods
 represent complex dynamics as piecewise linear functions.  Mesh adaptivity can provide more fidelity for complicated physics
 but terms involving higher-order derivatives are still neglected.  This difficulty can be offset to some degree by increasing
-the order of the basis, but the piecewise nature of the expansion does ultimately lead to non-differentiablity at element
+the order of the basis, but the piecewise nature of the expansion does ultimately lead to non-differentiability at element
 boundaries.  Fourier-spectral methods are very high-order methods with excellent convergence properties, but they
 suffer from limited expressibility near boundaries.
 
 Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to
-learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function 
-approximators[@hornik1989multilayer]. This suggests the possibility of using ANN to solve differential equations. Previous 
-studies have demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
+learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function approximators 
+[@hornik1989multilayer]. This suggests the possibility of using ANN to solve differential equations. Previous studies have 
+demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
 differential equations (PDEs) with certain initial/boundary conditions[@lagaris1998artificial]. These methods show nice
-properties including: (1) continuous and differentiable solutions (2) good interpolation properties (3) [DLS:  I don't
-understand this point] smaller number of parameters thus less memory intensive.  Given the interest in developing neural
-networks for solving differential equations, it would be extremely beneficial to have an easy-to-use software project that
-allows researchers to quickly set up and solve problems.
+properties including (1) continuous and differentiable solutions (2) good interpolation properties (3) less memory-intensive 
+(Instead of having the whole numerical solution in memory, we only need to maintain the weights of the ANN). Given the interest in developing neural networks for solving differential equations, it would be extremely beneficial to have an easy-to-use software project that allows researchers to quickly set up and solve problems.
 
 ``NeuroDiffEq`` is a Python package built with ``PyTorch`` that uses ANNs to solve ordinary and partial differential
 equations (ODEs and PDEs).  During the release of ``NeuroDiffEq`` we discovered that two other groups had simultaneously
 released their own software packages for solving differential equations with neural networks:  ``DeepXDE``[@lu2019deepxde]
-and ``PyDEns``[@koryagin2019pydens]. [DLS:  Say something about each of these projects.  How are they different / similar?]
+and ``PyDEns``[@koryagin2019pydens]. Both ``DeepXDE`` and ``PyDEns`` are built on top of ``TensorFlow``. 
+``DeepXDE`` has an emphasis on the wide variety of problems it can solve. It supports mixing different boundary conditions and 
+solving on domains with complex geometries. ``PyDEns`` is less flexible in the range of solvable problems but provides
+a more user-friendly API. This trade-off is partially determined by the way these two packages implement the solver, 
+which will be discussed later.
 ``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we
 need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What
 ANN architecture and loss function should be used? What are the training hyperparameters?) when they want to.  ``NeuroDiffEq`` 
-can solve a variety of canonical PDEs including the heat equation and Poisson equation in a Cartesian domain with up to three
+can solve a variety of canonical PDEs including the heat equation and Poisson equation in a Cartesian domain with up to two
 spatial dimensions.  ``NeuroDiffEq`` can also solve arbitrary systems on nonlinear ordinary differential equations.
-Currently, ``NeuroDiffEq`` is being used in a variety of reearch projects including to study the convergence properties of ANNs 
+Currently, ``NeuroDiffEq`` is being used in a variety of research projects including to study the convergence properties of ANNs 
 for solving differential equations as well as solving the equations in the field of general relativity (Schwarzchild and Kerr 
 black holes). 
 
@@ -98,12 +100,61 @@ $$
 \min_{\vec{p}}\left(\mathcal{L}\widetilde{u} - f\right)^2
 $$
 
-Both these two methods have their advantages. The first way is simpler to implement, and can be more easily extended to
+Both of these two methods have their advantages. The first way is simpler to implement and can be more easily extended to
 high-dimensional PDEs and PDEs formulated on complicated domains. The second way assures that the initial/boundary conditions
- are exactly satisfied.  Considering that differential equations can be sensitive to initial/boundary conditions, this is
+are exactly satisfied.  Considering that differential equations can be sensitive to initial/boundary conditions, this is
 expected to play an important role. Another advantage of the second method is that fixing these conditions can reduce the
-effort required during training of the ANN[@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary 
+effort required during the training of the ANN[@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary 
 conditions. ``PyDEns`` uses a variation of the second approach to impose initial/boundary conditions. ``NeuroDiffEq``, the
 software described herein, employs the second approach. 
+
+## Case Studies
+
+Here we present two differential equations and how can they be solved by ``NeuroDiffEq``. In both cases, we are using 
+a fully connected neural network with one hidden layer of 32 nodes.
+
+### Lotka–Volterra equations
+
+Lotka–Volterra equations are a ODE system with a pair of first-order nonlinear ODEs. They are often used to describe 
+the predator-prey dynamics in a biological system:
+$$
+\begin{aligned}
+\frac{dx(t)}{dt} &= \alpha x(t) - \beta x(t)y(t) \\
+\frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t)
+\end{aligned}
+$$
+Here $x$ and $y$ are the population of the prey and predator over time. $\alpha$, $\beta$, $\delta$ and $\gamma$ are parameters 
+describing the interaction of the two species. Let $\alpha = \beta = \delta = \gamma = 1$ and the initial condition be 
+$x = 1.5$ and $y = 1.0$. We can solve this problem both numerically (with ``scipy.integrate.odeint``) and by ANN 
+(with ``neurodiff.ode.solve_system``). 
+
+If we plot $x$ and $t$ against $t$ for both solutions, we can see that they overlap with each other. We conclude that``NeuroDiffEq`` arrived at the correct solution.
+
+![case1](case1.png)
+*Figure 1: Comparing numerial and ANN-based solutions of Lotka–Volterra equations.* 
+
+### Poisson's equation
+
+Poisson's equation is a second-order linear PDE. It can be used to describe the potential field caused by a given charge 
+or mass density distribution. In a two dimensional cartesian coordinates, it takes the form:
+$$
+(\frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2})u(x, y) = f(x, y)
+$$
+Let $f(x, y) = 2x(y-1)(y-2x+xy+2)e^{x-y}$. Here we solve the equation on a cartesian domain $(x, y) \in (0, 1) \times (0, 1)$ with
+the boundary conditions 
+$$
+u(x, 0) = u(x, 1) = u(0, y) = u(1, y) = 0
+$$
+We can solve this problem both analytically and by ANN (with ``neurodiff.pde.solve2D``).
+
+If we plot the contour of $u$ and compare with the analytical solution
+$$
+u(x, y) = x(1-x)y(1-y)e^{x-y},
+$$
+we can see that the residual of the ANN-based solution is at the scale of $10^{-5}$.
+
+![case2](case2.png)
+*Figure 1: Comparing analytical and ANN-based solutions of Poisson's equation.* 
+
 
 # References
