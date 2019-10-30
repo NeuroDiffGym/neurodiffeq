@@ -42,16 +42,20 @@ learn function mappings. The most basic form of ANNs, multilayer perceptrons, ha
 demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
 differential equations (PDEs) with certain initial/boundary conditions[@lagaris1998artificial]. These methods show nice
 properties including (1) continuous and differentiable solutions (2) good interpolation properties (3) less memory-intensive 
-(Instead of having the whole numerical solution in memory, we only need to maintain the weights of the ANN). Given the interest in developing neural networks for solving differential equations, it would be extremely beneficial to have an easy-to-use software project that allows researchers to quickly set up and solve problems.
+(Instead of having the whole numerical solution in memory, we only need to maintain the weights of the ANN). Given the
+interest in developing neural networks for solving differential equations, it would be extremely beneficial to have an
+easy-to-use software package that allows researchers to quickly set up and solve problems.
 
 ``NeuroDiffEq`` is a Python package built with ``PyTorch`` that uses ANNs to solve ordinary and partial differential
-equations (ODEs and PDEs).  During the release of ``NeuroDiffEq`` we discovered that two other groups had simultaneously
+equations (ODEs and PDEs).  During the release of ``NeuroDiffEq`` we discovered that two other groups had almost simultaneously
 released their own software packages for solving differential equations with neural networks:  ``DeepXDE``[@lu2019deepxde]
 and ``PyDEns``[@koryagin2019pydens]. Both ``DeepXDE`` and ``PyDEns`` are built on top of ``TensorFlow``. 
 ``DeepXDE`` has an emphasis on the wide variety of problems it can solve. It supports mixing different boundary conditions and 
 solving on domains with complex geometries. ``PyDEns`` is less flexible in the range of solvable problems but provides
 a more user-friendly API. This trade-off is partially determined by the way these two packages implement the solver, 
-which will be discussed later.
+which will be discussed later.  We note that ``DeepXDE`` started development shortly before development on ``NeuroDiffEq``
+began while ``PyDEns`` started development shortly after ``NeuroDiffEq``.
+
 ``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we
 need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What
 ANN architecture and loss function should be used? What are the training hyperparameters?) when they want to.  ``NeuroDiffEq`` 
@@ -118,10 +122,10 @@ a fully connected neural network with one hidden layer of 32 nodes.
 Lotka–Volterra equations are a ODE system with a pair of first-order nonlinear ODEs. They are often used to describe 
 the predator-prey dynamics in a biological system:
 $$
-\begin{aligned}
+\begin{align}
 \frac{dx(t)}{dt} &= \alpha x(t) - \beta x(t)y(t) \\
 \frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t)
-\end{aligned}
+\end{align}
 $$
 Here $x$ and $y$ are the population of the prey and predator over time. $\alpha$, $\beta$, $\delta$ and $\gamma$ are parameters 
 describing the interaction of the two species. Let $\alpha = \beta = \delta = \gamma = 1$ and the initial condition be 
