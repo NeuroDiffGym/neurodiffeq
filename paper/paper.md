@@ -70,12 +70,13 @@ black holes).
 The key idea of solving differential equations with ANNs is to reformulate the problem as an optimization problem in which we
 minimize the residual of the differential equations.  In a very general sense, a differential equation can be expressed as
 $$\mathcal{L}u - f = 0$$
-where $\mathcal{L}$ is the differential operator, $u$ is the solution that we wish to find, and $f$ is a known forcing
-function.  We denote the output of the neural network as $u_{N}$.  If $u_{N}$ is a solution to the differential
-equation, then the residual $$\mathcal{R}\left(u_{N}\right) = \mathcal{L}u_{N} - f $$ will be identically zero.
-One way to incorporate this into the training process of a neural network is to use the residual as the loss function.  In
-general, the $L^{2}$ loss of the residual is used.  This is the convention that ``NeuroDiffEq`` follows, although we note
-that other loss functions could be conceived.  Solving the differential equation is re-case as the following optimization
+where $\mathcal{L}$ is the differential operator, $u\left(x,t\right)$ is the solution that we wish to find, and $f$ is a known forcing
+function.  Note that $\mathcal{L}$ contains any combination of temporal and spatial partial derivatives.  Moreover, $x$ is in
+general a vector in three dimensions and $u$ can be a vector of solutions.  We denote the output of the neural network as $u_{N}$.  
+If $u_{N}$ is a solution to the differential equation, then the residual $$\mathcal{R}\left(u_{N}\right) = \mathcal{L}u_{N} - f $$ 
+will be identically zero.  One way to incorporate this into the training process of a neural network is to use the residual
+as the loss function.  In general, the $L^{2}$ loss of the residual is used.  This is the convention that ``NeuroDiffEq`` follows, 
+although we note that other loss functions could be conceived.  Solving the differential equation is re-case as the following optimization
 problem: 
 $$
 \min_{\vec{p}}\left(\mathcal{L}u_{N} - f\right)^2
