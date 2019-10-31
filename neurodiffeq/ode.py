@@ -196,10 +196,11 @@ def solve(
         net=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
-        monitor=None, return_internal=False
+        monitor=None, return_internal=False,
+        return_best=False
 ):
     """Train a neural network to solve an ODE.
-    
+
     :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: function
@@ -229,6 +230,8 @@ def solve(
     :type monitor: `neurodiffeq.ode.Monitor`, optional
     :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
     :type return_internal: bool, optional
+    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :type return_best: bool, optional
     :return: The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[function, dict]; or tuple[function, dict, dict]
@@ -239,7 +242,8 @@ def solve(
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size,
-        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal
+        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
+        return_best=return_best
     )
 
     def solution_wrapped(ts, as_type='tf'):
@@ -257,7 +261,8 @@ def solve_system(
         nets=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
-        monitor=None, return_internal=False
+        monitor=None, return_internal=False,
+        return_best=False,
 ):
     """Train a neural network to solve an ODE.
 
@@ -290,6 +295,8 @@ def solve_system(
     :type monitor: `neurodiffeq.ode.Monitor`, optional
     :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
     :type return_internal: bool, optional
+    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :type return_best: bool, optional
     :return: The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
         The solution is a function that has the signature `solution(ts, as_type)`.
@@ -329,6 +336,8 @@ def solve_system(
     valid_zeros = torch.zeros(n_examples_valid)
 
     loss_history = {'train': [], 'valid': []}
+    valid_loss_epoch_min = np.inf
+    solution_min = None
 
     for epoch in range(max_epochs):
         train_loss_epoch = 0.0
@@ -392,6 +401,14 @@ def solve_system(
                 else:
                     raise ValueError("The valid return types are 'tf' and 'np'.")
             return results
+
+        if valid_loss_epoch<valid_loss_epoch_min:
+            valid_loss_epoch_min = valid_loss_epoch
+            solution_min = solution
+
+    if return_best:
+        print('MIN LOSS', valid_loss_epoch_min)
+        return solution_min, loss_history
 
     if return_internal:
         return solution, loss_history, internal
