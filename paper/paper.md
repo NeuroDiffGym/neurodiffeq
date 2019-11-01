@@ -128,14 +128,14 @@ $$
 \frac{dy(t)}{dt} &= \delta x(t)y(t) - \gamma y(t), \quad y\left(0\right) = y_{0}.
 \end{aligned}
 $$
-The time-evoluation of the population of the prey and predator are given by $x$ and $y$, respectively, with $x_{0}$ and
+The time-evolution of the population of the prey and predator are given by $x$ and $y$, respectively, with $x_{0}$ and
 $y_{0}$ the initial populations. The coupling parameters $\alpha$, $\beta$, $\delta$ and $\gamma$ describe the interaction of
 the two species. Let $\alpha = \beta = \delta = \gamma = 1$, $x_{0} = 1.5$, and $y_{0} = 1.0$. For comparison purposes, we
 solve this problem numerically with ``scipy`` and ``NeuroDiffEq``.  Figure 1 compares the predator and prey populations from
 the numerical integrator and the neural network.  The solutions are qualitatively the same. 
 
 ![case1](case1.png)
-*Figure 1: Comparing numerial and ANN-based solutions of Lotka–Volterra equations.* 
+*Figure 1: Comparing numerical and ANN-based solutions of Lotka–Volterra equations.* 
 
 ### Poisson's equation
 
