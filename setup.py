@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="neurodiffeq",
-    version="0.0.1",
+    version="1.0.0",
     author="odegym",
     author_email="feiyu_chen@g.harvard.edu",
     description="A Python package for solving differential equations with neural networks",
