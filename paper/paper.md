@@ -156,7 +156,7 @@ the numerical integrator and the neural network.  The solutions are qualitativel
 ### Poisson's equation
 
 Poisson's equation is a second-order linear PDE. It can be used to describe the potential field caused by a given charge 
-or mass density distribution. In a two dimensional Cartesian coordinates, it takes the form:
+or mass density distribution. In two dimensional Cartesian coordinates, it takes the form:
 $$
 \left(\frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2}\right)u(x, y) = f(x, y).
 $$
