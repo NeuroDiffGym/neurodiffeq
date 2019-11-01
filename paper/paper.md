@@ -29,7 +29,7 @@ methods[@conde2017implicit].
 Common spatial discretization approaches include the finite difference method (FDM), finite volume method (FVM), and finite
 element method (FEM) as well as spectral methods such as the Fourier-spectral method.  These classical methods have been
 studied in detail and much is known about their convergence properties.  Moreover, highly optimized codes exist for solving
-differential equations of practical interest with these techniques[@seefelt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
+differential equations of practical interest with these techniques[@seefeldt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
 their expressibility is limited by their function representation.  For example, piecewise linear finite element methods
 represent complex dynamics as piecewise linear functions.  Mesh adaptivity can provide more fidelity for complicated physics
 but terms involving higher-order derivatives are still neglected.  This difficulty can be offset to some degree by increasing
@@ -106,13 +106,20 @@ boundary conditions.
 Another option is to transform the $u_{N}$ in a way such that the initial/boundary conditions are satisfied by
 construction.  Given an initial condition $u_{0}\left(x\right)$ the neural network can be transformed according to:
 $$
-\widetilde{u} = u_{0}\left(x\right) + \left(1-e^{-\left(t-t_{0}\right)}\right)u_{N}
+\widetilde{u}\left(x,t\right) = u_{0}\left(x\right) + \left(1-e^{-\left(t-t_{0}\right)}\right)u_{N}\left(x,t\right)
 $$
 so that when $t = t_0$, $\widetilde{u}$ will always be $u_0$. Accordingly, the objective function becomes 
 $$
 \min_{p}\left(\mathcal{L}\widetilde{u} - f\right)^2.
 $$
-This approach is similar to the trial function approach[@lagaris1998artificial], but with a different form of the trial function.
+This approach is similar to the trial function approach[@lagaris1998artificial], but with a different form of the trial
+function.  Modifying the neural network to account for boundary conditions can also be done.  In general, the transformed
+solution will have the form:
+$$
+\widetilde{u}\left(x,t\right) = A\left(x, t; x_{\text{boundary}}, t_{0}\right)u_{N}\left(x,t\right)
+$$
+where $A\left(x, t; x_{\text{boundary}}, t_{0}\right)$  must be designed so that $\widetilde{u}\left(x,t\right)$ has the
+correct boundary conditions.  This can be very challenging for complicated domains.
 
 Both of these two methods have their advantages. The first way is simpler to implement and can be more easily extended to
 high-dimensional PDEs and PDEs formulated on complicated domains. The second way assures that the initial/boundary conditions
