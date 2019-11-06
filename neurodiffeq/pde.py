@@ -451,6 +451,126 @@ def solve2D(
     else:
         return solution, loss_history
 
+def solve2D_system(
+        pde_system, conditions, xy_min, xy_max,
+        nets=None, train_generator=None, shuffle=True, valid_generator=None,
+        optimizer=None, criterion=None, batch_size=16,
+        max_epochs=1000,
+        monitor=None, return_internal=False
+):
+    # default values
+    n_dependent_vars = len(conditions)
+    if not nets:
+        nets = [
+            FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
+            for _ in range(n_dependent_vars)
+        ]
+    if not train_generator:
+        train_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
+    if not valid_generator:
+        valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+    if not optimizer:
+        all_parameters = []
+        for net in nets: all_parameters += list(net.parameters())
+        optimizer = optim.Adam(all_parameters, lr=0.001)
+    if not criterion:
+        criterion = nn.MSELoss()
+
+    if return_internal:
+        internal = {
+            'nets': nets,
+            'conditions': conditions,
+            'train_generator': train_generator,
+            'valid_generator': valid_generator,
+            'optimizer': optimizer,
+            'criterion': criterion
+        }
+
+    n_examples_train = train_generator.size
+    n_examples_valid = valid_generator.size
+    train_zeros = torch.zeros(batch_size)
+    valid_zeros = torch.zeros(n_examples_valid)
+
+    loss_history = {'train': [], 'valid': []}
+
+    for epoch in range(max_epochs):
+        train_loss_epoch = 0.0
+
+        train_examples_x, train_examples_y = train_generator.get_examples()
+        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
+        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
+        batch_start, batch_end = 0, batch_size
+        while batch_start < n_examples_train:
+
+            if batch_end > n_examples_train:
+                batch_end = n_examples_train
+            batch_idx = idx[batch_start:batch_end]
+            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
+
+            # the dependet variables
+            us = []
+            for i in range(n_dependent_vars):
+                if conditions[i]:
+                    u_i = conditions[i].enforce(nets[i], xs, ys)
+                us.append(u_i)
+
+            Fuxys = pde_system(*us, xs, ys)
+            loss = 0.0
+            for Fuxy in Fuxys:
+                loss += criterion(Fuxy, train_zeros)
+            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            batch_start += batch_size
+            batch_end += batch_size
+
+        loss_history['train'].append(train_loss_epoch)
+
+        # calculate the validation loss
+        valid_examples_x, valid_examples_y = valid_generator.get_examples()
+        xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
+        us = []
+        for i in range(n_dependent_vars):
+            if conditions[i]:
+                u_i = conditions[i].enforce(nets[i], ts)
+            us.append(u_i)
+        Fuxys = pde_system(*us, xs, ys)
+        valid_loss_epoch = 0.0
+        for Fuxy in Fuxys:
+            valid_loss_epoch += criterion(Fuxy, valid_zeros)
+        valid_loss_epoch = valid_loss_epoch.item()
+
+        loss_history['valid'].append(valid_loss_epoch)
+
+        if monitor and epoch % monitor.check_every == 0:
+            monitor.check(net, conditions, loss_history) # TODO how should we change the monitor to display multiple dependent variables?
+
+    def solution(xs, ys, as_type='tf'):
+        original_shape = xs.shape
+        if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
+        if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
+        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
+        us = []
+        for i in range(len(conditions)):
+            u_i = conditions[i].enforce(nets[i], xs, ys)
+            if   as_type == 'tf':
+                us.append(u_i.reshape(original_shape))
+            elif as_type == 'np':
+                us.append(u_i.detach().numpy().reshape(original_shape))
+            else:
+                raise ValueError("The valid return types are 'tf' and 'np'.")
+        return us
+
+    if return_internal:
+        return solution, loss_history, internal
+    else:
+        return solution, loss_history
+
+    pass
+
 
 def make_animation(solution, xs, ts):
     """Create animation of 1-D time-dependent problems.
