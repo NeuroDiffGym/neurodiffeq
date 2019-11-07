@@ -30,12 +30,7 @@ Common spatial discretization approaches include the finite difference method (F
 element method (FEM) as well as spectral methods such as the Fourier-spectral method.  These classical methods have been
 studied in detail and much is known about their convergence properties.  Moreover, highly optimized codes exist for solving
 differential equations of practical interest with these techniques[@seefeldt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
-their expressibility is limited by their function representation.  For example, piecewise linear finite element methods
-represent complex dynamics as piecewise linear functions.  Mesh adaptivity can provide more fidelity for complicated physics
-but terms involving higher-order derivatives are still neglected.  This difficulty can be offset to some degree by increasing
-the order of the basis, but the piecewise nature of the expansion does ultimately lead to non-differentiability at element
-boundaries.  Fourier-spectral methods are very high-order methods with excellent convergence properties, but they
-suffer from limited expressibility near domain boundaries.
+their expressibility is limited by their function representation.  
 
 Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to
 learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function approximators 
@@ -57,8 +52,7 @@ and ``PyDEns``[@koryagin2019pydens]. Both ``DeepXDE`` and ``PyDEns`` are built o
 ``DeepXDE`` has an emphasis on the wide variety of problems it can solve. It supports mixing different boundary conditions and 
 solving on domains with complex geometries. ``PyDEns`` is less flexible in the range of solvable problems but provides
 a more user-friendly API. This trade-off is partially determined by the way these two packages implement the solver, 
-which will be discussed later.  When we began work on ``NeuroDiffEq`` we were unaware that ``DeepXDE`` had just started
-development.  The package ``PyDEns`` started development shortly after ``NeuroDiffEq``.
+which will be discussed later.  
 
 ``NeuroDiffEq`` is designed to encourage the user to focus more on the problem domain (What is the differential equation we
 need to solve? What are the initial/boundary conditions?) and at the same time allow them to dig into solution domain (What
@@ -76,8 +70,7 @@ The key idea of solving differential equations with ANNs is to reformulate the p
 minimize the residual of the differential equations.  In a very general sense, a differential equation can be expressed as
 $$\mathcal{L}u - f = 0$$
 where $\mathcal{L}$ is the differential operator, $u\left(x,t\right)$ is the solution that we wish to find, and $f$ is a known forcing
-function.  Note that $\mathcal{L}$ contains any combination of temporal and spatial partial derivatives.  Moreover, $x$ is in
-general a vector in three spatial dimensions and $u$ is a vector of solutions.  We denote the output of the neural network as
+function.  We denote the output of the neural network as
 $u_{N}\left(x, t; p\right)$ where the parameter vector $p$ is a vector containing the weights and biases of the neural
 network.  We will drop the arguments of the neural network solution in order to be concise.  If $u_{N}$ is a solution to the
 differential equation, then the residual $$\mathcal{R}\left(u_{N}\right) = \mathcal{L}u_{N} - f $$ 
@@ -89,7 +82,6 @@ $$
 \min_{p}\left(\mathcal{L}u_{N} - f\right)^2.
 $$
 
-## Boundary and Initial Conditions
 It is necessary to inform the neural network about any boundary and initial conditions since it has no way of enforcing these *a priori*.
 There are two primary ways to satisfy the boundary and initial conditions.  First, one can impose the initial/boundary
 conditions in the
