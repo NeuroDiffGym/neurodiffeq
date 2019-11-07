@@ -10,6 +10,16 @@ from .networks import FCNN
 from .neurodiffeq import diff
 
 
+def _nn_output_2input(net, xs, ys):
+    xys = torch.cat((xs, ys), 1)
+    return net(xys)
+
+
+class NoCondition2D:
+    def enforce(self, net, x, y):
+        return _nn_output_2input(net, x, y)
+
+
 class DirichletBVP2D:
     """An Dirichlet boundary value problem on a 2-D orthogonal box where :math:`x\\in[x_0, x_1]` and :math:`y\\in[y_0, y_1]`
         We are solving :math:`u(x, t)` given:
@@ -59,8 +69,7 @@ class DirichletBVP2D:
             .. note::
                 `enforce` is meant to be called by the function `solve2D`.
         """
-        xys = torch.cat((x, y), 1)
-        u = net(xys)
+        u = _nn_output_2input(net, x, y)
         x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
         y_tilde = (y-self.y_min) / (self.y_max-self.y_min)
         Axy = (1-x_tilde)*self.x_min_val(y) + x_tilde*self.x_max_val(y) + \
@@ -126,8 +135,7 @@ class IBVP1D:
             raise NotImplementedError('Sorry, this boundary condition is not implemented.')
 
     def _enforce_dd(self, net, x, t):
-        xts = torch.cat((x, t), 1)
-        uxt = net(xts)
+        uxt = _nn_output_2input(net, x, t)
 
         t_ones = torch.ones_like(t, requires_grad=True)
         t_ones_min = self.t_min * t_ones
@@ -141,15 +149,13 @@ class IBVP1D:
         return Axt + x_tilde * (1 - x_tilde) * (1 - torch.exp(-t_tilde)) * uxt
 
     def _enforce_dn(self, net, x, t):
-        xts = torch.cat((x, t), 1)
-        uxt = net(xts)
+        uxt = _nn_output_2input(net, x, t)
 
         x_ones = torch.ones_like(x, requires_grad=True)
         t_ones = torch.ones_like(t, requires_grad=True)
         x_ones_max = self.x_max * x_ones
         t_ones_min = self.t_min * t_ones
-        xmaxts  = torch.cat((x_ones_max, t), 1)
-        uxmaxt  = net(xmaxts)
+        uxmaxt = _nn_output_2input(net, x_ones_max, t)
 
         x_tilde = (x-self.x_min) / (self.x_max-self.x_min)
         t_tilde = t-self.t_min
@@ -161,15 +167,13 @@ class IBVP1D:
         )
 
     def _enforce_nd(self, net, x, t):
-        xts = torch.cat((x, t), 1)
-        uxt = net(xts)
+        uxt = _nn_output_2input(net, x, t)
 
         x_ones = torch.ones_like(x, requires_grad=True)
         t_ones = torch.ones_like(t, requires_grad=True)
         x_ones_min = self.x_min * x_ones
         t_ones_min = self.t_min * t_ones
-        xmints = torch.cat((x_ones_min, t), 1)
-        uxmint = net(xmints)
+        uxmint = _nn_output_2input(net, x_ones_min, t)
 
         x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
         t_tilde = t - self.t_min
@@ -181,18 +185,15 @@ class IBVP1D:
         )
 
     def _enforce_nn(self, net, x, t):
-        xts = torch.cat((x, t), 1)
-        uxt = net(xts)
+        uxt = _nn_output_2input(net, x, t)
 
         x_ones = torch.ones_like(x, requires_grad=True)
         t_ones = torch.ones_like(t, requires_grad=True)
         x_ones_min = self.x_min * x_ones
         x_ones_max = self.x_max * x_ones
         t_ones_min = self.t_min * t_ones
-        xmints = torch.cat((x_ones_min, t), 1)
-        xmaxts = torch.cat((x_ones_max, t), 1)
-        uxmint = net(xmints)
-        uxmaxt = net(xmaxts)
+        uxmint = _nn_output_2input(net, x_ones_min, t)
+        uxmaxt = _nn_output_2input(net, x_ones_max, t)
 
         x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
         t_tilde = t - self.t_min
@@ -274,46 +275,63 @@ class Monitor2D:
         """Initializer method
         """
         self.check_every = check_every
-        self.fig = plt.figure(figsize=(20, 8))
-        self.ax1 = self.fig.add_subplot(121)
-        self.ax2 = self.fig.add_subplot(122)
-        self.cb1 = None
+        self.fig = None
+        self.axs = []  # subplots
+        self.cbs = []  # color bars
         # input for neural network
         gen = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = gen.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
-        self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
+        # self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
 
-    def check(self, net, condition, loss_history):
+    def check(self, nets, conditions, loss_history):
         r"""Draw 2 plots: One shows the shape of the current solution (with heat map). The other shows the history training loss and validation loss.
 
-        :param net: The neural networks that approximates the PDE.
-        :type net: `torch.nn.Module`
-        :param condition: The initial/boundary condition of the PDE.
-        :type condition: `neurodiff.pde.DirichletBVP2D` or `neurodiff.pde.IBVP1D`]
+        :param nets: The neural networks that approximates the PDE.
+        :type nets: list [`torch.nn.Module`]
+        :param conditions: The initial/boundary condition of the PDE.
+        :type conditions: list [`neurodiff.pde.DirichletBVP2D` or `neurodiff.pde.IBVP1D`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
             `check` is meant to be called by the function `solve2D`.
         """
-        us = condition.enforce(net, self.xs_ann, self.ys_ann)
-        us = us.detach().numpy().flatten()
 
-        self.ax1.clear()
-        cax1 = self.ax1.matshow(us.reshape((32, 32)), cmap='hot', interpolation='nearest')
-        if self.cb1: self.cb1.remove()
-        self.cb1 = self.fig.colorbar(cax1, ax=self.ax1)
-        self.ax1.set_title('u(x, y)')
+        if not self.fig:
+            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
+            # size of the figure, number of the subplots, etc.
+            n_axs = len(nets) + 1  # one for each dependent variable, another one for training and validation loss
+            n_row, n_col = (n_axs+1) // 2, 2
+            self.fig = plt.figure(figsize=(20, 8*n_row))
+            for i in range(n_axs):
+                self.axs.append( self.fig.add_subplot(n_row, n_col, i+1) )
+            for i in range(len(nets)):
+                self.cbs.append(None)
 
-        self.ax2.clear()
-        self.ax2.plot(loss_history['train'], label='training loss')
-        self.ax2.plot(loss_history['valid'], label='validation loss')
-        self.ax2.set_title('loss during training')
-        self.ax2.set_ylabel('loss')
-        self.ax2.set_xlabel('epochs')
-        self.ax2.set_yscale('log')
-        self.ax2.legend()
+        us = [
+            con.enforce(net, self.xs_ann, self.ys_ann)
+            for con, net in zip(conditions, nets)
+        ]
+
+        for i, ax_u in enumerate( zip(self.axs[:-1], us) ):
+            ax, u = ax_u
+            ax.clear()
+            u_as_mat = u.detach().numpy().reshape((32, 32))
+            cax = ax.matshow(u_as_mat, cmap='hot', interpolation='nearest')
+            if self.cbs[i]:
+                self.cbs[i].remove()
+            self.cbs[i] = self.fig.colorbar(cax, ax=ax)
+            ax.set_title(f'u[{i}](x, y)')
+
+        self.axs[-1].clear()
+        self.axs[-1].plot(loss_history['train'], label='training loss')
+        self.axs[-1].plot(loss_history['valid'], label='validation loss')
+        self.axs[-1].set_title('loss during training')
+        self.axs[-1].set_ylabel('loss')
+        self.axs[-1].set_xlabel('epochs')
+        self.axs[-1].set_yscale('log')
+        self.axs[-1].legend()
 
         self.fig.canvas.draw()
 
@@ -362,94 +380,24 @@ def solve2D(
         `as_type (str)` indicates whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
     :rtype: tuple[function, dict]; or tuple[function, dict, dict]
     """
+    nets = None if not net else [net]
+    returned_tuple = solve2D_system(
+        pde_system=lambda u, x, y: [pde(u, x, y)], conditions=[condition],
+        xy_min=xy_min, xy_max=xy_max, nets=nets,
+        train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
+        optimizer=optimizer, criterion=criterion, batch_size=batch_size,
+        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal
+    )
 
-    # default values
-    if not net:
-        net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
-    if not train_generator:
-        train_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
-    if not valid_generator:
-        valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
-    if not optimizer:
-        optimizer = optim.Adam(net.parameters(), lr=0.001)
-    if not criterion:
-        criterion = nn.MSELoss()
-
+    def solution_wrapped(xs, ys, as_type='tf'):
+        return solution(xs, ys, as_type)[0]
     if return_internal:
-        internal = {
-            'net': net,
-            'condition': condition,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
-
-    n_examples_train = train_generator.size
-    n_examples_valid = valid_generator.size
-    train_zeros = torch.zeros(batch_size)
-    valid_zeros = torch.zeros(n_examples_valid)
-
-    loss_history = {'train': [], 'valid': []}
-
-    for epoch in range(max_epochs):
-        train_loss_epoch = 0.0
-
-        train_examples_x, train_examples_y = train_generator.get_examples()
-        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
-
-            us = condition.enforce(net, xs, ys)
-
-            Fuxy = pde(us, xs, ys)
-            loss = criterion(Fuxy, train_zeros)
-            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
-        loss_history['train'].append(train_loss_epoch)
-
-        # calculate the validation loss
-        valid_examples_x, valid_examples_y = valid_generator.get_examples()
-        xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        us = condition.enforce(net, xs, ys)
-        Fuxy = pde(us, xs, ys)
-        valid_loss_epoch = criterion(Fuxy, valid_zeros).item()
-
-        loss_history['valid'].append(valid_loss_epoch)
-
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(net, condition, loss_history)
-
-    def solution(xs, ys, as_type='tf'):
-        original_shape = xs.shape
-        if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
-        if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
-        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
-        us = condition.enforce(net, xs, ys)
-        if   as_type == 'tf':
-            return us.reshape(original_shape)
-        elif as_type == 'np':
-            return us.detach().numpy().reshape(original_shape)
-        else:
-            raise ValueError("The valid return types are 'tf' and 'np'.")
-
-    if return_internal:
-        return solution, loss_history, internal
+        solution, loss_history, internal = returned_tuple
+        return solution_wrapped, loss_history, internal
     else:
-        return solution, loss_history
+        solution, loss_history = returned_tuple
+        return solution_wrapped, loss_history
+
 
 def solve2D_system(
         pde_system, conditions, xy_min, xy_max,
@@ -508,11 +456,10 @@ def solve2D_system(
             xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
 
             # the dependet variables
-            us = []
-            for i in range(n_dependent_vars):
-                if conditions[i]:
-                    u_i = conditions[i].enforce(nets[i], xs, ys)
-                us.append(u_i)
+            us = [
+                con.enforce(net, xs, ys)
+                for con, net in zip(conditions, nets)
+            ]
 
             Fuxys = pde_system(*us, xs, ys)
             loss = 0.0
@@ -532,11 +479,10 @@ def solve2D_system(
         # calculate the validation loss
         valid_examples_x, valid_examples_y = valid_generator.get_examples()
         xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        us = []
-        for i in range(n_dependent_vars):
-            if conditions[i]:
-                u_i = conditions[i].enforce(nets[i], ts)
-            us.append(u_i)
+        us = [
+            con.enforce(net, xs, ys)
+            for con, net in zip(conditions, nets)
+        ]
         Fuxys = pde_system(*us, xs, ys)
         valid_loss_epoch = 0.0
         for Fuxy in Fuxys:
@@ -546,7 +492,7 @@ def solve2D_system(
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:
-            monitor.check(net, conditions, loss_history) # TODO how should we change the monitor to display multiple dependent variables?
+            monitor.check(nets, conditions, loss_history)
 
     def solution(xs, ys, as_type='tf'):
         original_shape = xs.shape
