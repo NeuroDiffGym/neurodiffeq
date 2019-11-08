@@ -173,7 +173,7 @@ class Monitor:
         :param nets: The neural networks that approximates the ODE (system).
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
-        :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
+        :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
 
@@ -220,7 +220,7 @@ def solve(
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: function
     :param condition: The initial/boundary condition.
-    :type condition: `neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`
+    :type condition: `neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param t_min: The lower bound of the domain (t) on which the ODE is solved.
@@ -272,17 +272,17 @@ def solve_system(
 ):
     """Train a neural network to solve an ODE.
 
-    :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent variable and :math:`t` is the independent variable,
-        then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
+    :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent i-th variable and :math:`t` is the independent variable,
+        then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
     :type ode_system: function
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
-    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
-    :param nets: The neural networks used to approximate the solution, defaults to None.
-    :type nets: list[`torch.nn.Module`], optional
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
     :param t_min: The lower bound of the domain (t) on which the ODE is solved.
     :type t_min: float
     :param t_max: The upper bound of the domain (t) on which the ODE is solved.
     :type t_max: float
+    :param nets: The neural networks used to approximate the solution, defaults to None.
+    :type nets: list[`torch.nn.Module`], optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
     :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
@@ -416,7 +416,7 @@ class Solution:
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
     """
     def __init__(self, nets, conditions):
         """Initializer method

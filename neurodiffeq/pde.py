@@ -292,7 +292,7 @@ class Monitor2D:
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
         :param conditions: The initial/boundary condition of the PDE.
-        :type conditions: list [`neurodiff.pde.DirichletBVP2D` or `neurodiff.pde.IBVP1D`]
+        :type conditions: list [`neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
 
@@ -350,7 +350,7 @@ def solve2D(
         then `pde` should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: function
     :param condition: The initial/boundary condition.
-    :type condition: `neurodiff.pde.DirichletBVP2D` or `neurodiff.pde.IBVP1D`
+    :type condition: `neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`
     :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`.
     :type xy_min: tuple[float, float], optional
     :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
@@ -358,11 +358,11 @@ def solve2D(
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiff.pde.ExampleGenerator2D`, optional
+    :type train_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiff.pde.ExampleGenerator2D`, optional
+    :type valid_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
@@ -399,6 +399,44 @@ def solve2D_system(
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
+    """Train a neural network to solve a PDE with 2 independent variables.
+
+        :param pde_system: The PDEsystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0` where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
+            then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
+        :type pde_system: function
+        :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
+        :type conditions: list[`neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`]
+        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`.
+        :type xy_min: tuple[float, float], optional
+        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
+        :type xy_max: tuple[float, float], optional
+        :param nets: The neural networks used to approximate the solution, defaults to None.
+        :type nets: list[`torch.nn.Module`], optional
+        :param train_generator: The example generator to generate 1-D training points, default to None.
+        :type train_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+        :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+        :type shuffle: bool, optional
+        :param valid_generator: The example generator to generate 1-D validation points, default to None.
+        :type valid_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+        :param optimizer: The optimization method to use for training, defaults to None.
+        :type optimizer: `torch.optim.Optimizer`, optional
+        :param criterion: The loss function to use for training, defaults to None.
+        :type criterion: `torch.nn.modules.loss._Loss`, optional
+        :param batch_size: The size of the mini-batch to use, defaults to 16.
+        :type batch_size: int, optional
+        :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+        :type max_epochs: int, optional
+        :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+        :type monitor: `neurodiffeq.pde.Monitor2D`, optional
+        :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+        :type return_internal: bool, optional
+        :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+        :type return_best: bool, optional
+        :return: The solution of the PDE. The history of training loss and validation loss.
+            Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+            The solution is a function that has the signature `solution(xs, ys, as_type)`.
+        :rtype: tuple[`neurodiffeq.pde.Solution`, dict]; or tuple[`neurodiffeq.pde.Solution`, dict, dict]
+        """
     # default values
     n_dependent_vars = len(conditions)
     if not nets:
@@ -429,8 +467,8 @@ def solve2D_system(
 
     n_examples_train = train_generator.size
     n_examples_valid = valid_generator.size
-    train_zeros = torch.zeros(batch_size)
-    valid_zeros = torch.zeros(n_examples_valid)
+    train_zeros = torch.zeros(batch_size).reshape((-1, 1))
+    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
     valid_loss_epoch_min = np.inf
@@ -510,7 +548,7 @@ class Solution:
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.pde.NoCondition`]
     """
     def __init__(self, nets, conditions):
         """Initializer method
