@@ -304,7 +304,8 @@ def solve_system(
         valid_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced')
     if not optimizer:
         all_parameters = []
-        for net in nets: all_parameters += list(net.parameters())
+        for net in nets:
+            all_parameters += list(net.parameters())
         optimizer = optim.Adam(all_parameters, lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
@@ -337,7 +338,8 @@ def solve_system(
         batch_start, batch_end = 0, batch_size
         while batch_start < n_examples_train:
 
-            if batch_end >= n_examples_train: batch_end = n_examples_train
+            if batch_end >= n_examples_train:
+                batch_end = n_examples_train
             batch_idx = idx[batch_start:batch_end]
             ts = train_examples[batch_idx]
 
@@ -348,9 +350,10 @@ def solve_system(
                     v_i = conditions[i].enforce(nets[i], ts)
                 vs.append(v_i)
 
-            Fvts = ode_system(*vs, ts)
+            fvts = ode_system(*vs, ts)
             loss = 0.0
-            for Fvt in Fvts: loss += criterion(Fvt, train_zeros)
+            for fvt in fvts:
+                loss += criterion(fvt, train_zeros)
             train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train # assume the loss is a mean over all examples
 
             optimizer.zero_grad()
@@ -369,14 +372,15 @@ def solve_system(
             if conditions[i]:
                 v_i = conditions[i].enforce(nets[i], ts)
             vs.append(v_i)
-        Fvts = ode_system(*vs, ts)
+        fvts = ode_system(*vs, ts)
         valid_loss_epoch = 0.0
-        for Fvt in Fvts: valid_loss_epoch += criterion(Fvt, valid_zeros)
+        for fvt in fvts:
+            valid_loss_epoch += criterion(fvt, valid_zeros)
         valid_loss_epoch = valid_loss_epoch.item()
 
         loss_history['valid'].append(valid_loss_epoch)
 
-        if monitor and epoch%monitor.check_every == 0:
+        if monitor and epoch % monitor.check_every == 0:
             monitor.check(nets, conditions, loss_history)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:

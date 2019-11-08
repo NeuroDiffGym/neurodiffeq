@@ -1,2 +1,6 @@
+sphinx
 mock
 nbsphinx
+sphinx_rtd_theme
+recommonmark
+pandoc
