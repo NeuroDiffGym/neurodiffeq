@@ -25,18 +25,17 @@ Differential equations emerge in various scientific and engineering domains for 
 differential equations of practical interest are analytically intractable.  Traditionally, differential equations are solved
 by numerical methods.  Sophisticated algorithms exist to integrate differential equations in time and space.  Time integration
 techniques continue to be an active area of research and include backward difference formulas and Runge-Kutta
-methods[@conde2017implicit].
+methods [@conde2017implicit].
 Common spatial discretization approaches include the finite difference method (FDM), finite volume method (FVM), and finite
 element method (FEM) as well as spectral methods such as the Fourier-spectral method.  These classical methods have been
 studied in detail and much is known about their convergence properties.  Moreover, highly optimized codes exist for solving
-differential equations of practical interest with these techniques[@seefeldt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
+differential equations of practical interest with these techniques [@seefeldt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
 their expressibility is limited by their function representation.  
 
 Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to
-learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function approximators 
-[@hornik1989multilayer]. This suggests the possibility of using ANNs to solve differential equations. Previous studies have 
+learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function approximators [@hornik1989multilayer]. This suggests the possibility of using ANNs to solve differential equations. Previous studies have 
 demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
-differential equations (PDEs) with certain initial/boundary conditions[@lagaris1998artificial]. These methods show nice
+differential equations (PDEs) with certain initial/boundary conditions [@lagaris1998artificial]. These methods show nice
 properties including (1) continuous and differentiable solutions, (2) good interpolation properties, (3) less
 memory-intensive.  By less memory-intensive we mean that only the weights of the neural network have to be stored.  The
 solution can then be recovered anywhere in the solution domain because a trained neural network is a closed form solution.
@@ -44,11 +43,11 @@ Given the
 interest in developing neural networks for solving differential equations, it would be extremely beneficial to have an
 easy-to-use software package that allows researchers to quickly set up and solve problems.
 
-``NeuroDiffEq`` is a Python package built with ``PyTorch``[@paszke2017automatic] that uses ANNs to solve ordinary and partial differential
+``NeuroDiffEq`` is a Python package built with ``PyTorch`` [@paszke2017automatic] that uses ANNs to solve ordinary and partial differential
 equations (ODEs and PDEs).  During the release of ``NeuroDiffEq`` we discovered that two other groups had almost simultaneously
-released their own software packages for solving differential equations with neural networks:  ``DeepXDE``[@lu2019deepxde]
-and ``PyDEns``[@koryagin2019pydens]. Both ``DeepXDE`` and ``PyDEns`` are built on top of
-``TensorFlow``[@tensorflow2015-whitepaper]. 
+released their own software packages for solving differential equations with neural networks:  ``DeepXDE`` [@lu2019deepxde]
+and ``PyDEns`` [@koryagin2019pydens]. Both ``DeepXDE`` and ``PyDEns`` are built on top of
+``TensorFlow`` [@tensorflow2015-whitepaper]. 
 ``DeepXDE`` has an emphasis on the wide variety of problems it can solve. It supports mixing different boundary conditions and 
 solving on domains with complex geometries. ``PyDEns`` is less flexible in the range of solvable problems but provides
 a more user-friendly API. This trade-off is partially determined by the way these two packages implement the solver, 
@@ -104,7 +103,7 @@ so that when $t = t_0$, $\widetilde{u}$ will always be $u_0$. Accordingly, the o
 $$
 \min_{p}\left(\mathcal{L}\widetilde{u} - f\right)^2.
 $$
-This approach is similar to the trial function approach[@lagaris1998artificial], but with a different form of the trial
+This approach is similar to the trial function approach [@lagaris1998artificial], but with a different form of the trial
 function.  Modifying the neural network to account for boundary conditions can also be done.  In general, the transformed
 solution will have the form:
 $$
@@ -117,7 +116,7 @@ Both of these two methods have their advantages. The first way is simpler to imp
 high-dimensional PDEs and PDEs formulated on complicated domains. The second way assures that the initial/boundary conditions
 are exactly satisfied.  Considering that differential equations can be sensitive to initial/boundary conditions, this is
 expected to play an important role. Another advantage of the second method is that fixing these conditions can reduce the
-effort required during the training of the ANN[@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary 
+effort required during the training of the ANN [@mcfall2009artificial]. ``DeepXDE`` uses the first way to impose initial/boundary 
 conditions. ``PyDEns`` uses a variation of the second approach to impose initial/boundary conditions. ``NeuroDiffEq``, the
 software described herein, employs the second approach. 
 
