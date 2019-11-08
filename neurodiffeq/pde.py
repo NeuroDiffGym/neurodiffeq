@@ -8,6 +8,7 @@ import matplotlib.animation as animation
 
 from .networks import FCNN
 from .neurodiffeq import diff
+from copy import deepcopy
 
 
 def _nn_output_2input(net, xs, ys):
@@ -16,7 +17,8 @@ def _nn_output_2input(net, xs, ys):
 
 
 class NoCondition2D:
-    def enforce(self, net, x, y):
+    @staticmethod
+    def enforce(net, x, y):
         return _nn_output_2input(net, x, y)
 
 
@@ -340,7 +342,7 @@ def solve2D(
         pde, condition, xy_min, xy_max,
         net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
-        monitor=None, return_internal=False
+        monitor=None, return_internal=False, return_best=False
 ):
     """Train a neural network to solve a PDE with 2 independent variables.
 
@@ -373,30 +375,21 @@ def solve2D(
     :type monitor: `neurodiffeq.pde.Monitor2D`, optional
     :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
     :type return_internal: bool, optional
+    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :type return_best: bool, optional
     :return: The solution of the PDE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
         The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        `xs (torch.tensor)` and `ys (torch.tensor)` are the points on which :math:`u(x, y)` is evaluated.
-        `as_type (str)` indicates whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
-    :rtype: tuple[function, dict]; or tuple[function, dict, dict]
+    :rtype: tuple[`neurodiffeq.pde.Solution`, dict]; or tuple[`neurodiffeq.pde.Solution`, dict, dict]
     """
     nets = None if not net else [net]
-    returned_tuple = solve2D_system(
+    return solve2D_system(
         pde_system=lambda u, x, y: [pde(u, x, y)], conditions=[condition],
         xy_min=xy_min, xy_max=xy_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
         optimizer=optimizer, criterion=criterion, batch_size=batch_size,
-        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal
+        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal, return_best=return_best
     )
-
-    def solution_wrapped(xs, ys, as_type='tf'):
-        return solution(xs, ys, as_type)[0]
-    if return_internal:
-        solution, loss_history, internal = returned_tuple
-        return solution_wrapped, loss_history, internal
-    else:
-        solution, loss_history = returned_tuple
-        return solution_wrapped, loss_history
 
 
 def solve2D_system(
@@ -404,7 +397,7 @@ def solve2D_system(
         nets=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
-        monitor=None, return_internal=False
+        monitor=None, return_internal=False, return_best=False
 ):
     # default values
     n_dependent_vars = len(conditions)
@@ -440,6 +433,8 @@ def solve2D_system(
     valid_zeros = torch.zeros(n_examples_valid)
 
     loss_history = {'train': [], 'valid': []}
+    valid_loss_epoch_min = np.inf
+    solution_min = None
 
     for epoch in range(max_epochs):
         train_loss_epoch = 0.0
@@ -494,28 +489,65 @@ def solve2D_system(
         if monitor and epoch % monitor.check_every == 0:
             monitor.check(nets, conditions, loss_history)
 
-    def solution(xs, ys, as_type='tf'):
-        original_shape = xs.shape
-        if not isinstance(xs, torch.Tensor): xs = torch.tensor([xs], dtype=torch.float32)
-        if not isinstance(ys, torch.Tensor): ys = torch.tensor([ys], dtype=torch.float32)
-        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
-        us = []
-        for i in range(len(conditions)):
-            u_i = conditions[i].enforce(nets[i], xs, ys)
-            if   as_type == 'tf':
-                us.append(u_i.reshape(original_shape))
-            elif as_type == 'np':
-                us.append(u_i.detach().numpy().reshape(original_shape))
-            else:
-                raise ValueError("The valid return types are 'tf' and 'np'.")
-        return us
+        if return_best and valid_loss_epoch < valid_loss_epoch_min:
+            valid_loss_epoch_min = valid_loss_epoch
+            solution_min = Solution(nets, conditions)
+
+    if return_best:
+        solution = solution_min
+    else:
+        solution = Solution(nets, conditions)
 
     if return_internal:
         return solution, loss_history, internal
     else:
         return solution, loss_history
 
-    pass
+
+class Solution:
+    """A solution to an PDE (system)
+
+    :param nets: The neural networks that approximates the ODE.
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: The initial/boundary conditions of the ODE (system).
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
+    """
+    def __init__(self, nets, conditions):
+        """Initializer method
+        """
+        self.nets = deepcopy(nets)
+        self.conditions = deepcopy(conditions)
+
+    def __call__(self, xs, ys, as_type='tf'):
+        """Evaluate the solution at certain points.
+
+        :param xs: the x-coordinates of points on which the dependent variables are evaluated.
+        :type xs: `torch.tensor` or sequence of number
+        :param ys: the y-coordinates of points on which the dependent variables are evaluated.
+        :type ys: `torch.tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type as_type: str
+        :return: dependent variables are evaluated at given points.
+        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.tensor` or `numpy.array` (when there is only one dependent variable).
+        """
+        original_shape = xs.shape
+        if not isinstance(xs, torch.Tensor):
+            xs = torch.tensor([xs], dtype=torch.float32)
+        if not isinstance(ys, torch.Tensor):
+            ys = torch.tensor([ys], dtype=torch.float32)
+        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
+        if as_type not in ('tf', 'np'):
+            raise ValueError("The valid return types are 'tf' and 'np'.")
+
+        us = [
+            con.enforce(net, xs, ys).reshape(original_shape)
+            for con, net in zip(self.conditions, self.nets)
+        ]
+        if as_type == 'np':
+            us = [u.detach().numpy() for u in us]
+
+        return us if len(self.nets) > 1 else us[0]
 
 
 def make_animation(solution, xs, ts):
