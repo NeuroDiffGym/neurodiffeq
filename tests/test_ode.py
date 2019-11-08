@@ -59,7 +59,15 @@ def test_ode():
     init_val_ex = IVP(t_0=0.0, x_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0, shuffle=False,
-                           max_epochs=2000)
+                           max_epochs=2000, return_best=True)
+    ts = np.linspace(0, 2.0, 100)
+    x_net = solution_ex(ts, as_type='np')
+    x_ana = np.exp(ts)
+    assert isclose(x_net, x_ana, atol=0.1).all()
+
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                           t_min=0.0, t_max=2.0, shuffle=False,
+                           max_epochs=2000, return_best=False)
     ts = np.linspace(0, 2.0, 100)
     x_net = solution_ex(ts, as_type='np')
     x_ana = np.exp(ts)
