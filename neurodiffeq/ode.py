@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from .networks import FCNN
+from copy import deepcopy
 
 
 class IVP:
@@ -158,7 +159,7 @@ class Monitor:
         :param nets: The neural networks that approximates the ODE (system).
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
-        :type conditions: list [`neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`]
+        :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
 
@@ -205,7 +206,7 @@ def solve(
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: function
     :param condition: The initial/boundary condition.
-    :type condition: `neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`
+    :type condition: `neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param t_min: The lower bound of the domain (t) on which the ODE is solved.
@@ -213,11 +214,11 @@ def solve(
     :param t_max: The upper bound of the domain (t) on which the ODE is solved.
     :type t_max: float
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :type valid_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
@@ -234,10 +235,10 @@ def solve(
     :type return_best: bool, optional
     :return: The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
-    :rtype: tuple[function, dict]; or tuple[function, dict, dict]
+    :rtype: tuple[`neurodiffeq.ode.Solution`, dict]; or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
     nets = None if not net else [net]
-    returned_tuple = solve_system(
+    return solve_system(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
@@ -245,15 +246,6 @@ def solve(
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
-
-    def solution_wrapped(ts, as_type='tf'):
-        return solution(ts, as_type)[0]
-    if return_internal:
-        solution, loss_history, internal = returned_tuple
-        return solution_wrapped, loss_history, internal
-    else:
-        solution, loss_history = returned_tuple
-        return solution_wrapped, loss_history
 
 
 def solve_system(
@@ -270,19 +262,19 @@ def solve_system(
         then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the ith entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
     :type ode_system: function
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
-    :type conditions: list [`neurodiff.ode.IVP` or `neurodiff.ode.DirichletBVP`]
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
     :param nets: The neural networks used to approximate the solution, defaults to None.
-    :type nets: list [`torch.nn.Module`], optional
+    :type nets: list[`torch.nn.Module`], optional
     :param t_min: The lower bound of the domain (t) on which the ODE is solved.
     :type t_min: float
     :param t_max: The upper bound of the domain (t) on which the ODE is solved.
     :type t_max: float
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiff.ode.ExampleGenerator`, optional
+    :type valid_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
@@ -299,10 +291,7 @@ def solve_system(
     :type return_best: bool, optional
     :return: The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
-        The solution is a function that has the signature `solution(ts, as_type)`.
-        `ts (torch.tensor)` are the points on which :math:`x(t)` is evaluated.
-        `as_type (str)` indicates whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
-    :rtype: tuple[function, dict]; or tuple[function, dict, dict]
+    :rtype: tuple[`neurodiffeq.ode.Solution`, dict]; or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
 
     # default values
@@ -390,27 +379,55 @@ def solve_system(
         if monitor and epoch%monitor.check_every == 0:
             monitor.check(nets, conditions, loss_history)
 
-        def solution(ts, as_type='tf'):
-            if not isinstance(ts, torch.Tensor): ts = torch.tensor([ts], dtype=torch.float32)
-            ts = ts.reshape(-1, 1)
-            results = []
-            for i in range(len(conditions)):
-                xs = conditions[i].enforce(nets[i], ts)
-                if   as_type == 'tf': results.append(xs)
-                elif as_type == 'np': results.append(xs.detach().numpy().flatten())
-                else:
-                    raise ValueError("The valid return types are 'tf' and 'np'.")
-            return results
-
-        if valid_loss_epoch<valid_loss_epoch_min:
+        if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
-            solution_min = solution
+            # solution_min = solution
+            solution_min = Solution(nets, conditions)
 
     if return_best:
-        print('MIN LOSS', valid_loss_epoch_min)
-        return solution_min, loss_history
+        solution = solution_min
+    else:
+        solution = Solution(nets, conditions)
 
     if return_internal:
         return solution, loss_history, internal
     else:
         return solution, loss_history
+
+
+class Solution:
+    """A solution to an ODE equation
+
+    :param nets: The neural networks that approximates the ODE.
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: The initial/boundary conditions of the ODE (system).
+    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP`]
+    """
+    def __init__(self, nets, conditions):
+        """Initializer method
+        """
+        self.nets = deepcopy(nets)
+        self.conditions = deepcopy(conditions)
+
+    def __call__(self, ts, as_type='tf'):
+        """Evaluate the solution at certain points.
+
+        :param ts: the points on which :math:`x(t)` is evaluated.
+        :type ts: `torch.tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type as_type: str
+        """
+        if not isinstance(ts, torch.Tensor):
+            ts = torch.tensor([ts], dtype=torch.float32)
+        ts = ts.reshape(-1, 1)
+        if as_type not in ('tf', 'np'):
+            raise ValueError("The valid return types are 'tf' and 'np'.")
+
+        vs = [
+            con.enforce(net, ts).detach()
+            for con, net in zip(self.conditions, self.nets)
+        ]
+        if as_type == 'np':
+            vs = [v.detach().numpy().flatten() for v in vs]
+
+        return vs if len(self.nets) > 1 else vs[0]
