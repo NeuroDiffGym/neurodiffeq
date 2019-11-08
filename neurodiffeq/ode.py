@@ -9,6 +9,19 @@ from .networks import FCNN
 from copy import deepcopy
 
 
+class NoCondition2D:
+    """An condition class that does not impose any initial/boundary conditions
+    """
+    @staticmethod
+    def enforce(net, t):
+        r"""Return the raw input of neural network.
+
+        .. note::
+            `enforce` is meant to be called by the function `solve` and `solve_system`.
+        """
+        return net(t)
+
+
 class IVP:
     """An initial value problem.
         For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0`.
@@ -131,6 +144,7 @@ class ExampleGenerator:
         else:
             raise ValueError(f'Unknown method: {method}')
 
+
 class Monitor:
     """A monitor for checking the status of the neural network during training.
 
@@ -151,7 +165,7 @@ class Monitor:
         # input for plotting
         self.ts_plt = np.linspace(t_min, t_max, 100)
         # input for neural network
-        self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1, 1))
+        self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1))
 
     def check(self, nets, conditions, loss_history):
         r"""Draw 2 plots: One shows the shape of the current solution. The other shows the history training loss and validation loss.
@@ -168,14 +182,14 @@ class Monitor:
         """
         n_dependent = len(conditions)
 
-        vs = []
-        for i in range(n_dependent):
-            if conditions[i]:
-                v_i = conditions[i].enforce(nets[i], self.ts_ann)
-            vs.append(v_i.detach().numpy().flatten())
+        vs = [
+            con.enforce(net, self.ts_ann).detach().numpy()
+            for con, net in zip(conditions, nets)
+        ]
 
         self.ax1.clear()
         for i in range(n_dependent):
+            print(vs[i].shape)
             self.ax1.plot(self.ts_plt, vs[i], label=f'variable {i}')
         self.ax1.legend()
         self.ax1.set_title('solutions')
@@ -322,8 +336,8 @@ def solve_system(
 
     n_examples_train = train_generator.size
     n_examples_valid = valid_generator.size
-    train_zeros = torch.zeros(batch_size)
-    valid_zeros = torch.zeros(n_examples_valid)
+    train_zeros = torch.zeros(batch_size).reshape((-1, 1))
+    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
     valid_loss_epoch_min = np.inf
@@ -344,11 +358,10 @@ def solve_system(
             ts = train_examples[batch_idx]
 
             # the dependent variables
-            vs = []
-            for i in range(n_dependent_vars):
-                if conditions[i]:
-                    v_i = conditions[i].enforce(nets[i], ts)
-                vs.append(v_i)
+            vs = [
+                con.enforce(net, ts)
+                for con, net in zip(conditions, nets)
+            ]
 
             fvts = ode_system(*vs, ts)
             loss = 0.0
@@ -367,11 +380,10 @@ def solve_system(
 
         # calculate the validation loss
         ts = valid_generator.get_examples().reshape(n_examples_valid, 1)
-        vs = []
-        for i in range(n_dependent_vars):
-            if conditions[i]:
-                v_i = conditions[i].enforce(nets[i], ts)
-            vs.append(v_i)
+        vs = [
+            con.enforce(net, ts)
+            for con, net in zip(conditions, nets)
+        ]
         fvts = ode_system(*vs, ts)
         valid_loss_epoch = 0.0
         for fvt in fvts:
@@ -385,7 +397,6 @@ def solve_system(
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
-            # solution_min = solution
             solution_min = Solution(nets, conditions)
 
     if return_best:
@@ -400,7 +411,7 @@ def solve_system(
 
 
 class Solution:
-    """A solution to an ODE equation
+    """A solution to an ODE (system)
 
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
@@ -416,10 +427,13 @@ class Solution:
     def __call__(self, ts, as_type='tf'):
         """Evaluate the solution at certain points.
 
-        :param ts: the points on which :math:`x(t)` is evaluated.
+        :param ts: the points on which the dependent variables are evaluated.
         :type ts: `torch.tensor` or sequence of number
         :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
+        :return: dependent variables are evaluated at given points.
+        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(ts, torch.Tensor):
             ts = torch.tensor([ts], dtype=torch.float32)
@@ -428,7 +442,7 @@ class Solution:
             raise ValueError("The valid return types are 'tf' and 'np'.")
 
         vs = [
-            con.enforce(net, ts).detach()
+            con.enforce(net, ts)
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
