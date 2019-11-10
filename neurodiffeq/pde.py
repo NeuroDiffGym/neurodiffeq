@@ -569,11 +569,11 @@ class Solution:
         :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
             `torch.tensor` or `numpy.array` (when there is only one dependent variable).
         """
-        original_shape = xs.shape
         if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor([xs], dtype=torch.float32)
+            xs = torch.tensor(xs, dtype=torch.float32)
         if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor([ys], dtype=torch.float32)
+            ys = torch.tensor(ys, dtype=torch.float32)
+        original_shape = xs.shape
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
         if as_type not in ('tf', 'np'):
             raise ValueError("The valid return types are 'tf' and 'np'.")
