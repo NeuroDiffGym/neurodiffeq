@@ -12,6 +12,8 @@ authors:
     affiliation: 1
   - name: Pavlos Protopapas
     affiliation: 1
+  - name: Marios Mattheakis
+    affiliation: 1
 affiliations:
  - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
