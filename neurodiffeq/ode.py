@@ -189,7 +189,6 @@ class Monitor:
 
         self.ax1.clear()
         for i in range(n_dependent):
-            print(vs[i].shape)
             self.ax1.plot(self.ts_plt, vs[i], label=f'variable {i}')
         self.ax1.legend()
         self.ax1.set_title('solutions')
