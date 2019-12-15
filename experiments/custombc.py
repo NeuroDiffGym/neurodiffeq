@@ -1,10 +1,6 @@
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from neurodiffeq import diff
-from neurodiffeq.networks import FCNN
-from neurodiffeq.ode import IVP, Monitor, solve_system
-from neurodiffeq.pde import solve2D, ExampleGenerator2D
+
 
 class Point:
     
@@ -15,6 +11,7 @@ class Point:
         self.loc = tuple(float(d) for d in loc)
         self.dim = len(loc)
 
+
 class DirichletControlPoint(Point):
     
     def __repr__(self):
@@ -23,6 +20,7 @@ class DirichletControlPoint(Point):
     def __init__(self, loc, val):
         super().__init__(loc)
         self.val = val
+
 
 class Condition:
     
@@ -67,6 +65,7 @@ class CustomDirichletBoundaryCondition(Condition):
             )
         unique_control_points.sort(key=clockwise)
         return unique_control_points
+
 
 class _Interpolator:
 
@@ -153,9 +152,11 @@ class _Interpolator:
         return np.linalg.solve(W, b)  
     
     # to be used in fitting soefficients of thin plate spline
+    @staticmethod
     def _ri_sq_thin_plate_spline_pretrain(point_i, point_j, stiffness=0.01):
         return sum((di-dj)**2 for di, dj in zip(point_i.loc, point_j.loc)) + stiffness**2
     # to be used in transforming output of neural networks
+    @staticmethod
     def _ri_sq_thin_plate_spline_trainval(point_i, *dimensions, stiffness=0.01):
         return sum((d-di)**2 for di, d in zip(point_i.loc, dimensions)) + stiffness**2
     @staticmethod
@@ -166,7 +167,7 @@ class _Interpolator:
             Point( (radius*np.cos(theta), radius*np.sin(theta)) )
             for theta in -np.linspace(0, 2*np.pi, len(control_points), endpoint=False)
         ]
-    
+    @staticmethod
     def interpolate_by_thin_plate_spline(coefs, control_points, *dimensions):
         n_pnts = len(control_points)
         to_value_unfinished = torch.zeros_like(dimensions[0])
@@ -180,27 +181,3 @@ class _Interpolator:
         for j, d in enumerate(dimensions):
             to_value_unfinished += coefs[n_pnts+1+j] * d
         return to_value_unfinished
-
-if __name__ == '__main__':
-    control_points_square = []
-    for i in np.linspace(0, 1, 11):
-        control_points_square.append(DirichletControlPoint(loc=(0, i), val=0))
-    for i in np.linspace(0, 1, 11):
-        control_points_square.append(DirichletControlPoint(loc=(1, i), val=0))
-    for i in np.linspace(1, 0, 11):
-        control_points_square.append(DirichletControlPoint(loc=(i, 0), val=0))
-    for i in np.linspace(0, 1, 11):
-        control_points_square.append(DirichletControlPoint(loc=(i, 1), val=0))
-        
-    cdbc = CustomDirichletBoundaryCondition( control_points_square, center_point=Point((0.5, 0.5)) )
-
-    poisson = lambda u, x, y: diff(u, x, order=2) + diff(u, y, order=2) - 2*x*(y-1)*(y-2*x+x*y+2)*torch.exp(x-y)
-    bc = cdbc
-    net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1)
-
-    solution_neural_net_poisson, _ = solve2D(
-        pde=poisson, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=10, train_generator=ExampleGenerator2D(
-            (32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'
-        ), batch_size=256
-    )
