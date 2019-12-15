@@ -16,9 +16,16 @@ def _nn_output_spherical_input(net, rs, thetas, phis):
     return net(points)
 
 
-class NoConditionSpherical:
-    @staticmethod
-    def enforce(net, r, theta, phi):
+class BaseBVPSpherical:
+    def enforce(self, net, r, theta, phi):
+        raise NotImplementedError(f"Abstract {self.__class__.__name__} cannot be enforced")
+
+
+class NoConditionSpherical(BaseBVPSpherical):
+    def __init__(self):
+        pass
+
+    def enforce(self, net, r, theta, phi):
         return _nn_output_spherical_input(net, r, theta, phi)
 
 
@@ -130,7 +137,7 @@ class ExampleGeneratorSpherical:
         return r, theta, phi
 
 
-class DirichletBVPSpherical:
+class DirichletBVPSpherical(BaseBVPSpherical):
     """Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
         We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`
 
@@ -166,7 +173,7 @@ class DirichletBVPSpherical:
 
 
         .. note::
-            `enforce` is meant to be called by the function `solve` and `solve_system`.
+            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
         """
         u = _nn_output_spherical_input(net, r, theta, phi)
         r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
@@ -176,13 +183,58 @@ class DirichletBVPSpherical:
                (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
 
 
+class InfDirichletBVPSpherical(BaseBVPSpherical):
+    """Similar to `DirichletBVPSpherical`; only difference is we are considering :math:`g(\\theta, \\phi)` as :math:`r_1 \\to \\infty`, so `r_1` doesn't need to be specified
+        We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`\\lim_{r \\to \\infty} u(r, \\theta, \\phi) = g(\\theta, \\phi)`
+
+    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :type r_0: float
+    :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
+    :type f: function
+    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`.
+    :type g: function
+    :param order: The smallest :math:k that guarantees :math:`\\lim_{r \\to +\\infty} u(r, \\theta, \\phi) e^{-k r} = 0`, defaults to 1
+    :type order: int or float, optional
+    """
+
+    def __init__(self, r_0, f, g, order=1):
+        self.r_0 = r_0
+        self.f = f
+        self.g = g
+        self.order = order
+
+    def enforce(self, net, r, theta, phi):
+        r"""Enforce the output of a neural network to satisfy the boundary condition.
+
+        :param net: The neural network that approximates the ODE.
+        :type net: `torch.nn.Module`
+        :param r: The radii of points where the neural network output is evaluated.
+        :type r: `torch.tensor`
+        :param theta: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
+        :type theta: `torch.tensor`
+        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
+        :type phi: `torch.tensor`
+        :return: The modified output which now satisfies the boundary condition.
+        :rtype: `torch.tensor`
+
+
+        .. note::
+            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
+        """
+        u = _nn_output_spherical_input(net, r, theta, phi)
+        dr = r - self.r_0
+        return self.f(theta, phi) * torch.exp(-self.order * dr) + \
+               self.g(theta, phi) * torch.tanh(dr) + \
+               torch.exp(-self.order * dr) * torch.tanh(dr) * u
+
+
 class SolutionSpherical:
     """A solution to a PDE (system) in spherical coordinates
 
     :param nets: The neural networks that approximate the PDE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The conditions of the PDE (system).
-    :type conditions: list[`neurodiffeq.pde_spherical.DirichletBVPSpherical` or `neurodiffeq.pde_spherical.NoCondition`]
+    :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`]
     """
 
     def __init__(self, nets, conditions):
@@ -241,7 +293,7 @@ def solve_spherical(
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
         :type pde: function
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
-        :type condition: `neurodiffeq.pde_spherical.DirichletBVPSpherical` or `neurodiffeq.pde_spherical.NoConditionSpherical`
+        :type condition: `neurodiffeq.pde_spherical.BaseBVPSpherical`
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
@@ -299,7 +351,7 @@ def solve_spherical_system(
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
-        :type conditions: list[`neurodiffeq.pde_spherical.DirichletBVPSpherical` or `neurodiffeq.pde_spherical.NoConditionSpherical`]
+        :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`]
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
@@ -477,7 +529,7 @@ class MonitorSpherical:
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
         :param conditions: The initial/boundary condition of the PDE.
-        :type conditions: list [`neurodiffeq.pde_spherical.DirichletBVPSpherical` or `neurodiffeq.pde_spherical.NoConditionSpherical`]
+        :type conditions: list [`neurodiffeq.pde_spherical.BaseBVPSpherical`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
 

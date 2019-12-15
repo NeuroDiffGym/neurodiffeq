@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import unittest
 from pytest import raises
 from neurodiffeq import diff
 from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
-from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical
+from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
@@ -43,9 +42,37 @@ def test_dirichlet_bvp_spherical():
     r = torch.ones_like(theta)
     v1 = g(theta, phi).detach().numpy()
     u1 = bvp.enforce(net, r, theta, phi).detach().numpy()
-    assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
+    assert np.isclose(v1, u1, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
 
     print("DirichletBVPSpherical test passed")
+
+
+def test_inf_dirichlet_bvp_spherical():
+    # B.C. for the interior boundary (r_min)
+    interior = nn.Linear(in_features=2, out_features=1, bias=True)
+    f = lambda theta, phi: interior(torch.cat([theta, phi], dim=1))
+
+    # B.C. for the exterior boundary (r_max)
+    exterior = nn.Linear(in_features=2, out_features=1, bias=True)
+    g = lambda theta, phi: exterior(torch.cat([theta, phi], dim=1))
+
+    inf_bvp = InfDirichletBVPSpherical(r_0=0., f=f, g=g, order=1)
+
+    net = nn.Linear(in_features=3, out_features=1, bias=True)
+    theta = torch.rand(10, 1) * np.pi
+    phi = torch.rand(10, 1) * (2 * np.pi)
+
+    r = torch.zeros_like(theta)
+    v0 = f(theta, phi).detach().numpy()
+    u0 = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
+
+    r = torch.ones_like(theta) * 1e10  # using the real inf results in error because (inf * 0) returns nan in torch
+    v_inf = g(theta, phi).detach().numpy()
+    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    assert np.isclose(v_inf, u_inf, atol=1.e-5).all(), f"Unmatched boundary {v_inf} != {u_inf}"
+
+    print("InfDirichletBVPSpherical test passed")
 
 
 def test_train_generator_spherical():
@@ -102,6 +129,8 @@ def test_monitor_spherical():
     condition = DirichletBVPSpherical(r_0=0., f=f, r_1=1., g=g)
     monitor = MonitorSpherical(0.0, 1.0, check_every=1)
     solve_spherical(pde, condition, 0.0, 1.0, max_epochs=50, monitor=monitor)
+
+    print("MonitorSpherical test passed")
 
 
 def test_solve_spherical_system():
