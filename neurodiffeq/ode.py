@@ -203,6 +203,7 @@ class Monitor:
         self.ax2.legend()
 
         self.fig.canvas.draw()
+        plt.pause(0.05)
 
 
 def solve(
