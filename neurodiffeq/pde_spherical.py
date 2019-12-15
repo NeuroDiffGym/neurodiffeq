@@ -283,7 +283,7 @@ class SolutionSpherical:
 
 def solve_spherical(
         pde, condition, r_min, r_max,
-        net=None, train_generator=None, shuffle=True, valid_generator=None,
+        net=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solution=None,
         optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
@@ -306,6 +306,8 @@ def solve_spherical(
         :type shuffle: bool, optional
         :param valid_generator: The example generator to generate 3-D validation points, default to None.
         :type valid_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :param analytic_solution: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to u
+        :type analytic_solution: function
         :param optimizer: The optimization method to use for training, defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
@@ -321,29 +323,32 @@ def solve_spherical(
         :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
         :type return_best: bool, optional
         :return: The solution of the PDE. The history of training loss and validation loss.
-            Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+            Optionally, MSE against analytic solution, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
 
     pde_sytem = lambda u, r, theta, phi: [pde(u, r, theta, phi)]
     conditions = [condition]
     nets = [net] if net is not None else None
+    if analytic_solution is None:
+        analytic_solutions = None
+    else:
+        analytic_solutions = lambda r, theta, phi: [analytic_solution(r, theta, phi)]
 
     return solve_spherical_system(
         pde_system=pde_sytem, conditions=conditions, r_min=r_min, r_max=r_max,
         nets=nets, train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, batch_size=batch_size, max_epochs=max_epochs,
-        monitor=monitor, return_internal=return_internal, return_best=return_best,
+        analytic_solutions=analytic_solutions, optimizer=optimizer, criterion=criterion, batch_size=batch_size,
+        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal, return_best=return_best,
     )
 
 
 def solve_spherical_system(
         pde_system, conditions, r_min, r_max,
-        nets=None, train_generator=None, shuffle=True, valid_generator=None,
+        nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
         optimizer=None, criterion=None, batch_size=16,
-        max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False
+        max_epochs=1000, monitor=None, return_internal=False, return_best=False
 ):
     """Train a neural network to solve a PDE system with spherical inputs in 3D space
 
@@ -364,6 +369,8 @@ def solve_spherical_system(
         :type shuffle: bool, optional
         :param valid_generator: The example generator to generate 3-D validation points, default to None.
         :type valid_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :param analytic_solutions: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n]
+        :type analytic_solutions: function
         :param optimizer: The optimization method to use for training, defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
@@ -379,9 +386,9 @@ def solve_spherical_system(
         :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
         :type return_best: bool, optional
         :return: The solution of the PDE. The history of training loss and validation loss.
-            Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
+            Optionally, MSE against analytic solutions, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
     # default values
     n_dependent_vars = len(conditions)
@@ -419,11 +426,14 @@ def solve_spherical_system(
     valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
+    analytic_mse = {'train': [], 'valid': []} if analytic_solutions else None
+    mse_fn = nn.MSELoss()
     valid_loss_epoch_min = np.inf
     solution_min = None
 
     for epoch in range(max_epochs):
         train_loss_epoch = 0.0
+        train_analytic_loss_epoch = 0.0
 
         train_examples_r, train_examples_theta, train_examples_phi = train_generator.get_examples()
         train_examples_r = train_examples_r.reshape((-1, 1))
@@ -440,11 +450,17 @@ def solve_spherical_system(
             thetas = train_examples_theta[batch_idx]
             phis = train_examples_phi[batch_idx]
 
-            # the dependet variables
+            # the dependent variables
             us = [
                 con.enforce(net, rs, thetas, phis)
                 for con, net in zip(conditions, nets)
             ]
+
+            if analytic_solutions:
+                vs = analytic_solutions(rs, thetas, phis)
+                with torch.no_grad():
+                    train_analytic_loss_epoch += \
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start) / n_examples_train
 
             Fs = pde_system(*us, rs, thetas, phis)
             loss = 0.0
@@ -470,6 +486,12 @@ def solve_spherical_system(
             con.enforce(net, rs, thetas, phis)
             for con, net in zip(conditions, nets)
         ]
+        if analytic_solutions:
+            vs = analytic_solutions(rs, thetas, phis)
+            analytic_mse['train'].append(train_analytic_loss_epoch)
+            with torch.no_grad():
+                analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)))
+
         Fs = pde_system(*us, rs, thetas, phis)
         valid_loss_epoch = 0.0
         for F in Fs:
@@ -478,8 +500,8 @@ def solve_spherical_system(
 
         loss_history['valid'].append(valid_loss_epoch)
 
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(nets, conditions, loss_history)
+        if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
+            monitor.check(nets, conditions, loss_history, analytic_mse_history=analytic_mse)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
@@ -490,11 +512,12 @@ def solve_spherical_system(
     else:
         solution = SolutionSpherical(nets, conditions)
 
+    ret = (solution, loss_history)
+    if analytic_solutions is not None:
+        ret = ret + (analytic_mse,)
     if return_internal:
-        # noinspection PyUnboundLocalVariable
-        return solution, loss_history, internal
-    else:
-        return solution, loss_history
+        ret = ret + (internal,)
+    return ret
 
 
 class MonitorSpherical:
@@ -523,7 +546,7 @@ class MonitorSpherical:
         self.phis_ann = phis_ann.reshape(-1, 1)
         # self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
 
-    def check(self, nets, conditions, loss_history):
+    def check(self, nets, conditions, loss_history, analytic_mse_history=None):
         r"""Draw 2 plots: One shows the shape of the current solution (with heat map). The other shows the history training loss and validation loss.
 
         :param nets: The neural networks that approximates the PDE.
@@ -532,6 +555,8 @@ class MonitorSpherical:
         :type conditions: list [`neurodiffeq.pde_spherical.BaseBVPSpherical`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
+        :param analytic_mse_history: The history of training and validation MSE against analytic solution. The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
+        :type analytic_mse_history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
             `check` is meant to be called by the function `solve2D`.
@@ -540,7 +565,7 @@ class MonitorSpherical:
         if not self.fig:
             # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
             # shape of the figure, number of the subplots, etc.
-            n_axs = len(nets) + 1  # one for each dependent variable, another one for training and validation loss
+            n_axs = 2  # one for MSE against analytic solution, the other for training and validation loss
             n_row, n_col = (n_axs + 1) // 2, 2
             self.fig = plt.figure(figsize=(20, 8 * n_row))
             for i in range(n_axs):
@@ -548,30 +573,26 @@ class MonitorSpherical:
             for i in range(len(nets)):
                 self.cbs.append(None)
 
-        us = [
-            con.enforce(net, self.rs_ann, self.thetas_ann, self.phis_ann)
-            for con, net in zip(conditions, nets)
-        ]
+        # TODO visualize 3D ball
 
-        for i, ax_u in enumerate(zip(self.axs[:-1], us)):
-            ax, u = ax_u
-            ax.clear()
-            # TODO visualize 3D ball
-            # u_as_mat = u.detach().numpy().reshape((32, 32))
-            # cax = ax.matshow(u_as_mat, cmap='hot', interpolation='nearest')
-            # if self.cbs[i]:
-            #     self.cbs[i].remove()
-            # self.cbs[i] = self.fig.colorbar(cax, ax=ax)
-            ax.set_title(f'u[{i}](r, theta, phi)')
+        if analytic_mse_history:
+            self.axs[0].clear()
+            self.axs[0].plot(analytic_mse_history['train'], label='training')
+            self.axs[0].plot(analytic_mse_history['valid'], label='validation')
+            self.axs[0].set_title('MSE against analytic solution')
+            self.axs[0].set_ylabel('MSE')
+            self.axs[0].set_xlabel('epochs')
+            self.axs[0].set_yscale('log')
+            self.axs[0].legend()
 
-        self.axs[-1].clear()
-        self.axs[-1].plot(loss_history['train'], label='training loss')
-        self.axs[-1].plot(loss_history['valid'], label='validation loss')
-        self.axs[-1].set_title('loss during training')
-        self.axs[-1].set_ylabel('loss')
-        self.axs[-1].set_xlabel('epochs')
-        self.axs[-1].set_yscale('log')
-        self.axs[-1].legend()
+        self.axs[1].clear()
+        self.axs[1].plot(loss_history['train'], label='training loss')
+        self.axs[1].plot(loss_history['valid'], label='validation loss')
+        self.axs[1].set_title('loss during training')
+        self.axs[1].set_ylabel('loss')
+        self.axs[1].set_xlabel('epochs')
+        self.axs[1].set_yscale('log')
+        self.axs[1].legend()
 
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
