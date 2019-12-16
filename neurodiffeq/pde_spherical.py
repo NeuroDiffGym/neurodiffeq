@@ -86,8 +86,8 @@ class ExampleGeneratorSpherical:
     :param r_max: radius of the exterior boundary
     :type r_max: float, optional
     :param method: The distribution of the 2-D points generated.
-        If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \sim U[r_{min}, r_{max}]`
-        If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \sim U[r_{min}^2, r_{max}^2]`
+        If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`
+        If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
     :type method: str, optional
     """
 
