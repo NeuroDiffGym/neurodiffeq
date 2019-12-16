@@ -183,7 +183,7 @@ def test_electric_potential_uniformly_charged_ball():
     condition = DirichletBVPSpherical(r_0=0., f=lambda th, ph: v_0, r_1=R, g=lambda th, ph: v_R)
     monitor = MonitorSpherical(0.0, R, check_every=50)
 
-    solution, loss_history, analytic_mse = solve_spherical(pde, condition, 0., R, max_epochs=100, return_best=True,
+    solution, loss_history, analytic_mse = solve_spherical(pde, condition, 0., R, max_epochs=500, return_best=True,
                                                            analytic_solution=analytic_solution, monitor=monitor)
     generator = ExampleGeneratorSpherical(512)
     rs, thetas, phis = generator.get_examples()
@@ -191,7 +191,7 @@ def test_electric_potential_uniformly_charged_ball():
     vs = analytic_solution(rs, thetas, phis).detach().numpy()
     abs_diff = abs(us - vs)
 
-    assert np.isclose(us, vs, atol=0.005).all(), \
+    assert np.isclose(us, vs, atol=0.008).all(), \
         f"Solution doesn't match analytic expectation {us} != {vs}, abs_diff={abs_diff}"
 
     print("electric-potential-on-uniformly-charged-solid-sphere passed")
