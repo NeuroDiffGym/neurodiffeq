@@ -131,7 +131,8 @@ class ExampleGeneratorSpherical:
         z = z * sign_z
 
         theta = torch.acos(z).requires_grad_(True)
-        phi = torch.atan2(y, x).requires_grad_(True)
+        phi = -torch.atan2(y, x) + np.pi  # atan2 ranges (-pi, pi] instead of [0, 2pi)
+        phi.requires_grad_(True)
         r = self.get_r().requires_grad_(True)
 
         return r, theta, phi

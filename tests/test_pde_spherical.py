@@ -79,7 +79,17 @@ def test_train_generator_spherical():
     pde = laplacian_spherical
     condition = NoConditionSpherical()
     train_generator = ExampleGeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
+    r, th, ph = train_generator.get_examples()
+    assert (0. < r.min()) and (r.max() < 1.)
+    assert (0. <= th.min()) and (th.max() <= np.pi)
+    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
+
     valid_generator = ExampleGeneratorSpherical(size=64, r_min=1., r_max=1., method='equally-radius-noisy')
+    r, th, ph = valid_generator.get_examples()
+    assert (r == 1).all()
+    assert (0. <= th.min()) and (th.max() <= np.pi)
+    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
+
     solve_spherical(pde, condition, 0.0, 1.0,
                     train_generator=train_generator,
                     valid_generator=valid_generator,
