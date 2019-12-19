@@ -44,6 +44,13 @@ def test_dirichlet_bvp_spherical():
     u1 = bvp.enforce(net, r, theta, phi).detach().numpy()
     assert np.isclose(v1, u1, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
 
+    bvp_half = DirichletBVPSpherical(r_0=2., f=f)
+
+    r = torch.ones_like(theta) * 2.
+    v2 = f(theta, phi).detach().numpy()
+    u2 = bvp_half.enforce(net, r, theta, phi).detach().numpy()
+    assert np.isclose(v2, u2, atol=1.e-5).all(), f"Unmatched boundary {v2} != {u2}"
+
     print("DirichletBVPSpherical test passed")
 
 

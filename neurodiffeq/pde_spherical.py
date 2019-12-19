@@ -144,17 +144,19 @@ class DirichletBVPSpherical(BaseBVPSpherical):
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
-    :param r_1: The radius of the exterior boundary
-    :type r_1: float
     :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
     :type f: function
-    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`.
-    :type g: function
+    :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None
+    :type r_1: float or None
+    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`. If set to None, `r_1` must also be set to None
+    :type g: function or None
     """
 
-    def __init__(self, r_0, f, r_1, g):
+    def __init__(self, r_0, f, r_1=None, g=None):
         """Initializer method
         """
+        if (r_1 is None) ^ (g is None):
+            raise ValueError(f'r_1 and g must be both/neither set to None; got r_1={r_1}, g={g}')
         self.r_0, self.r_1 = r_0, r_1
         self.f, self.g = f, g
 
@@ -177,11 +179,14 @@ class DirichletBVPSpherical(BaseBVPSpherical):
             `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
         """
         u = _nn_output_spherical_input(net, r, theta, phi)
-        r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
-        # noinspection PyTypeChecker
-        return self.f(theta, phi) * (1 - r_tilde) + \
-               self.g(theta, phi) * r_tilde + \
-               (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
+        if self.r_1 is None:
+            return (1 - torch.exp(-r + self.r_0)) * u + self.f(theta, phi)
+        else:
+            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
+            # noinspection PyTypeChecker
+            return self.f(theta, phi) * (1 - r_tilde) + \
+                   self.g(theta, phi) * r_tilde + \
+                   (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
 
 
 class InfDirichletBVPSpherical(BaseBVPSpherical):
