@@ -3,6 +3,8 @@ import torch.optim as optim
 import torch.nn as nn
 
 import numpy as np
+import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -545,15 +547,30 @@ class MonitorSpherical:
         self.axs = []  # subplots
         self.cbs = []  # color bars
         # input for neural network
-        gen = ExampleGeneratorSpherical(256, r_min=r_min, r_max=r_max, method='equally-spaced-noisy')
-        rs_ann, thetas_ann, phis_ann = gen.get_examples()
-        self.rs_ann = rs_ann.reshape(-1, 1)
-        self.thetas_ann = thetas_ann.reshape(-1, 1)
-        self.phis_ann = phis_ann.reshape(-1, 1)
-        # self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
+        gen = ExampleGenerator3D(
+            grid=(10, 10, 10),
+            xyz_min=(r_min, 0., 0.),
+            xyz_max=(r_max, np.pi, 2 * np.pi),
+            method='equally-spaced'
+        )
+        rs, thetas, phis = gen.get_examples()
+
+        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().numpy()
+        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().numpy()
+
+        self.rs = rs.reshape(-1, 1)
+        self.thetas = thetas.reshape(-1, 1)
+        self.phis = phis.reshape(-1, 1)
+        self.th = th
+        self.ph = ph
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
-        r"""Draw 2 plots: One shows the shape of the current solution (with heat map). The other shows the history training loss and validation loss.
+        r"""Draw (3n + 2) plots:
+             1) For each function u(r, phi, theta), there are 3 axes:
+                a) one ax for u-r curves grouped by phi
+                b) one ax for u-r curves grouped by theta
+                c) one ax for u-theta-phi contour heat map
+             2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
 
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
@@ -568,37 +585,79 @@ class MonitorSpherical:
             `check` is meant to be called by the function `solve2D`.
         """
 
+        # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
+        # shape of the figure, number of the subplots, etc.
+        # Draw (3n + 2) plots:
+        #     1) For each function u(r, phi, theta), there are 3 axes:
+        #         a) one ax for u-r curves grouped by phi
+        #         b) one ax for u-r curves grouped by theta
+        #         c) one ax for u-theta-phi contour heat map
+        #     2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
+        n_axs = len(nets) * 3 + 2
+        n_row = len(nets) + 1
+        n_col = 3
         if not self.fig:
-            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-            # shape of the figure, number of the subplots, etc.
-            n_axs = 2  # one for MSE against analytic solution, the other for training and validation loss
-            n_row, n_col = (n_axs + 1) // 2, 2
-            self.fig = plt.figure(figsize=(20, 8 * n_row))
+            self.fig = plt.figure(figsize=(20, 6 * n_row))
             for i in range(n_axs):
                 self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
             for i in range(len(nets)):
                 self.cbs.append(None)
 
-        # TODO visualize 3D ball
+        us = [
+            cond.enforce(net, self.rs, self.thetas, self.phis).detach().numpy()
+            for net, cond in zip(nets, conditions)
+        ]
 
+        for i, u in enumerate(us):
+            # prepare data for plotting
+            u_across_r = u.reshape(10, 10, 10).sum(0)
+            df = pd.DataFrame({
+                'r': self.rs.detach().numpy().reshape(-1),
+                'theta': self.thetas.detach().numpy().reshape(-1),
+                'phi': self.phis.detach().numpy().reshape(-1),
+                'u': u.reshape(-1),
+            })
+
+            # ax for u-r curve grouped by phi
+            ax = self.axs[3 * i]
+            ax.clear()
+            sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
+
+            # ax for u-r curve grouped by theta
+            ax = self.axs[3 * i + 1]
+            ax.clear()
+            sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
+
+            # u-theta-phi heat map
+            ax = self.axs[3 * i + 2]
+            ax.clear()
+            ax.set_aspect('equal')
+            ax.set_xlabel('$theta$')
+            ax.set_ylabel('$phi$')
+            ax.set_title(f'u[{i + 1}] averaged across r')
+            contour = ax.contourf(self.th, self.ph, u_across_r)
+            # if self.cbs[i]:
+            #     self.cbs[i].remove()
+            # self.cbs[i] = plt.colorbar(contour, ax=ax, shrink=0.9, pad=0.05)
+
+        self.axs[-2].clear()
+        self.axs[-2].set_title('MSE against analytic solution')
+        self.axs[-2].set_ylabel('MSE')
+        self.axs[-2].set_xlabel('epochs')
         if analytic_mse_history:
-            self.axs[0].clear()
-            self.axs[0].plot(analytic_mse_history['train'], label='training')
-            self.axs[0].plot(analytic_mse_history['valid'], label='validation')
-            self.axs[0].set_title('MSE against analytic solution')
-            self.axs[0].set_ylabel('MSE')
-            self.axs[0].set_xlabel('epochs')
-            self.axs[0].set_yscale('log')
-            self.axs[0].legend()
+            self.axs[-2].plot(analytic_mse_history['train'], label='training')
+            self.axs[-2].plot(analytic_mse_history['valid'], label='validation')
+            self.axs[-2].set_yscale('log')
+            self.axs[-2].legend()
 
-        self.axs[1].clear()
-        self.axs[1].plot(loss_history['train'], label='training loss')
-        self.axs[1].plot(loss_history['valid'], label='validation loss')
-        self.axs[1].set_title('loss during training')
-        self.axs[1].set_ylabel('loss')
-        self.axs[1].set_xlabel('epochs')
-        self.axs[1].set_yscale('log')
-        self.axs[1].legend()
+        self.axs[-1].clear()
+        self.axs[-1].plot(loss_history['train'], label='training loss')
+        self.axs[-1].plot(loss_history['valid'], label='validation loss')
+        self.axs[-1].set_title('loss during training')
+        self.axs[-1].set_ylabel('loss')
+        self.axs[-1].set_xlabel('epochs')
+        self.axs[-1].set_yscale('log')
+        self.axs[-1].legend()
 
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
