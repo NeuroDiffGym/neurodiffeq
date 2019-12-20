@@ -631,14 +631,13 @@ class MonitorSpherical:
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
-            ax.set_aspect('equal')
             ax.set_xlabel('$theta$')
             ax.set_ylabel('$phi$')
             ax.set_title(f'u[{i + 1}] averaged across r')
-            contour = ax.contourf(self.th, self.ph, u_across_r)
-            # if self.cbs[i]:
-            #     self.cbs[i].remove()
-            # self.cbs[i] = plt.colorbar(contour, ax=ax, shrink=0.9, pad=0.05)
+            cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
+            if self.cbs[i]:
+                self.cbs[i].remove()
+            self.cbs[i] = self.fig.colorbar(cax, ax=ax)
 
         self.axs[-2].clear()
         self.axs[-2].set_title('MSE against analytic solution')
