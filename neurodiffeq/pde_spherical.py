@@ -537,15 +537,18 @@ class MonitorSpherical:
     :type r_max: float
     :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
     :type check_every: int, optional
+    :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
+    :type var_names: list[str]
     """
 
-    def __init__(self, r_min, r_max, check_every=100):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None):
         """Initializer method
         """
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
         self.cbs = []  # color bars
+        self.names = var_names
         # input for neural network
         gen = ExampleGenerator3D(
             grid=(10, 10, 10),
@@ -609,6 +612,11 @@ class MonitorSpherical:
         ]
 
         for i, u in enumerate(us):
+            try:
+                var_name = self.names[i]
+            except (TypeError, IndexError):
+                var_name = f"u[{i}]"
+
             # prepare data for plotting
             u_across_r = u.reshape(10, 10, 10).sum(0)
             df = pd.DataFrame({
@@ -622,18 +630,22 @@ class MonitorSpherical:
             ax = self.axs[3 * i]
             ax.clear()
             sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
+            ax.set_title(f'{var_name}(r) grouped by phi')
+            ax.set_ylabel(var_name)
 
             # ax for u-r curve grouped by theta
             ax = self.axs[3 * i + 1]
             ax.clear()
             sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
+            ax.set_title(f'{var_name}(r) grouped by theta')
+            ax.set_ylabel(var_name)
 
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
             ax.set_xlabel('$theta$')
             ax.set_ylabel('$phi$')
-            ax.set_title(f'u[{i + 1}] averaged across r')
+            ax.set_title(f'{var_name} averaged across r')
             cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
             if self.cbs[i]:
                 self.cbs[i].remove()
