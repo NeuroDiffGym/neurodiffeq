@@ -674,3 +674,9 @@ class MonitorSpherical:
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
         # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
         plt.pause(0.05)
+
+    def new(self):
+        self.fig = None
+        self.axs = []
+        self.cbs = []
+        return self
