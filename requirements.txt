@@ -3,3 +3,5 @@ numpy
 torch
 scipy
 pytest
+pandas
+seaborn

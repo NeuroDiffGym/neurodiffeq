@@ -336,6 +336,7 @@ class Monitor2D:
         self.axs[-1].legend()
 
         self.fig.canvas.draw()
+        plt.pause(0.05)
 
 
 def solve2D(
