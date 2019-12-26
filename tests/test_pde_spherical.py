@@ -36,20 +36,20 @@ def test_dirichlet_bvp_spherical():
     phi = torch.rand(10, 1) * 2 * np.pi
 
     r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().numpy()
-    u0 = bvp.enforce(net, r, theta, phi).detach().numpy()
+    v0 = f(theta, phi).detach().cpu().numpy()
+    u0 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
 
     r = torch.ones_like(theta)
-    v1 = g(theta, phi).detach().numpy()
-    u1 = bvp.enforce(net, r, theta, phi).detach().numpy()
+    v1 = g(theta, phi).detach().cpu().numpy()
+    u1 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v1, u1, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
 
     bvp_half = DirichletBVPSpherical(r_0=2., f=f)
 
     r = torch.ones_like(theta) * 2.
-    v2 = f(theta, phi).detach().numpy()
-    u2 = bvp_half.enforce(net, r, theta, phi).detach().numpy()
+    v2 = f(theta, phi).detach().cpu().numpy()
+    u2 = bvp_half.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v2, u2, atol=1.e-5).all(), f"Unmatched boundary {v2} != {u2}"
 
     print("DirichletBVPSpherical test passed")
@@ -71,13 +71,13 @@ def test_inf_dirichlet_bvp_spherical():
     phi = torch.rand(10, 1) * (2 * np.pi)
 
     r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().numpy()
-    u0 = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    v0 = f(theta, phi).detach().cpu().numpy()
+    u0 = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
 
     r = torch.ones_like(theta) * 1e10  # using the real inf results in error because (inf * 0) returns nan in torch
-    v_inf = g(theta, phi).detach().numpy()
-    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    v_inf = g(theta, phi).detach().cpu().numpy()
+    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v_inf, u_inf, atol=1.e-5).all(), f"Unmatched boundary {v_inf} != {u_inf}"
 
     print("InfDirichletBVPSpherical test passed")
@@ -206,7 +206,7 @@ def test_electric_potential_uniformly_charged_ball():
     generator = ExampleGeneratorSpherical(512)
     rs, thetas, phis = generator.get_examples()
     us = solution(rs, thetas, phis, as_type="np")
-    vs = analytic_solution(rs, thetas, phis).detach().numpy()
+    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
     abs_diff = abs(us - vs)
 
     assert np.isclose(us, vs, atol=0.008).all(), \
@@ -244,7 +244,7 @@ def test_electric_potential_gaussian_charged_density():
     generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
     rs, thetas, phis = generator.get_examples()
     us = solution(rs, thetas, phis, as_type="np")
-    vs = analytic_solution(rs, thetas, phis).detach().numpy()
+    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
     rdiff = abs(us - vs) / vs
     assert np.isclose(us, vs, rtol=0.05).all(), \
         f"Solution doesn't match analytic expectattion {us} != {vs}, relative-diff={rdiff}"

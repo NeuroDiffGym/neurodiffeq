@@ -319,7 +319,7 @@ class Monitor2D:
         for i, ax_u in enumerate( zip(self.axs[:-1], us) ):
             ax, u = ax_u
             ax.clear()
-            u_as_mat = u.detach().numpy().reshape((32, 32))
+            u_as_mat = u.detach().cpu().numpy().reshape((32, 32))
             cax = ax.matshow(u_as_mat, cmap='hot', interpolation='nearest')
             if self.cbs[i]:
                 self.cbs[i].remove()
@@ -584,7 +584,7 @@ class Solution:
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
-            us = [u.detach().numpy() for u in us]
+            us = [u.detach().cpu().numpy() for u in us]
 
         return us if len(self.nets) > 1 else us[0]
 
