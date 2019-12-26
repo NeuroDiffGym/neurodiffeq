@@ -284,7 +284,7 @@ class SolutionSpherical:
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
-            vs = [v.detach().numpy().flatten() for v in vs]
+            vs = [v.detach().cpu().numpy().flatten() for v in vs]
 
         return vs if len(self.nets) > 1 else vs[0]
 
@@ -558,8 +558,8 @@ class MonitorSpherical:
         )
         rs, thetas, phis = gen.get_examples()
 
-        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().numpy()
-        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().numpy()
+        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().cpu().numpy()
+        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().cpu().numpy()
 
         self.rs = rs.reshape(-1, 1)
         self.thetas = thetas.reshape(-1, 1)
@@ -607,7 +607,7 @@ class MonitorSpherical:
                 self.cbs.append(None)
 
         us = [
-            cond.enforce(net, self.rs, self.thetas, self.phis).detach().numpy()
+            cond.enforce(net, self.rs, self.thetas, self.phis).detach().cpu().numpy()
             for net, cond in zip(nets, conditions)
         ]
 
@@ -620,9 +620,9 @@ class MonitorSpherical:
             # prepare data for plotting
             u_across_r = u.reshape(10, 10, 10).sum(0)
             df = pd.DataFrame({
-                'r': self.rs.detach().numpy().reshape(-1),
-                'theta': self.thetas.detach().numpy().reshape(-1),
-                'phi': self.phis.detach().numpy().reshape(-1),
+                'r': self.rs.detach().cpu().numpy().reshape(-1),
+                'theta': self.thetas.detach().cpu().numpy().reshape(-1),
+                'phi': self.phis.detach().cpu().numpy().reshape(-1),
                 'u': u.reshape(-1),
             })
 

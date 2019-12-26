@@ -183,7 +183,7 @@ class Monitor:
         n_dependent = len(conditions)
 
         vs = [
-            con.enforce(net, self.ts_ann).detach().numpy()
+            con.enforce(net, self.ts_ann).detach().cpu().numpy()
             for con, net in zip(conditions, nets)
         ]
 
@@ -446,6 +446,6 @@ class Solution:
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
-            vs = [v.detach().numpy().flatten() for v in vs]
+            vs = [v.detach().cpu().numpy().flatten() for v in vs]
 
         return vs if len(self.nets) > 1 else vs[0]
