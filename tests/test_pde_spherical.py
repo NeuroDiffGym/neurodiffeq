@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from math import erf
 from pytest import raises
 from neurodiffeq import diff
 from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
@@ -35,14 +36,21 @@ def test_dirichlet_bvp_spherical():
     phi = torch.rand(10, 1) * 2 * np.pi
 
     r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().numpy()
-    u0 = bvp.enforce(net, r, theta, phi).detach().numpy()
+    v0 = f(theta, phi).detach().cpu().numpy()
+    u0 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
 
     r = torch.ones_like(theta)
-    v1 = g(theta, phi).detach().numpy()
-    u1 = bvp.enforce(net, r, theta, phi).detach().numpy()
+    v1 = g(theta, phi).detach().cpu().numpy()
+    u1 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v1, u1, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
+
+    bvp_half = DirichletBVPSpherical(r_0=2., f=f)
+
+    r = torch.ones_like(theta) * 2.
+    v2 = f(theta, phi).detach().cpu().numpy()
+    u2 = bvp_half.enforce(net, r, theta, phi).detach().cpu().numpy()
+    assert np.isclose(v2, u2, atol=1.e-5).all(), f"Unmatched boundary {v2} != {u2}"
 
     print("DirichletBVPSpherical test passed")
 
@@ -63,13 +71,13 @@ def test_inf_dirichlet_bvp_spherical():
     phi = torch.rand(10, 1) * (2 * np.pi)
 
     r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().numpy()
-    u0 = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    v0 = f(theta, phi).detach().cpu().numpy()
+    u0 = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
 
     r = torch.ones_like(theta) * 1e10  # using the real inf results in error because (inf * 0) returns nan in torch
-    v_inf = g(theta, phi).detach().numpy()
-    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().numpy()
+    v_inf = g(theta, phi).detach().cpu().numpy()
+    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v_inf, u_inf, atol=1.e-5).all(), f"Unmatched boundary {v_inf} != {u_inf}"
 
     print("InfDirichletBVPSpherical test passed")
@@ -79,7 +87,17 @@ def test_train_generator_spherical():
     pde = laplacian_spherical
     condition = NoConditionSpherical()
     train_generator = ExampleGeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
+    r, th, ph = train_generator.get_examples()
+    assert (0. < r.min()) and (r.max() < 1.)
+    assert (0. <= th.min()) and (th.max() <= np.pi)
+    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
+
     valid_generator = ExampleGeneratorSpherical(size=64, r_min=1., r_max=1., method='equally-radius-noisy')
+    r, th, ph = valid_generator.get_examples()
+    assert (r == 1).all()
+    assert (0. <= th.min()) and (th.max() <= np.pi)
+    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
+
     solve_spherical(pde, condition, 0.0, 1.0,
                     train_generator=train_generator,
                     valid_generator=valid_generator,
@@ -188,10 +206,47 @@ def test_electric_potential_uniformly_charged_ball():
     generator = ExampleGeneratorSpherical(512)
     rs, thetas, phis = generator.get_examples()
     us = solution(rs, thetas, phis, as_type="np")
-    vs = analytic_solution(rs, thetas, phis).detach().numpy()
+    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
     abs_diff = abs(us - vs)
 
     assert np.isclose(us, vs, atol=0.008).all(), \
         f"Solution doesn't match analytic expectation {us} != {vs}, abs_diff={abs_diff}"
 
     print("electric-potential-on-uniformly-charged-solid-sphere passed")
+
+
+def test_electric_potential_gaussian_charged_density():
+    # total charge
+    Q = 1.
+    # standard deviation of gaussian
+    sigma = 1.
+    # medium permittivity
+    epsilon = 1.
+    # Coulomb constant
+    k = 1 / (4 * np.pi * epsilon)
+    # coefficient of gaussian term
+    gaussian_coeff = Q / (sigma ** 3) / np.power(2 * np.pi, 1.5)
+    # distribution of charge
+    rho_f = lambda r: gaussian_coeff * torch.exp(- r.pow(2) / (2 * sigma ** 2))
+    # analytic solution, refer to https://en.wikipedia.org/wiki/Poisson%27s_equation
+    analytic_solution = lambda r, th, ph: (k * Q / r) * torch.erf(r / (np.sqrt(2) * sigma))
+
+    pde = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
+    r_0, r_1 = 0.1, 3.
+    v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
+    v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
+    condition = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
+    monitor = MonitorSpherical(r_0, r_1, check_every=50)
+
+    solution, loss_history, analytic_mse = solve_spherical(pde, condition, r_0, r_1, max_epochs=500, return_best=True,
+                                                           analytic_solution=analytic_solution, monitor=monitor)
+
+    generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
+    rs, thetas, phis = generator.get_examples()
+    us = solution(rs, thetas, phis, as_type="np")
+    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
+    rdiff = abs(us - vs) / vs
+    assert np.isclose(us, vs, rtol=0.05).all(), \
+        f"Solution doesn't match analytic expectattion {us} != {vs}, relative-diff={rdiff}"
+
+    print("electric-potential-on-gaussian-charged-density passed")

@@ -3,6 +3,8 @@ import torch.optim as optim
 import torch.nn as nn
 
 import numpy as np
+import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -122,16 +124,17 @@ class ExampleGeneratorSpherical:
         y = torch.sqrt(b / denom) + epsilon
         z = torch.sqrt(c / denom) + epsilon
         # `sign_x`, `sign_y`, `sign_z` are either -1 or +1
-        sign_x = torch.randint(0, 2, self.shape) * 2 - 1
-        sign_y = torch.randint(0, 2, self.shape) * 2 - 1
-        sign_z = torch.randint(0, 2, self.shape) * 2 - 1
+        sign_x = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
+        sign_y = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
+        sign_z = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
 
         x = x * sign_x
         y = y * sign_y
         z = z * sign_z
 
         theta = torch.acos(z).requires_grad_(True)
-        phi = torch.atan2(y, x).requires_grad_(True)
+        phi = -torch.atan2(y, x) + np.pi  # atan2 ranges (-pi, pi] instead of [0, 2pi)
+        phi.requires_grad_(True)
         r = self.get_r().requires_grad_(True)
 
         return r, theta, phi
@@ -143,17 +146,19 @@ class DirichletBVPSpherical(BaseBVPSpherical):
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
-    :param r_1: The radius of the exterior boundary
-    :type r_1: float
     :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
     :type f: function
-    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`.
-    :type g: function
+    :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None
+    :type r_1: float or None
+    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`. If set to None, `r_1` must also be set to None
+    :type g: function or None
     """
 
-    def __init__(self, r_0, f, r_1, g):
+    def __init__(self, r_0, f, r_1=None, g=None):
         """Initializer method
         """
+        if (r_1 is None) ^ (g is None):
+            raise ValueError(f'r_1 and g must be both/neither set to None; got r_1={r_1}, g={g}')
         self.r_0, self.r_1 = r_0, r_1
         self.f, self.g = f, g
 
@@ -176,11 +181,14 @@ class DirichletBVPSpherical(BaseBVPSpherical):
             `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
         """
         u = _nn_output_spherical_input(net, r, theta, phi)
-        r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
-        # noinspection PyTypeChecker
-        return self.f(theta, phi) * (1 - r_tilde) + \
-               self.g(theta, phi) * r_tilde + \
-               (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
+        if self.r_1 is None:
+            return (1 - torch.exp(-r + self.r_0)) * u + self.f(theta, phi)
+        else:
+            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
+            # noinspection PyTypeChecker
+            return self.f(theta, phi) * (1 - r_tilde) + \
+                   self.g(theta, phi) * r_tilde + \
+                   (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
 
 
 class InfDirichletBVPSpherical(BaseBVPSpherical):
@@ -276,7 +284,7 @@ class SolutionSpherical:
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
-            vs = [v.detach().numpy().flatten() for v in vs]
+            vs = [v.detach().cpu().numpy().flatten() for v in vs]
 
         return vs if len(self.nets) > 1 else vs[0]
 
@@ -529,25 +537,43 @@ class MonitorSpherical:
     :type r_max: float
     :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
     :type check_every: int, optional
+    :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
+    :type var_names: list[str]
     """
 
-    def __init__(self, r_min, r_max, check_every=100):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None):
         """Initializer method
         """
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
         self.cbs = []  # color bars
+        self.names = var_names
         # input for neural network
-        gen = ExampleGeneratorSpherical(256, r_min=r_min, r_max=r_max, method='equally-spaced-noisy')
-        rs_ann, thetas_ann, phis_ann = gen.get_examples()
-        self.rs_ann = rs_ann.reshape(-1, 1)
-        self.thetas_ann = thetas_ann.reshape(-1, 1)
-        self.phis_ann = phis_ann.reshape(-1, 1)
-        # self.xy_ann = torch.cat((self.xs_ann, self.ys_ann), 1)
+        gen = ExampleGenerator3D(
+            grid=(10, 10, 10),
+            xyz_min=(r_min, 0., 0.),
+            xyz_max=(r_max, np.pi, 2 * np.pi),
+            method='equally-spaced'
+        )
+        rs, thetas, phis = gen.get_examples()
+
+        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().cpu().numpy()
+        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().cpu().numpy()
+
+        self.rs = rs.reshape(-1, 1)
+        self.thetas = thetas.reshape(-1, 1)
+        self.phis = phis.reshape(-1, 1)
+        self.th = th
+        self.ph = ph
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
-        r"""Draw 2 plots: One shows the shape of the current solution (with heat map). The other shows the history training loss and validation loss.
+        r"""Draw (3n + 2) plots:
+             1) For each function u(r, phi, theta), there are 3 axes:
+                a) one ax for u-r curves grouped by phi
+                b) one ax for u-r curves grouped by theta
+                c) one ax for u-theta-phi contour heat map
+             2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
 
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
@@ -562,39 +588,95 @@ class MonitorSpherical:
             `check` is meant to be called by the function `solve2D`.
         """
 
+        # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
+        # shape of the figure, number of the subplots, etc.
+        # Draw (3n + 2) plots:
+        #     1) For each function u(r, phi, theta), there are 3 axes:
+        #         a) one ax for u-r curves grouped by phi
+        #         b) one ax for u-r curves grouped by theta
+        #         c) one ax for u-theta-phi contour heat map
+        #     2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
+        n_axs = len(nets) * 3 + 2
+        n_row = len(nets) + 1
+        n_col = 3
         if not self.fig:
-            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-            # shape of the figure, number of the subplots, etc.
-            n_axs = 2  # one for MSE against analytic solution, the other for training and validation loss
-            n_row, n_col = (n_axs + 1) // 2, 2
-            self.fig = plt.figure(figsize=(20, 8 * n_row))
+            self.fig = plt.figure(figsize=(20, 6 * n_row))
             for i in range(n_axs):
                 self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
             for i in range(len(nets)):
                 self.cbs.append(None)
 
-        # TODO visualize 3D ball
+        us = [
+            cond.enforce(net, self.rs, self.thetas, self.phis).detach().cpu().numpy()
+            for net, cond in zip(nets, conditions)
+        ]
 
+        for i, u in enumerate(us):
+            try:
+                var_name = self.names[i]
+            except (TypeError, IndexError):
+                var_name = f"u[{i}]"
+
+            # prepare data for plotting
+            u_across_r = u.reshape(10, 10, 10).sum(0)
+            df = pd.DataFrame({
+                'r': self.rs.detach().cpu().numpy().reshape(-1),
+                'theta': self.thetas.detach().cpu().numpy().reshape(-1),
+                'phi': self.phis.detach().cpu().numpy().reshape(-1),
+                'u': u.reshape(-1),
+            })
+
+            # ax for u-r curve grouped by phi
+            ax = self.axs[3 * i]
+            ax.clear()
+            sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
+            ax.set_title(f'{var_name}(r) grouped by phi')
+            ax.set_ylabel(var_name)
+
+            # ax for u-r curve grouped by theta
+            ax = self.axs[3 * i + 1]
+            ax.clear()
+            sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
+            ax.set_title(f'{var_name}(r) grouped by theta')
+            ax.set_ylabel(var_name)
+
+            # u-theta-phi heat map
+            ax = self.axs[3 * i + 2]
+            ax.clear()
+            ax.set_xlabel('$theta$')
+            ax.set_ylabel('$phi$')
+            ax.set_title(f'{var_name} averaged across r')
+            cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
+            if self.cbs[i]:
+                self.cbs[i].remove()
+            self.cbs[i] = self.fig.colorbar(cax, ax=ax)
+
+        self.axs[-2].clear()
+        self.axs[-2].set_title('MSE against analytic solution')
+        self.axs[-2].set_ylabel('MSE')
+        self.axs[-2].set_xlabel('epochs')
         if analytic_mse_history:
-            self.axs[0].clear()
-            self.axs[0].plot(analytic_mse_history['train'], label='training')
-            self.axs[0].plot(analytic_mse_history['valid'], label='validation')
-            self.axs[0].set_title('MSE against analytic solution')
-            self.axs[0].set_ylabel('MSE')
-            self.axs[0].set_xlabel('epochs')
-            self.axs[0].set_yscale('log')
-            self.axs[0].legend()
+            self.axs[-2].plot(analytic_mse_history['train'], label='training')
+            self.axs[-2].plot(analytic_mse_history['valid'], label='validation')
+            self.axs[-2].set_yscale('log')
+            self.axs[-2].legend()
 
-        self.axs[1].clear()
-        self.axs[1].plot(loss_history['train'], label='training loss')
-        self.axs[1].plot(loss_history['valid'], label='validation loss')
-        self.axs[1].set_title('loss during training')
-        self.axs[1].set_ylabel('loss')
-        self.axs[1].set_xlabel('epochs')
-        self.axs[1].set_yscale('log')
-        self.axs[1].legend()
+        self.axs[-1].clear()
+        self.axs[-1].plot(loss_history['train'], label='training loss')
+        self.axs[-1].plot(loss_history['valid'], label='validation loss')
+        self.axs[-1].set_title('loss during training')
+        self.axs[-1].set_ylabel('loss')
+        self.axs[-1].set_xlabel('epochs')
+        self.axs[-1].set_yscale('log')
+        self.axs[-1].legend()
 
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
         # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
         plt.pause(0.05)
+
+    def new(self):
+        self.fig = None
+        self.axs = []
+        self.cbs = []
+        return self
