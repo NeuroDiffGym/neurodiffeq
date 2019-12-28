@@ -124,9 +124,9 @@ class ExampleGeneratorSpherical:
         y = torch.sqrt(b / denom) + epsilon
         z = torch.sqrt(c / denom) + epsilon
         # `sign_x`, `sign_y`, `sign_z` are either -1 or +1
-        sign_x = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
-        sign_y = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
-        sign_z = torch.randint(0, 2, self.shape, dtype=torch.dtype) * 2 - 1
+        sign_x = torch.randint(0, 2, self.shape, dtype=x.dtype) * 2 - 1
+        sign_y = torch.randint(0, 2, self.shape, dtype=y.dtype) * 2 - 1
+        sign_z = torch.randint(0, 2, self.shape, dtype=z.dtype) * 2 - 1
 
         x = x * sign_x
         y = y * sign_y
