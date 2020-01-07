@@ -497,7 +497,7 @@ def solve2D_system(
             Fuxys = pde_system(*us, xs, ys)
             loss = 0.0
             for Fuxy in Fuxys:
-                loss += criterion(Fuxy, train_zeros)
+                loss += criterion(Fuxy, train_zeros[:batch_end-batch_start])
             train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train
 
             optimizer.zero_grad()
