@@ -12,7 +12,7 @@ from neurodiffeq.ode import solve, solve_system, Monitor, ExampleGenerator
 def test_monitor():
     exponential = lambda x, t: diff(x, t) - x
     init_val_ex = IVP(t_0=0.0, x_0=1.0)
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            max_epochs=3,
                            monitor=Monitor(t_min=0.0, t_max=2.0, check_every=1))
@@ -22,19 +22,24 @@ def test_monitor():
 def test_train_generator():
     exponential = lambda x, t: diff(x, t) - x
     init_val_ex = IVP(t_0=0.0, x_0=1.0)
-    
+
     train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='uniform')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            train_generator=train_gen,
                            max_epochs=3)
     train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='equally-spaced')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            train_generator=train_gen,
                            max_epochs=3)
     train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='equally-spaced-noisy')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex, 
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                           t_min=0.0, t_max=2.0,
+                           train_generator=train_gen,
+                           max_epochs=3)
+    train_gen = ExampleGenerator(size=32, t_min=0.0, t_max=2.0, method='equally-spaced-noisy', noise_std=0.01)
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            train_generator=train_gen,
                            max_epochs=3)
@@ -44,6 +49,11 @@ def test_train_generator():
                            train_generator=train_gen,
                            max_epochs=3)
     train_gen = ExampleGenerator(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy')
+    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                           t_min=0.1, t_max=2.0,
+                           train_generator=train_gen,
+                           max_epochs=3)
+    train_gen = ExampleGenerator(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy', noise_std=0.01)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.1, t_max=2.0,
                            train_generator=train_gen,
@@ -76,19 +86,19 @@ def test_ode():
 
 
 def test_ode_system():
-    
-    parametric_circle = lambda x1, x2, t : [diff(x1, t) - x2, 
+
+    parametric_circle = lambda x1, x2, t : [diff(x1, t) - x2,
                                             diff(x2, t) + x1]
     init_vals_pc = [
         IVP(t_0=0.0, x_0=0.0),
         IVP(t_0=0.0, x_0=1.0)
     ]
-    
-    solution_pc, _ = solve_system(ode_system=parametric_circle, 
-                                  conditions=init_vals_pc, 
+
+    solution_pc, _ = solve_system(ode_system=parametric_circle,
+                                  conditions=init_vals_pc,
                                   t_min=0.0, t_max=2*np.pi,
                                   max_epochs=5000,)
-    
+
     ts = np.linspace(0, 2*np.pi, 100)
     x1_net, x2_net = solution_pc(ts, as_type='np')
     x1_ana, x2_ana = np.sin(ts), np.cos(ts)
@@ -125,7 +135,7 @@ def test_ode_bvp():
 
 def test_lotka_volterra():
     alpha, beta, delta, gamma = 1, 1, 1, 1
-    lotka_volterra = lambda x, y, t : [diff(x, t) - (alpha*x  - beta*x*y), 
+    lotka_volterra = lambda x, y, t : [diff(x, t) - (alpha*x  - beta*x*y),
                                        diff(y, t) - (delta*x*y - gamma*y)]
     init_vals_lv = [
         IVP(t_0=0.0, x_0=1.5),
@@ -135,7 +145,7 @@ def test_lotka_volterra():
         FCNN(n_hidden_units=32, n_hidden_layers=1, actv=SinActv),
         FCNN(n_hidden_units=32, n_hidden_layers=1, actv=SinActv)
     ]
-    solution_lv, _ = solve_system(ode_system=lotka_volterra, conditions=init_vals_lv, 
+    solution_lv, _ = solve_system(ode_system=lotka_volterra, conditions=init_vals_lv,
                                   t_min=0.0, t_max=12, nets=nets_lv, max_epochs=12000,
                                   monitor=Monitor(t_min=0.0, t_max=12, check_every=100))
     ts = np.linspace(0, 12, 100)

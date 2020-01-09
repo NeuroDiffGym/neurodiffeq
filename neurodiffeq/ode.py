@@ -114,7 +114,7 @@ class ExampleGenerator:
     :type method: str, optional
     :raises ValueError: When provided with an unknown method.
     """
-    def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform'):
+    def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform', noise_std=None):
         r"""Initializer method
 
         .. note::
@@ -130,17 +130,21 @@ class ExampleGenerator:
             self.get_examples = lambda: self.examples
         elif method == 'equally-spaced-noisy':
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            self.noise_mean = torch.zeros(self.size)
-            self.noise_std  = torch.ones(self.size) * ( (t_max-t_min)/size ) / 4.0
-            self.get_examples = lambda: self.examples + torch.normal(mean=self.noise_mean, std=self.noise_std)
+            if noise_std:
+                self.noise_std = noise_std
+            else:
+                self.noise_std  = ( (t_max-t_min)/size ) / 4.0
+            self.get_examples = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         elif method == 'log-spaced':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.get_examples = lambda: self.examples
         elif method == 'log-spaced-noisy':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            self.noise_mean = torch.zeros(self.size)
-            self.noise_std = torch.ones(self.size) * ((t_max - t_min) / size) / 4.0
-            self.get_examples = lambda: self.examples + torch.normal(mean=self.noise_mean, std=self.noise_std)
+            if noise_std:
+                self.noise_std = noise_std
+            else:
+                self.noise_std = ((t_max - t_min) / size) / 4.0
+            self.get_examples = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         else:
             raise ValueError(f'Unknown method: {method}')
 

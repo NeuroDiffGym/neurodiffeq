@@ -95,7 +95,7 @@ def test_laplace():
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=[0, 0], xy_max=[1, 1],
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D([32, 32], [0, 0], [1, 1], method='equally-spaced-noisy'),
+        train_generator=ExampleGenerator2D([32, 32], [0, 0], [1, 1], method='equally-spaced-noisy', xy_noise_std=(0.01, 0.01)),
         batch_size=64
     )
     solution_analytical_laplace = lambda x, y: np.sin(np.pi * y) * np.sinh(np.pi * (1 - x)) / np.sinh(np.pi)

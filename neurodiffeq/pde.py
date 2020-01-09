@@ -225,10 +225,12 @@ class ExampleGenerator2D:
             If set to 'equally-spaced', the points will be fixed to the grid specified.
             If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
         :type method: str, optional
+        :param xy_noise_std: the standard deviation of the noise on the x and y dimension, if not specified, the default value will be (grid step size on x dimension / 4, grid step size on y dimension / 4)
+        :type xy_noise_std: tuple[int, int], optional, defaults to None
         :raises ValueError: When provided with an unknown method.
     """
 
-    def __init__(self, grid=(10, 10), xy_min=(0.0, 0.0), xy_max=(1.0, 1.0), method='equally-spaced-noisy'):
+    def __init__(self, grid=(10, 10), xy_min=(0.0, 0.0), xy_max=(1.0, 1.0), method='equally-spaced-noisy', xy_noise_std=None):
         r"""Initializer method
 
         .. note::
@@ -250,13 +252,14 @@ class ExampleGenerator2D:
             grid_x, grid_y = torch.meshgrid(x, y)
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
 
-            self.noise_xmean = torch.zeros(self.size)
-            self.noise_ymean = torch.zeros(self.size)
-            self.noise_xstd = torch.ones(self.size) * ((xy_max[0] - xy_min[0]) / grid[0]) / 4.0
-            self.noise_ystd = torch.ones(self.size) * ((xy_max[1] - xy_min[1]) / grid[1]) / 4.0
+            if xy_noise_std:
+                self.noise_xstd, self.noise_ystd = xy_noise_std
+            else:
+                self.noise_xstd = ((xy_max[0] - xy_min[0]) / grid[0]) / 4.0
+                self.noise_ystd = ((xy_max[1] - xy_min[1]) / grid[1]) / 4.0
             self.get_examples = lambda: (
-                self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd),
-                self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd)
+                torch.normal(mean=self.grid_x, std=self.noise_xstd),
+                torch.normal(mean=self.grid_y, std=self.noise_ystd)
             )
         else:
             raise ValueError(f'Unknown method: {method}')
