@@ -8,6 +8,10 @@ from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor, ExampleGenerator
 
+import torch
+torch.manual_seed(42)
+np.random.seed(42)
+
 
 def test_monitor():
     exponential = lambda x, t: diff(x, t) - x

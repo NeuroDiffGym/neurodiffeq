@@ -9,6 +9,10 @@ from neurodiffeq.pde import solve2D, ExampleGenerator2D, Monitor2D, make_animati
 
 from pytest import raises
 
+import torch
+torch.manual_seed(42)
+np.random.seed(42)
+
 
 def test_monitor():
 
