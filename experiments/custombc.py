@@ -39,13 +39,19 @@ class CustomDirichletBoundaryCondition(Condition):
         # drop deplicates and sort 'clockwise' (while not changing the original copy)
         dirichlet_control_points = self._clean_control_points(dirichlet_control_points, center_point)
         # fit Dirichlet dummy solution (A_D(x) in MacFall's paper)
-        self.a_d = _Interpolator.fit_dirichlet_dummy_solution(dirichlet_control_points)
+        self.a_d_interp = InterpolatorCreator.fit_dirichlet_dummy_solution(dirichlet_control_points)
         # fit Dirichlet length factor (L_D(x) in MacFall's paper)
-        self.l_d = _Interpolator.fit_dirichlet_length_factor(dirichlet_control_points)
+        self.l_d_interp = InterpolatorCreator.fit_dirichlet_length_factor(dirichlet_control_points)
+    
+    def a_d(self, *dimensions):
+        return self.a_d_interp.interpolate(*dimensions)
+    
+    def l_d(self, *dimensions):
+        return self.l_d_interp.interpolate(*dimensions)
     
     def enforce(self, net, *dimensions):
         # enforce Dirichlet boundary condition u_t(x) = A_D(x) + L_D(x)u_N(x)
-        return self.a_d(*dimensions) + self.l_d(*dimensions)*self._nn_output(net, *dimensions)
+        return self.a_d(*dimensions) + self.l_d(*dimensions) * self._nn_output(net, *dimensions)
     
     @staticmethod
     def _clean_control_points(control_points, center_point):
@@ -67,7 +73,7 @@ class CustomDirichletBoundaryCondition(Condition):
         return unique_control_points
 
 
-class _Interpolator:
+class InterpolatorCreator:
 
     @staticmethod
     def fit_dirichlet_dummy_solution(dirichlet_control_points):
@@ -75,37 +81,25 @@ class _Interpolator:
         from_points = dirichlet_control_points
         to_values = [dcp.val for dcp in dirichlet_control_points]
         # fit thin plate spline and save coefficients
-        coefs = _Interpolator.solve_thin_plate_spline(from_points, to_values)
-        # define closure that map arbitrary points x (represented by torch.tensor 
-        # with shape [#point, #dimension]) to A_D(x)
-        def a_d(*dimensions):
-            return _Interpolator.interpolate_by_thin_plate_spline(coefs, from_points, *dimensions)
-        return a_d
+        coefs = InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
+        return ADInterpolator(coefs, dirichlet_control_points)
         
     @staticmethod
     def fit_dirichlet_length_factor(dirichlet_control_points, radius=0.5):
         # specify input and output of thin plate spline
         from_points = dirichlet_control_points
-        to_points = _Interpolator._create_circular_targets(dirichlet_control_points, radius)
+        to_points = InterpolatorCreator._create_circular_targets(dirichlet_control_points, radius)
         n_dim = to_points[0].dim
         to_values_each_dim = [[tp.loc[i] for tp in to_points] for i in range(n_dim)]
         # fit thin plate spline and save coefficients
         coefs_each_dim = [
-            _Interpolator.solve_thin_plate_spline(from_points, to_values)
+            InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
             for to_values in to_values_each_dim
         ]
-        # define closure that map arbitrary points x (represented by torch.tensor 
-        # with shape [#point, #dimension]) to L_D(x)
-        def l_d(*dimensions):
-            dimensions_mapped = [
-                _Interpolator.interpolate_by_thin_plate_spline(coefs_dim, from_points, *dimensions)
-                for coefs_dim in coefs_each_dim
-            ]
-            return radius**2 - sum(d**2 for d in dimensions_mapped)
-        return l_d
+        return LDInterpolator(coefs_each_dim, dirichlet_control_points, radius)
     
     @staticmethod
-    def solve_thin_plate_spline(from_points, to_values):
+    def _solve_thin_plate_spline(from_points, to_values):
         assert len(from_points) == len(to_values)
         n_dims = from_points[0].dim
         n_pnts = len(from_points)
@@ -121,7 +115,7 @@ class _Interpolator:
                 p = from_points[eq_no]
                 # the first M weights 
                 for i, fp in enumerate(from_points):
-                    ri_sq = _Interpolator._ri_sq_thin_plate_spline_pretrain(p, fp)
+                    ri_sq = Interpolator._ri_sq_thin_plate_spline_pretrain(p, fp)
                     weights[i] = ri_sq * np.log(ri_sq)
                 # the M+1'th weight
                 weights[n_pnts] = 1.0
@@ -151,14 +145,6 @@ class _Interpolator:
         # solve linear system and return coefficients
         return np.linalg.solve(W, b)  
     
-    # to be used in fitting soefficients of thin plate spline
-    @staticmethod
-    def _ri_sq_thin_plate_spline_pretrain(point_i, point_j, stiffness=0.01):
-        return sum((di-dj)**2 for di, dj in zip(point_i.loc, point_j.loc)) + stiffness**2
-    # to be used in transforming output of neural networks
-    @staticmethod
-    def _ri_sq_thin_plate_spline_trainval(point_i, *dimensions, stiffness=0.01):
-        return sum((d-di)**2 for di, d in zip(point_i.loc, dimensions)) + stiffness**2
     @staticmethod
     def _create_circular_targets(control_points, radius):
         # create equally spaced target points, this is for 2-d control points
@@ -167,13 +153,19 @@ class _Interpolator:
             Point( (radius*np.cos(theta), radius*np.sin(theta)) )
             for theta in -np.linspace(0, 2*np.pi, len(control_points), endpoint=False)
         ]
+
+class Interpolator:
+    
+    def interpolate(self, *dimensions):
+        raise NotImplementedError
+
     @staticmethod
-    def interpolate_by_thin_plate_spline(coefs, control_points, *dimensions):
+    def _interpolate_by_thin_plate_spline(coefs, control_points, *dimensions):
         n_pnts = len(control_points)
         to_value_unfinished = torch.zeros_like(dimensions[0])
         # the first M basis functions (M is the number of control points)
         for coef, cp in zip(coefs, control_points):
-            ri_sq = _Interpolator._ri_sq_thin_plate_spline_trainval(cp, *dimensions)
+            ri_sq = Interpolator._ri_sq_thin_plate_spline_trainval(cp, *dimensions)
             to_value_unfinished += coef * ri_sq * torch.log(ri_sq)
         # the M+1'th basis function
         to_value_unfinished += coefs[n_pnts]
@@ -181,3 +173,40 @@ class _Interpolator:
         for j, d in enumerate(dimensions):
             to_value_unfinished += coefs[n_pnts+1+j] * d
         return to_value_unfinished
+
+    # to be used in fitting soefficients of thin plate spline
+    @staticmethod
+    def _ri_sq_thin_plate_spline_pretrain(point_i, point_j, stiffness=0.01):
+        return sum((di-dj)**2 for di, dj in zip(point_i.loc, point_j.loc)) + stiffness**2
+
+    # to be used in transforming output of neural networks
+    @staticmethod
+    def _ri_sq_thin_plate_spline_trainval(point_i, *dimensions, stiffness=0.01):
+        return sum((d-di)**2 for di, d in zip(point_i.loc, dimensions)) + stiffness**2
+
+class ADInterpolator(Interpolator):
+
+    def __init__(self, coefs, control_points):
+        self.coefs = coefs
+        self.control_points = control_points
+    
+    def interpolate(self, *dimensions):
+        return Interpolator._interpolate_by_thin_plate_spline(
+                self.coefs, self.control_points, *dimensions
+            )
+
+class LDInterpolator(Interpolator):
+
+    def __init__(self, coefs_each_dim, control_points, radius):
+        self.coefs_each_dim = coefs_each_dim
+        self.control_points = control_points
+        self.radius = radius
+
+    def interpolate(self, *dimensions):
+        dimensions_mapped = [
+            Interpolator._interpolate_by_thin_plate_spline(
+                coefs_dim, self.control_points, *dimensions
+            )
+            for coefs_dim in self.coefs_each_dim
+        ]
+        return self.radius**2 - sum(d**2 for d in dimensions_mapped)
