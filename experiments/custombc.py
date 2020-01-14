@@ -49,6 +49,9 @@ class CustomDirichletBoundaryCondition(Condition):
     def l_d(self, *dimensions):
         return self.l_d_interp.interpolate(*dimensions)
     
+    def in_domain(self, *dimensions):
+        return self.l_d(*dimensions) > 0.0
+    
     def enforce(self, net, *dimensions):
         # enforce Dirichlet boundary condition u_t(x) = A_D(x) + L_D(x)u_N(x)
         return self.a_d(*dimensions) + self.l_d(*dimensions) * self._nn_output(net, *dimensions)
@@ -64,11 +67,39 @@ class CustomDirichletBoundaryCondition(Condition):
                 unique_control_points.append(cp)
 
         # sort the control points 'clockwise' (from 0 to -2pi)
-        def clockwise(cp):
-            return (
-                1 if cp.loc[1]-center_point.loc[1] > 0 else -1,
-                (cp.loc[0]-center_point.loc[0])/(cp.loc[1]-center_point.loc[1]-1e-9)
-            )
+        # needs a better way to implement this, edge cases are many
+        def clockwise(cp, significant_digit=1e-7):
+            def gt_zero(number):
+                return number >= significant_digit
+            def lt_zero(number):
+                return number <= -significant_digit
+            def eq_zero(number):
+                return abs(number) < significant_digit
+            
+            px, py = cp.loc
+            cx, cy = center_point.loc
+            dx, dy = px-cx, py-cy
+            if   gt_zero(dx) and eq_zero(dy):
+                tier = 0
+            elif gt_zero(dx) and lt_zero(dy):
+                tier = 1
+            elif eq_zero(dx) and lt_zero(dy):
+                tier = 2
+            elif lt_zero(dx) and lt_zero(dy):
+                tier = 3
+            elif lt_zero(dx) and eq_zero(dy):
+                tier = 4
+            elif lt_zero(dx) and gt_zero(dy):
+                tier = 5
+            elif eq_zero(dx) and gt_zero(dy):
+                tier = 6
+            elif gt_zero(dx) and gt_zero(dy):
+                tier = 7
+            # assume that the second key won't be used 
+            # - i.e. on the same side of center point (left or right)
+            # there won't be multiple control points that
+            # has the same y-coordinate as the center point
+            return (tier, dx/dy if not eq_zero(dy) else 0) 
         unique_control_points.sort(key=clockwise)
         return unique_control_points
 
