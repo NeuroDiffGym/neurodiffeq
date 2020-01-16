@@ -40,9 +40,7 @@ class ExampleGenerator3D:
         :type xyz_min: tuple[float, float, float], optional
         :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is `(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
         :type xyz_max: tuple[float, float, float], optional
-        :param method: The distribution of the 2-D points generated.
-            If set to 'equally-spaced', the points will be fixed to the grid specified.
-            If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
+        :param method: The distribution of the 3-D points generated. If set to 'equally-spaced', the points will be fixed to the grid specified. If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
         :type method: str, optional
         :raises ValueError: When provided with an unknown method.
     """
@@ -88,9 +86,7 @@ class ExampleGeneratorSpherical:
     :type r_min: float, optional
     :param r_max: radius of the exterior boundary
     :type r_max: float, optional
-    :param method: The distribution of the 2-D points generated.
-        If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`
-        If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
+    :param method: The distribution of the 3-D points generated. If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`. If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
     :type method: str, optional
     """
 
