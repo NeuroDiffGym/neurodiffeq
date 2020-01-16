@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from numpy import isclose
+import matplotlib
+matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN

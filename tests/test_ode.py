@@ -2,6 +2,8 @@ import numpy as np
 from numpy import isclose
 from pytest import raises
 from scipy.integrate import odeint
+import matplotlib
+matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN, SinActv
