@@ -5,6 +5,7 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -544,6 +545,7 @@ class MonitorSpherical:
     def __init__(self, r_min, r_max, check_every=100, var_names=None):
         """Initializer method
         """
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
@@ -673,7 +675,8 @@ class MonitorSpherical:
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
         # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
-        plt.pause(0.05)
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
 
     def new(self):
         self.fig = None

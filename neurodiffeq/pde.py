@@ -3,6 +3,7 @@ import torch.optim as optim
 import torch.nn as nn
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -279,6 +280,7 @@ class Monitor2D:
     def __init__(self, xy_min, xy_max, check_every=100):
         """Initializer method
         """
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
@@ -339,7 +341,8 @@ class Monitor2D:
         self.axs[-1].legend()
 
         self.fig.canvas.draw()
-        plt.pause(0.05)
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
 
 
 def solve2D(

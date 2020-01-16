@@ -1,3 +1,4 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -162,6 +163,7 @@ class Monitor:
     def __init__(self, t_min, t_max, check_every=100):
         """Initializer method
         """
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
         self.check_every = check_every
         self.fig = plt.figure(figsize=(20, 8))
         self.ax1 = self.fig.add_subplot(121)
@@ -207,7 +209,8 @@ class Monitor:
         self.ax2.legend()
 
         self.fig.canvas.draw()
-        plt.pause(0.05)
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
 
 
 def solve(
