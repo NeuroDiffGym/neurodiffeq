@@ -1,0 +1,61 @@
+--------------------------------------------------------------------------------
+  Environment Summary
+--------------------------------------------------------------------------------
+PyTorch 1.3.0.post2 not compiled w/ CUDA
+Running with Python 3.7 and 
+
+`pip list` truncated output:
+numpy==1.17.3
+torch==1.3.0.post2
+--------------------------------------------------------------------------------
+  cProfile output
+--------------------------------------------------------------------------------
+         431530 function calls (426712 primitive calls) in 10.596 seconds
+
+   Ordered by: internal time
+   List reduced from 1933 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      240    8.669    0.036    8.669    0.036 {method 'run_backward' of 'torch._C._EngineBase' objects}
+        1    0.515    0.515    9.841    9.841 /Users/chenfeiyu/Desktop/repos/neurodiffeq/neurodiffeq/pde.py:395(solve2D_system)
+    18000    0.185    0.000    0.185    0.000 profiled.py:160(<genexpr>)
+      150    0.161    0.001    0.550    0.004 profiled.py:170(interpolate_by_thin_plate_spline)
+      114    0.119    0.001    0.119    0.001 {method 'read' of '_io.FileIO' objects}
+    10850    0.106    0.000    0.293    0.000 {built-in method builtins.sum}
+        2    0.100    0.050    0.101    0.050 {method 'read' of '_io.TextIOWrapper' objects}
+     6000    0.068    0.000    0.355    0.000 profiled.py:159(_ri_sq_thin_plate_spline_trainval)
+       10    0.061    0.006    0.061    0.006 {built-in method _imp.create_dynamic}
+      112    0.042    0.000    0.042    0.000 {built-in method marshal.loads}
+      100    0.035    0.000    4.062    0.041 /Users/chenfeiyu/Desktop/repos/neurodiffeq/neurodiffeq/neurodiffeq.py:5(diff)
+     6000    0.034    0.000    0.034    0.000 {built-in method log}
+        1    0.028    0.028    9.869    9.869 /Users/chenfeiyu/Desktop/repos/neurodiffeq/neurodiffeq/pde.py:341(solve2D)
+     2467    0.025    0.000    0.043    0.000 /opt/anaconda3/envs/nde/lib/python3.7/inspect.py:613(cleandoc)
+       27    0.018    0.001    0.041    0.002 /opt/anaconda3/envs/nde/lib/python3.7/site-packages/matplotlib/__init__.py:908(_rc_params_in_file)
+
+
+--------------------------------------------------------------------------------
+  autograd profiler output (CPU mode)
+--------------------------------------------------------------------------------
+        top 15 events sorted by cpu_time_total
+
+----------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Name              Self CPU total %  Self CPU total   CPU total %      CPU total        CPU time avg     CUDA total %     CUDA total       CUDA time avg    Number of Calls  Input Shapes                         
+----------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+add               7.33%            6.995ms          7.33%            6.995ms          6.995ms          NaN              0.000us          0.000us          1                []                                   
+add               6.98%            6.660ms          6.98%            6.660ms          6.660ms          NaN              0.000us          0.000us          1                []                                   
+PowBackward0      6.85%            6.535ms          6.85%            6.535ms          6.535ms          NaN              0.000us          0.000us          1                []                                   
+zeros_like        6.84%            6.530ms          6.84%            6.530ms          6.530ms          NaN              0.000us          0.000us          1                []                                   
+AddBackward0      6.78%            6.475ms          6.78%            6.475ms          6.475ms          NaN              0.000us          0.000us          1                []                                   
+MulBackward0      6.78%            6.474ms          6.78%            6.474ms          6.474ms          NaN              0.000us          0.000us          1                []                                   
+MulBackward1      6.69%            6.384ms          6.69%            6.384ms          6.384ms          NaN              0.000us          0.000us          1                []                                   
+MulBackward0      6.65%            6.346ms          6.65%            6.346ms          6.346ms          NaN              0.000us          0.000us          1                []                                   
+DivBackward0      6.57%            6.268ms          6.57%            6.268ms          6.268ms          NaN              0.000us          0.000us          1                []                                   
+div               6.54%            6.246ms          6.54%            6.246ms          6.246ms          NaN              0.000us          0.000us          1                []                                   
+add               6.48%            6.187ms          6.48%            6.187ms          6.187ms          NaN              0.000us          0.000us          1                []                                   
+add               6.42%            6.124ms          6.42%            6.124ms          6.124ms          NaN              0.000us          0.000us          1                []                                   
+MulBackward0      6.40%            6.107ms          6.40%            6.107ms          6.107ms          NaN              0.000us          0.000us          1                []                                   
+mul               6.36%            6.075ms          6.36%            6.075ms          6.075ms          NaN              0.000us          0.000us          1                []                                   
+PowBackward0      6.33%            6.044ms          6.33%            6.044ms          6.044ms          NaN              0.000us          0.000us          1                []                                   
+----------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Self CPU time total: 95.450ms
+CUDA time total: 0.000us
