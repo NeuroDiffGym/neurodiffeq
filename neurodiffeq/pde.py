@@ -346,7 +346,7 @@ class Monitor2D:
 
 
 def solve2D(
-        pde, condition, xy_min, xy_max,
+        pde, condition, xy_min=None, xy_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
@@ -359,9 +359,9 @@ def solve2D(
     :param condition: The initial/boundary condition.
     :type condition: `neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`
     :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`.
-    :type xy_min: tuple[float, float], optional
-    :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
-    :type xy_max: tuple[float, float], optional
+    :type xy_min: tuple[float, float], only needed when train_generator and valid_generator are not specified, defaults to None
+    :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
+    :type xy_max: tuple[float, float], only needed when train_generator and valid_generator are not specified, defaults to None
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
@@ -400,7 +400,7 @@ def solve2D(
 
 
 def solve2D_system(
-        pde_system, conditions, xy_min, xy_max,
+        pde_system, conditions, xy_min=None, xy_max=None,
         nets=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
@@ -414,9 +414,9 @@ def solve2D_system(
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
         :type conditions: list[`neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`]
         :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`.
-        :type xy_min: tuple[float, float], optional
+        :type xy_min: tuple[float, float], only needed when train_generator and valid_generator are not specified, defaults to None
         :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
-        :type xy_max: tuple[float, float], optional
+        :type xy_max: tuple[float, float], only needed when train_generator and valid_generator are not specified, defaults to None
         :param nets: The neural networks used to approximate the solution, defaults to None.
         :type nets: list[`torch.nn.Module`], optional
         :param train_generator: The example generator to generate 1-D training points, default to None.
@@ -501,9 +501,13 @@ def solve2D_system(
             for _ in range(n_dependent_vars)
         ]
     if not train_generator:
-        train_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced-noisy')
+        if (not xy_min) or (not xy_max):
+            raise RuntimeError('Please specify xy_min and xy_max when train_generator is not specified')
+        train_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
     if not valid_generator:
-        valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+        if (not xy_min) or (not xy_max):
+            raise RuntimeError('Please specify xy_min and xy_max when valid_generator is not specified')
+        valid_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced')
     if not optimizer:
         all_parameters = []
         for net in nets:
@@ -526,12 +530,7 @@ def solve2D_system(
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:
-            try:
-                monitor.check(nets, conditions, loss_history)
-            except:
-                print(nets)
-                print(conditions)
-                print(loss_history)
+            monitor.check(nets, conditions, loss_history)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
