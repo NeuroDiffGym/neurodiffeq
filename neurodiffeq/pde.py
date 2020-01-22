@@ -444,6 +444,55 @@ def solve2D_system(
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
         :rtype: tuple[`neurodiffeq.pde.Solution`, dict]; or tuple[`neurodiffeq.pde.Solution`, dict, dict]
         """
+
+    ########################################### subroutines ###########################################
+    def train(train_generator, nets, pde_system, conditions, criterion, shuffle, optimizer):
+        train_examples_x, train_examples_y = train_generator.get_examples()
+        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
+        n_examples_train = train_generator.size
+        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
+
+        train_loss_epoch = 0.0
+        batch_start, batch_end = 0, batch_size
+        while batch_start < n_examples_train:
+            if batch_end > n_examples_train:
+                batch_end = n_examples_train
+            batch_idx = idx[batch_start:batch_end]
+            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
+
+            train_loss_batch = calculate_loss(xs, ys, nets, pde_system, conditions, criterion)
+            train_loss_epoch += train_loss_batch.item() * (batch_end - batch_start) / n_examples_train
+
+            optimizer.zero_grad()
+            train_loss_batch.backward()
+            optimizer.step()
+
+            batch_start += batch_size
+            batch_end += batch_size
+
+        return train_loss_epoch
+
+    def valid(valid_generator, nets, pde_system, conditions, criterion):
+        valid_examples_x, valid_examples_y = valid_generator.get_examples()
+        xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
+        valid_loss_epoch = calculate_loss(xs, ys, nets, pde_system, conditions, criterion)
+        valid_loss_epoch = valid_loss_epoch.item()
+        return valid_loss_epoch
+
+    def calculate_loss(xs, ys, nets, pde_system, conditions, criterion):
+        # the dependet variables
+        us = [
+            con.enforce(net, xs, ys)
+            for con, net in zip(conditions, nets)
+        ]
+        Fuxys = pde_system(*us, xs, ys)
+        loss = sum(
+            criterion(Fuxy, torch.zeros_like(xs))
+            for Fuxy in Fuxys
+        )
+        return loss
+    ###################################################################################################
+
     # default values
     n_dependent_vars = len(conditions)
     if not nets:
@@ -457,82 +506,32 @@ def solve2D_system(
         valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
     if not optimizer:
         all_parameters = []
-        for net in nets: all_parameters += list(net.parameters())
+        for net in nets:
+            all_parameters += list(net.parameters())
         optimizer = optim.Adam(all_parameters, lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
 
-    if return_internal:
-        internal = {
-            'nets': nets,
-            'conditions': conditions,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
-
-    n_examples_train = train_generator.size
-    n_examples_valid = valid_generator.size
-    train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
-
     loss_history = {'train': [], 'valid': []}
-    valid_loss_epoch_min = np.inf
-    solution_min = None
+
+    if return_best:
+        valid_loss_epoch_min = np.inf
+        solution_min = None
 
     for epoch in range(max_epochs):
-        train_loss_epoch = 0.0
-
-        train_examples_x, train_examples_y = train_generator.get_examples()
-        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
-
-            # the dependet variables
-            us = [
-                con.enforce(net, xs, ys)
-                for con, net in zip(conditions, nets)
-            ]
-
-            Fuxys = pde_system(*us, xs, ys)
-            loss = 0.0
-            for Fuxy in Fuxys:
-                loss += criterion(Fuxy, train_zeros)
-            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
+        train_loss_epoch = train(train_generator, nets, pde_system, conditions, criterion, shuffle, optimizer)
         loss_history['train'].append(train_loss_epoch)
 
-        # calculate the validation loss
-        valid_examples_x, valid_examples_y = valid_generator.get_examples()
-        xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        us = [
-            con.enforce(net, xs, ys)
-            for con, net in zip(conditions, nets)
-        ]
-        Fuxys = pde_system(*us, xs, ys)
-        valid_loss_epoch = 0.0
-        for Fuxy in Fuxys:
-            valid_loss_epoch += criterion(Fuxy, valid_zeros)
-        valid_loss_epoch = valid_loss_epoch.item()
-
+        valid_loss_epoch = valid(valid_generator, nets, pde_system, conditions, criterion)
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:
-            monitor.check(nets, conditions, loss_history)
+            try:
+                monitor.check(nets, conditions, loss_history)
+            except:
+                print(nets)
+                print(conditions)
+                print(loss_history)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
@@ -544,6 +543,14 @@ def solve2D_system(
         solution = Solution(nets, conditions)
 
     if return_internal:
+        internal = {
+            'nets': nets,
+            'conditions': conditions,
+            'train_generator': train_generator,
+            'valid_generator': valid_generator,
+            'optimizer': optimizer,
+            'criterion': criterion
+        }
         return solution, loss_history, internal
     else:
         return solution, loss_history
