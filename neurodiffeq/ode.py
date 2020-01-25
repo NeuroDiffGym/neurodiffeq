@@ -10,11 +10,23 @@ from .networks import FCNN
 from copy import deepcopy
 
 
-class NoCondition2D:
+class Condition:
+
+    def __init__(self):
+        self.ith_unit = None
+
+    def set_impose_on(self, ith_unit):
+        self.ith_unit = ith_unit
+
+
+class NoCondition(Condition):
     """An condition class that does not impose any initial/boundary conditions
     """
-    @staticmethod
-    def enforce(net, t):
+
+    def __init__(self):
+        super().__init__()
+
+    def enforce(self, net, t):
         r"""Return the raw input of neural network.
 
         .. note::
@@ -23,7 +35,7 @@ class NoCondition2D:
         return net(t)
 
 
-class IVP:
+class IVP(Condition):
     """An initial value problem.
         For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0`.
         For Neumann condition, we are solving :math:`x(t)` given :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`.
@@ -38,6 +50,7 @@ class IVP:
     def __init__(self, t_0, x_0, x_0_prime=None):
         """Initializer method
         """
+        super().__init__()
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
     def enforce(self, net, t):
@@ -60,7 +73,7 @@ class IVP:
             return self.x_0 + (1-torch.exp(-t+self.t_0))*x
 
 
-class DirichletBVP:
+class DirichletBVP(Condition):
     """A two-point Dirichlet boundary condition.
         We are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0` and :math:`x(t)\\bigg|_{t = t_1} = x_1`.
 
@@ -76,6 +89,7 @@ class DirichletBVP:
     def __init__(self, t_0, x_0, t_1, x_1):
         """Initializer method
         """
+        super().__init__()
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
 
     def enforce(self, net, t):
