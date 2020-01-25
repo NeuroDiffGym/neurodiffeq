@@ -10,6 +10,28 @@ from .networks import FCNN
 from copy import deepcopy
 
 
+def _network_output(net, ts, ith_unit):
+    nn_output = net(ts)
+    if ith_unit is not None:
+        return nn_output[:, ith_unit].reshape(-1, 1)
+    else:
+        return nn_output
+
+
+def _trial_solution(single_net, nets, ts, conditions):
+    if single_net:  # using a single net
+        us = [
+            con.enforce(single_net, ts)
+            for con in conditions
+        ]
+    else:  # using multiple nets
+        us = [
+            con.enforce(net, ts)
+            for con, net in zip(conditions, nets)
+        ]
+    return us
+
+
 class Condition:
 
     def __init__(self):
@@ -32,7 +54,7 @@ class NoCondition(Condition):
         .. note::
             `enforce` is meant to be called by the function `solve` and `solve_system`.
         """
-        return net(t)
+        return _network_output(net, t, self.ith_unit)
 
 
 class IVP(Condition):
@@ -66,7 +88,7 @@ class IVP(Condition):
         .. note::
             `enforce` is meant to be called by the function `solve` and `solve_system`.
         """
-        x = net(t)
+        x = _network_output(net, t, self.ith_unit)
         if self.x_0_prime:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
@@ -106,7 +128,7 @@ class DirichletBVP(Condition):
         .. note::
             `enforce` is meant to be called by the function `solve` and `solve_system`.
         """
-        x = net(t)
+        x = _network_output(net, t, self.ith_unit)
         t_tilde = (t-self.t_0) / (self.t_1-self.t_0)
         return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
 
@@ -187,7 +209,7 @@ class Monitor:
         # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1))
 
-    def check(self, nets, conditions, loss_history):
+    def check(self, single_net, nets, conditions, loss_history):
         r"""Draw 2 plots: One shows the shape of the current solution. The other shows the history training loss and validation loss.
 
         :param nets: The neural networks that approximates the ODE (system).
@@ -200,16 +222,12 @@ class Monitor:
         .. note::
             `check` is meant to be called by the function `solve` and `solve_system`.
         """
-        n_dependent = len(conditions)
-
-        vs = [
-            con.enforce(net, self.ts_ann).detach().cpu().numpy()
-            for con, net in zip(conditions, nets)
-        ]
+        us = _trial_solution(single_net, nets, self.ts_ann, conditions)
+        us = [u.detach().cpu().numpy() for u in us]
 
         self.ax1.clear()
-        for i in range(n_dependent):
-            self.ax1.plot(self.ts_plt, vs[i], label=f'variable {i}')
+        for i, u in enumerate(us):
+            self.ax1.plot(self.ts_plt, u, label=f'variable {i}')
         self.ax1.legend()
         self.ax1.set_title('solutions')
 
@@ -228,7 +246,7 @@ class Monitor:
 
 
 def solve(
-        ode, condition, t_min, t_max,
+        ode, condition, t_min=None, t_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
@@ -244,9 +262,9 @@ def solve(
     :type condition: `neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
-    :param t_min: The lower bound of the domain (t) on which the ODE is solved.
+    :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_min: float
-    :param t_max: The upper bound of the domain (t) on which the ODE is solved.
+    :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_max: float
     :param train_generator: The example generator to generate 1-D training points, default to None.
     :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
@@ -285,7 +303,7 @@ def solve(
 
 def solve_system(
         ode_system, conditions, t_min, t_max,
-        nets=None, train_generator=None, shuffle=True, valid_generator=None,
+        single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
@@ -298,10 +316,12 @@ def solve_system(
     :type ode_system: function
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
     :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
-    :param t_min: The lower bound of the domain (t) on which the ODE is solved.
+    :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_min: float
-    :param t_max: The upper bound of the domain (t) on which the ODE is solved.
+    :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_max: float
+    :param single_net: The single neural network used to approximate the solution. Only one of `single_net` and `nets` should be specified, defaults to None
+    :param single_net: `torch.nn.Module`, optional
     :param nets: The neural networks used to approximate the solution, defaults to None.
     :type nets: list[`torch.nn.Module`], optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
@@ -329,15 +349,72 @@ def solve_system(
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict]; or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
 
-    # default values
-    n_dependent_vars = len(conditions)
-    if not nets:
-        nets = [FCNN() for _ in range(n_dependent_vars)]
+    ########################################### subroutines ###########################################
+    def train(train_generator, net, nets, ode_system, conditions, criterion, shuffle, optimizer):
+        train_examples_t = train_generator.get_examples()
+        train_examples_t = train_examples_t.reshape((-1, 1))
+        n_examples_train = train_generator.size
+        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
+
+        train_loss_epoch = 0.0
+        batch_start, batch_end = 0, batch_size
+        while batch_start < n_examples_train:
+            if batch_end > n_examples_train:
+                batch_end = n_examples_train
+            batch_idx = idx[batch_start:batch_end]
+            ts = train_examples_t[batch_idx]
+
+            train_loss_batch = calculate_loss(ts, net, nets, ode_system, conditions, criterion)
+            train_loss_epoch += train_loss_batch.item() * (batch_end - batch_start) / n_examples_train
+
+            optimizer.zero_grad()
+            train_loss_batch.backward()
+            optimizer.step()
+
+            batch_start += batch_size
+            batch_end += batch_size
+
+        return train_loss_epoch
+
+    def valid(valid_generator, net, nets, ode_system, conditions, criterion):
+        valid_examples_t = valid_generator.get_examples()
+        ts = valid_examples_t.reshape((-1, 1))
+        valid_loss_epoch = calculate_loss(ts, net, nets, ode_system, conditions, criterion)
+        valid_loss_epoch = valid_loss_epoch.item()
+        return valid_loss_epoch
+
+    def calculate_loss(ts, net, nets, ode_system, conditions, criterion):
+        us = _trial_solution(net, nets, ts, conditions)
+        Futs = ode_system(*us, ts)
+        loss = sum(
+            criterion(Fut, torch.zeros_like(ts))
+            for Fut in Futs
+        )
+        return loss
+
+    ###################################################################################################
+
+    if single_net and nets:
+        raise RuntimeError('Only one of net and nets should be specified')
+    # defaults to use a single neural network
+    if (not single_net) and (not nets):
+        single_net = FCNN(n_input_units=1, n_output_units=len(conditions), n_hidden_units=32, n_hidden_layers=1,
+                   actv=nn.Tanh)
+    if single_net:
+        # mark the Conditions so that we know which condition correspond to which output unit
+        for ith, con in enumerate(conditions):
+            con.set_impose_on(ith)
     if not train_generator:
+        if (t_min is None) or (t_max is None):
+            raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
         train_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced-noisy')
     if not valid_generator:
+        if (t_min is None) or (t_max is None):
+            raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
         valid_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced')
-    if not optimizer:
+    if (not optimizer) and single_net:  # using a single net
+        optimizer = optim.Adam(single_net.parameters(), lr=0.001)
+    if (not optimizer) and nets:  # using multiple nets
         all_parameters = []
         for net in nets:
             all_parameters += list(net.parameters())
@@ -345,8 +422,35 @@ def solve_system(
     if not criterion:
         criterion = nn.MSELoss()
 
+    loss_history = {'train': [], 'valid': []}
+
+    if return_best:
+        valid_loss_epoch_min = np.inf
+        solution_min = None
+
+    for epoch in range(max_epochs):
+        train_loss_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, shuffle,
+                                 optimizer)
+        loss_history['train'].append(train_loss_epoch)
+
+        valid_loss_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion)
+        loss_history['valid'].append(valid_loss_epoch)
+
+        if monitor and epoch % monitor.check_every == 0:
+            monitor.check(single_net, nets, conditions, loss_history)
+
+        if return_best and valid_loss_epoch < valid_loss_epoch_min:
+            valid_loss_epoch_min = valid_loss_epoch
+            solution_min = Solution(single_net, nets, conditions)
+
+    if return_best:
+        solution = solution_min
+    else:
+        solution = Solution(single_net, nets, conditions)
+
     if return_internal:
         internal = {
+            'single_net': single_net,
             'nets': nets,
             'conditions': conditions,
             'train_generator': train_generator,
@@ -354,78 +458,6 @@ def solve_system(
             'optimizer': optimizer,
             'criterion': criterion
         }
-
-    n_examples_train = train_generator.size
-    n_examples_valid = valid_generator.size
-    train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
-
-    loss_history = {'train': [], 'valid': []}
-    valid_loss_epoch_min = np.inf
-    solution_min = None
-
-    for epoch in range(max_epochs):
-        train_loss_epoch = 0.0
-
-        train_examples = train_generator.get_examples()
-        train_examples = train_examples.reshape(n_examples_train, 1)
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-
-            if batch_end >= n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            ts = train_examples[batch_idx]
-
-            # the dependent variables
-            vs = [
-                con.enforce(net, ts)
-                for con, net in zip(conditions, nets)
-            ]
-
-            fvts = ode_system(*vs, ts)
-            loss = 0.0
-            for fvt in fvts:
-                loss += criterion(fvt, train_zeros)
-            train_loss_epoch += loss.item() * (batch_end-batch_start)/n_examples_train # assume the loss is a mean over all examples
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
-        loss_history['train'].append(train_loss_epoch)
-
-        # calculate the validation loss
-        ts = valid_generator.get_examples().reshape(n_examples_valid, 1)
-        vs = [
-            con.enforce(net, ts)
-            for con, net in zip(conditions, nets)
-        ]
-        fvts = ode_system(*vs, ts)
-        valid_loss_epoch = 0.0
-        for fvt in fvts:
-            valid_loss_epoch += criterion(fvt, valid_zeros)
-        valid_loss_epoch = valid_loss_epoch.item()
-
-        loss_history['valid'].append(valid_loss_epoch)
-
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(nets, conditions, loss_history)
-
-        if return_best and valid_loss_epoch < valid_loss_epoch_min:
-            valid_loss_epoch_min = valid_loss_epoch
-            solution_min = Solution(nets, conditions)
-
-    if return_best:
-        solution = solution_min
-    else:
-        solution = Solution(nets, conditions)
-
-    if return_internal:
         return solution, loss_history, internal
     else:
         return solution, loss_history
@@ -439,9 +471,10 @@ class Solution:
     :param conditions: The initial/boundary conditions of the ODE (system).
     :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
     """
-    def __init__(self, nets, conditions):
+    def __init__(self, single_net, nets, conditions):
         """Initializer method
         """
+        self.single_net = deepcopy(single_net)
         self.nets = deepcopy(nets)
         self.conditions = deepcopy(conditions)
 
@@ -458,15 +491,14 @@ class Solution:
         """
         if not isinstance(ts, torch.Tensor):
             ts = torch.tensor(ts, dtype=torch.float32)
+        original_shape = ts.shape
         ts = ts.reshape(-1, 1)
         if as_type not in ('tf', 'np'):
             raise ValueError("The valid return types are 'tf' and 'np'.")
 
-        vs = [
-            con.enforce(net, ts)
-            for con, net in zip(self.conditions, self.nets)
-        ]
+        us = _trial_solution(self.single_net, self.nets, ts, self.conditions)
+        us = [u.reshape(original_shape) for u in us]
         if as_type == 'np':
-            vs = [v.detach().cpu().numpy().flatten() for v in vs]
+            us = [u.detach().cpu().numpy().flatten() for u in us]
 
-        return vs if len(self.nets) > 1 else vs[0]
+        return us if len(self.conditions) > 1 else us[0]
