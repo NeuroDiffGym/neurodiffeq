@@ -440,11 +440,11 @@ def solve2D_system(
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
         :type conditions: list[`neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`]
-        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator and valid_generator are not specified, defaults to None
+        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator or valid_generator are not specified, defaults to None
         :type xy_min: tuple[float, float], optional
-        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator and valid_generator are not specified, defaults to None
+        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator or valid_generator are not specified, defaults to None
         :type xy_max: tuple[float, float], optional
-        :param single_net: The single neural network used to approximate the solution. Only one of `net` and `nets` should be specified, defaults to None
+        :param single_net: The single neural network used to approximate the solution. Only one of `single_net` and `nets` should be specified, defaults to None
         :param single_net: `torch.nn.Module`, optional
         :param nets: The neural networks used to approximate the solution, defaults to None.
         :type nets: list[`torch.nn.Module`], optional
@@ -528,11 +528,11 @@ def solve2D_system(
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
     if not train_generator:
-        if (not xy_min) or (not xy_max):
+        if (xy_min is None) or (xy_max is None):
             raise RuntimeError('Please specify xy_min and xy_max when train_generator is not specified')
         train_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
     if not valid_generator:
-        if (not xy_min) or (not xy_max):
+        if (xy_min is None) or (xy_max is None):
             raise RuntimeError('Please specify xy_min and xy_max when valid_generator is not specified')
         valid_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced')
     if (not optimizer) and single_net:  # using a single net
