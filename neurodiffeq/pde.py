@@ -374,7 +374,8 @@ class Monitor2D:
 
 def solve2D(
         pde, condition, xy_min=None, xy_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, batch_size=16,
+        net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, additional_loss_term=None,
+        batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
@@ -401,6 +402,8 @@ def solve2D(
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
+    :type additional_loss_term: function
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -421,7 +424,7 @@ def solve2D(
         pde_system=lambda u, x, y: [pde(u, x, y)], conditions=[condition],
         xy_min=xy_min, xy_max=xy_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, batch_size=batch_size,
+        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal, return_best=return_best
     )
 
@@ -429,7 +432,7 @@ def solve2D(
 def solve2D_system(
         pde_system, conditions, xy_min=None, xy_max=None,
         single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, batch_size=16,
+        optimizer=None, criterion=None, additional_loss_term=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
@@ -458,6 +461,8 @@ def solve2D_system(
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
         :type criterion: `torch.nn.modules.loss._Loss`, optional
+        :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
+        :type additional_loss_term: function
         :param batch_size: The size of the mini-batch to use, defaults to 16.
         :type batch_size: int, optional
         :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -475,7 +480,7 @@ def solve2D_system(
         """
 
     ########################################### subroutines ###########################################
-    def train(train_generator, net, nets, pde_system, conditions, criterion, shuffle, optimizer):
+    def train(train_generator, net, nets, pde_system, conditions, criterion, additional_loss_term, shuffle, optimizer):
         train_examples_x, train_examples_y = train_generator.get_examples()
         train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
         n_examples_train = train_generator.size
@@ -489,7 +494,7 @@ def solve2D_system(
             batch_idx = idx[batch_start:batch_end]
             xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
 
-            train_loss_batch = calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion)
+            train_loss_batch = calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term)
             train_loss_epoch += train_loss_batch.item() * (batch_end - batch_start) / n_examples_train
 
             optimizer.zero_grad()
@@ -501,20 +506,22 @@ def solve2D_system(
 
         return train_loss_epoch
 
-    def valid(valid_generator, net, nets, pde_system, conditions, criterion):
+    def valid(valid_generator, net, nets, pde_system, conditions, criterion, additional_loss_term):
         valid_examples_x, valid_examples_y = valid_generator.get_examples()
         xs, ys = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion)
+        valid_loss_epoch = calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term)
         valid_loss_epoch = valid_loss_epoch.item()
         return valid_loss_epoch
 
-    def calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion):
+    def calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term):
         us = _trial_solution_2input(net, nets, xs, ys, conditions)
         Fuxys = pde_system(*us, xs, ys)
         loss = sum(
             criterion(Fuxy, torch.zeros_like(xs))
             for Fuxy in Fuxys
         )
+        if additional_loss_term is not None:
+            loss += additional_loss_term(*us, xs, ys)
         return loss
     ###################################################################################################
 
@@ -552,10 +559,10 @@ def solve2D_system(
         solution_min = None
 
     for epoch in range(max_epochs):
-        train_loss_epoch = train(train_generator, single_net, nets, pde_system, conditions, criterion, shuffle, optimizer)
+        train_loss_epoch = train(train_generator, single_net, nets, pde_system, conditions, criterion, additional_loss_term, shuffle, optimizer)
         loss_history['train'].append(train_loss_epoch)
 
-        valid_loss_epoch = valid(valid_generator, single_net, nets, pde_system, conditions, criterion)
+        valid_loss_epoch = valid(valid_generator, single_net, nets, pde_system, conditions, criterion, additional_loss_term)
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:

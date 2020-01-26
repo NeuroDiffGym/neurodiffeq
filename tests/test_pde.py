@@ -297,11 +297,14 @@ def test_pde_system():
     L = 2.0
     mu = 1.0
     P1, P2 = 1.0, 0.0
-    poiseuille = lambda u, v, p, x, y: [
-        mu * (diff(u, x, order=2) + diff(u, y, order=2)) - diff(p, x),
-        mu * (diff(v, x, order=2) + diff(v, y, order=2)) - diff(p, y),
-        diff(u, x) + diff(v, y)
-    ]
+    def poiseuille(u, v, p, x, y):
+        return [
+            mu * (diff(u, x, order=2) + diff(u, y, order=2)) - diff(p, x),
+            mu * (diff(v, x, order=2) + diff(v, y, order=2)) - diff(p, y),
+            diff(u, x) + diff(v, y)
+        ]
+    def zero_divergence(u, v, p, x, y):
+        return torch.sum( (diff(u, x) + diff(v, y))**2 )
 
     bc_on_u = BCOnU(
         x_min=0,
@@ -332,7 +335,7 @@ def test_pde_system():
     solution_neural_net_poiseuille, _ = solve2D_system(
         pde_system=poiseuille, conditions=conditions, xy_min=(0, -1), xy_max=(L, 1),
         train_generator=ExampleGenerator2D((32, 32), (0, -1), (L, 1), method='equally-spaced-noisy'),
-        max_epochs=300, batch_size=64, nets=nets,
+        max_epochs=300, batch_size=64, nets=nets, additional_loss_term=zero_divergence,
         monitor=Monitor2D(check_every=10, xy_min=(0, -1), xy_max=(L, 1))
     )
 
@@ -356,7 +359,7 @@ def test_pde_system():
     solution_neural_net_poiseuille, _ = solve2D_system(
         pde_system=poiseuille, conditions=conditions, xy_min=(0, -1), xy_max=(L, 1),
         train_generator=ExampleGenerator2D((32, 32), (0, -1), (L, 1), method='equally-spaced-noisy'),
-        max_epochs=300, batch_size=64, single_net=net,
+        max_epochs=300, batch_size=64, single_net=net, additional_loss_term=zero_divergence,
         monitor=Monitor2D(check_every=10, xy_min=(0, -1), xy_max=(L, 1))
     )
 
