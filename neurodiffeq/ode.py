@@ -248,7 +248,7 @@ class Monitor:
 def solve(
         ode, condition, t_min=None, t_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, batch_size=16,
+        optimizer=None, criterion=None, additional_loss_term=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
         return_best=False
@@ -276,6 +276,8 @@ def solve(
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode`
+    :type additional_loss_term: function
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -295,7 +297,7 @@ def solve(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, batch_size=batch_size,
+        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
@@ -304,7 +306,7 @@ def solve(
 def solve_system(
         ode_system, conditions, t_min, t_max,
         single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, batch_size=16,
+        optimizer=None, criterion=None, additional_loss_term=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
         return_best=False,
@@ -332,8 +334,10 @@ def solve_system(
     :type valid_generator: `neurodiffeq.ode.ExampleGenerator`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
-    :param criterion: The loss function to use for training, defaults to None.
+    :param criterion: The loss function to use for training, defaults to None and sum of square of the output of `ode_system` will be used.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode_system`
+    :type additional_loss_term: function
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -350,7 +354,7 @@ def solve_system(
     """
 
     ########################################### subroutines ###########################################
-    def train(train_generator, net, nets, ode_system, conditions, criterion, shuffle, optimizer):
+    def train(train_generator, net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle, optimizer):
         train_examples_t = train_generator.get_examples()
         train_examples_t = train_examples_t.reshape((-1, 1))
         n_examples_train = train_generator.size
@@ -364,7 +368,7 @@ def solve_system(
             batch_idx = idx[batch_start:batch_end]
             ts = train_examples_t[batch_idx]
 
-            train_loss_batch = calculate_loss(ts, net, nets, ode_system, conditions, criterion)
+            train_loss_batch = calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term)
             train_loss_epoch += train_loss_batch.item() * (batch_end - batch_start) / n_examples_train
 
             optimizer.zero_grad()
@@ -376,20 +380,22 @@ def solve_system(
 
         return train_loss_epoch
 
-    def valid(valid_generator, net, nets, ode_system, conditions, criterion):
+    def valid(valid_generator, net, nets, ode_system, conditions, criterion, additional_loss_term):
         valid_examples_t = valid_generator.get_examples()
         ts = valid_examples_t.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(ts, net, nets, ode_system, conditions, criterion)
+        valid_loss_epoch = calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term)
         valid_loss_epoch = valid_loss_epoch.item()
         return valid_loss_epoch
 
-    def calculate_loss(ts, net, nets, ode_system, conditions, criterion):
+    def calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term):
         us = _trial_solution(net, nets, ts, conditions)
         Futs = ode_system(*us, ts)
         loss = sum(
             criterion(Fut, torch.zeros_like(ts))
             for Fut in Futs
         )
+        if additional_loss_term is not None:
+            loss += additional_loss_term(*us, ts)
         return loss
 
     ###################################################################################################
@@ -429,11 +435,11 @@ def solve_system(
         solution_min = None
 
     for epoch in range(max_epochs):
-        train_loss_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, shuffle,
+        train_loss_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle,
                                  optimizer)
         loss_history['train'].append(train_loss_epoch)
 
-        valid_loss_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion)
+        valid_loss_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term,)
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and epoch % monitor.check_every == 0:

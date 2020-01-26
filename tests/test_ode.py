@@ -166,3 +166,29 @@ def test_lotka_volterra():
     assert isclose(prey_net, prey_num, atol=0.1).all()
     assert isclose(pred_net, pred_num, atol=0.1).all()
     print('Lotka Volterra test passed.')
+
+def test_additional_loss_term():
+    def particle_squarewell(y1, y2, t):
+        return [
+            (-1 / 2) * diff(y1, t, order=2) - 3 - (y2) * (y1),
+            diff(y2, t)
+        ]
+
+    def zero_y2(y1, y2, t):
+        return torch.sum(y2 ** 2)
+
+    boundary_conditions = [
+        DirichletBVP(t_0=0, x_0=0, t_1=2, x_1=0),
+        DirichletBVP(t_0=0, x_0=0, t_1=2, x_1=0),
+    ]
+
+    solution_squarewell, _ = solve_system(
+        ode_system=particle_squarewell, conditions=boundary_conditions,
+        additional_loss_term=zero_y2,
+        t_min=0.0, t_max=2.0,
+        max_epochs=1000,
+    )
+
+    ts = np.linspace(0.0, 2.0, 100)
+    _, y2 = solution_squarewell(ts, as_type='np')
+    assert isclose(y2, np.zeros_like(y2), atol=0.01).all()
