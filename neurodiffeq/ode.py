@@ -201,23 +201,24 @@ class Monitor:
         """
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
         self.check_every = check_every
-        self.fig = plt.figure(figsize=(20, 8))
-        self.ax1 = self.fig.add_subplot(121)
-        self.ax2 = self.fig.add_subplot(122)
+        self.fig = plt.figure(figsize=(30, 8))
+        self.ax1 = self.fig.add_subplot(131)
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
         # input for plotting
         self.ts_plt = np.linspace(t_min, t_max, 100)
         # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1))
 
-    def check(self, single_net, nets, conditions, loss_history):
+    def check(self, single_net, nets, conditions, history):
         r"""Draw 2 plots: One shows the shape of the current solution. The other shows the history training loss and validation loss.
 
         :param nets: The neural networks that approximates the ODE (system).
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
         :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
-        :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
-        :type loss_history: dict['train': list[float], 'valid': list[float]]
+        :param history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :type history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
             `check` is meant to be called by the function `solve` and `solve_system`.
@@ -232,13 +233,24 @@ class Monitor:
         self.ax1.set_title('solutions')
 
         self.ax2.clear()
-        self.ax2.plot(loss_history['train'], label='training loss')
-        self.ax2.plot(loss_history['valid'], label='validation loss')
+        self.ax2.plot(history['train_loss'], label='training loss')
+        self.ax2.plot(history['valid_loss'], label='validation loss')
         self.ax2.set_title('loss during training')
         self.ax2.set_ylabel('loss')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
         self.ax2.legend()
+
+        self.ax3.clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.ax3.plot(metric_values, label=metric_name)
+        self.ax3.set_title('metrics during training')
+        self.ax3.set_ylabel('metrics')
+        self.ax3.set_xlabel('epochs')
+        self.ax3.set_yscale('log')
+        self.ax3.legend()
 
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:
@@ -248,7 +260,7 @@ class Monitor:
 def solve(
         ode, condition, t_min=None, t_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, batch_size=16,
+        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
         return_best=False
@@ -278,6 +290,9 @@ def solve(
     :type criterion: `torch.nn.modules.loss._Loss`, optional
     :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode`
     :type additional_loss_term: function
+    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
+        The input functions should be the same as `ode` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :type metrics: dict[string, function]
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -297,7 +312,7 @@ def solve(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, batch_size=batch_size,
+        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
@@ -306,7 +321,7 @@ def solve(
 def solve_system(
         ode_system, conditions, t_min, t_max,
         single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, batch_size=16,
+        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
         return_best=False,
@@ -338,6 +353,9 @@ def solve_system(
     :type criterion: `torch.nn.modules.loss._Loss`, optional
     :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode_system`
     :type additional_loss_term: function
+    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
+        The input functions should be the same as `ode_system` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :type metrics: dict[string, function]
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -360,7 +378,6 @@ def solve_system(
         n_examples_train = train_generator.size
         idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
 
-        train_loss_epoch = 0.0
         batch_start, batch_end = 0, batch_size
         while batch_start < n_examples_train:
             if batch_end > n_examples_train:
@@ -369,7 +386,6 @@ def solve_system(
             ts = train_examples_t[batch_idx]
 
             train_loss_batch = calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term)
-            train_loss_epoch += train_loss_batch.item() * (batch_end - batch_start) / n_examples_train
 
             optimizer.zero_grad()
             train_loss_batch.backward()
@@ -378,14 +394,19 @@ def solve_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        return train_loss_epoch
+        train_loss_epoch = calculate_loss(train_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
+        
+        train_metrics_epoch = calculate_metrics(train_examples_t, net, nets, conditions, metrics)
+        return train_loss_epoch, train_metrics_epoch
 
     def valid(valid_generator, net, nets, ode_system, conditions, criterion, additional_loss_term):
         valid_examples_t = valid_generator.get_examples()
-        ts = valid_examples_t.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term)
+        valid_examples_t = valid_examples_t.reshape((-1, 1))
+        valid_loss_epoch = calculate_loss(valid_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
         valid_loss_epoch = valid_loss_epoch.item()
-        return valid_loss_epoch
+
+        valid_metrics_epoch = calculate_metrics(valid_examples_t, net, nets, conditions, metrics)
+        return valid_loss_epoch, valid_metrics_epoch
 
     def calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term):
         us = _trial_solution(net, nets, ts, conditions)
@@ -397,7 +418,14 @@ def solve_system(
         if additional_loss_term is not None:
             loss += additional_loss_term(*us, ts)
         return loss
-
+    
+    def calculate_metrics(ts, net, nets, conditions, metrics):
+        us = _trial_solution(net, nets, ts, conditions)
+        metrics_ = {
+            metric_name: metric_function(*us, ts).item()
+            for metric_name, metric_function in metrics.items()
+        }
+        return metrics_
     ###################################################################################################
 
     if single_net and nets:
@@ -428,22 +456,31 @@ def solve_system(
     if not criterion:
         criterion = nn.MSELoss()
 
-    loss_history = {'train': [], 'valid': []}
+    history = {}
+    history['train_loss'] = []
+    history['valid_loss'] = []
+    for metric_name, _ in metrics.items():
+        history['train__' + metric_name] = []
+        history['valid__' + metric_name] = []
 
     if return_best:
         valid_loss_epoch_min = np.inf
         solution_min = None
 
     for epoch in range(max_epochs):
-        train_loss_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle,
+        train_loss_epoch, train_metrics_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle,
                                  optimizer)
-        loss_history['train'].append(train_loss_epoch)
+        history['train_loss'].append(train_loss_epoch)
+        for metric_name, metric_value in train_metrics_epoch.items():
+            history['train__'+metric_name].append(metric_value)
 
-        valid_loss_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term,)
-        loss_history['valid'].append(valid_loss_epoch)
+        valid_loss_epoch, valid_metrics_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term,)
+        history['valid_loss'].append(valid_loss_epoch)
+        for metric_name, metric_value in valid_metrics_epoch.items():
+            history['valid__'+metric_name].append(metric_value)
 
         if monitor and epoch % monitor.check_every == 0:
-            monitor.check(single_net, nets, conditions, loss_history)
+            monitor.check(single_net, nets, conditions, history)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
@@ -464,9 +501,9 @@ def solve_system(
             'optimizer': optimizer,
             'criterion': criterion
         }
-        return solution, loss_history, internal
+        return solution, history, internal
     else:
-        return solution, loss_history
+        return solution, history
 
 
 class Solution:
