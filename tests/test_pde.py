@@ -139,11 +139,15 @@ def test_heat():
     )
     net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1)
 
+    def mse(u, x, y):
+        true_u = torch.sin(np.pi * y) * torch.sinh(np.pi * (1 - x)) / np.sinh(np.pi)
+        return torch.mean(torch.sum((u - true_u) ** 2))
+
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
         net=net, max_epochs=300,
         train_generator=ExampleGenerator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
-        batch_size=64
+        batch_size=64, metrics={'mse': mse}
     )
     solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
 
