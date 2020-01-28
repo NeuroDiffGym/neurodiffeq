@@ -455,6 +455,8 @@ def solve_system(
         optimizer = optim.Adam(all_parameters, lr=0.001)
     if not criterion:
         criterion = nn.MSELoss()
+    if metrics is None:
+        metrics = {}
 
     history = {}
     history['train_loss'] = []
