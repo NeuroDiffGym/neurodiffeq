@@ -14,7 +14,15 @@ As universal function approximators, artificial neural networks have been shown 
 
 # Installation
 
-Currently `neurodiffeq` is not in PyPI, so it needs to be installed from this repo. To install `neurodiffeq`, use `pip install git+https://github.com/odegym/neurodiffeq.git`
+Currently `neurodiffeq` is not in PyPI, so it needs to be installed manually. To install `neurodiffeq`:
+
+1. Create a new environment by `conda create --name [name of the environment, e.g. nde] python=3.7` and activate the enviroment by `conda activate  [name of the environment]`
+
+2. Clone the repo by `git clone https://github.com/odegym/neurodiffeq.git` and `cd` into the root directory of the repo by `cd neurodiffeq`
+
+3. Install the dependencies by `pip install -r requirements.txt` and install `neurodiffeq` by `pip install .`
+
+4. (optional) Run tests by `pytest`
 
 # Getting Started
 
