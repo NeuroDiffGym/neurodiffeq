@@ -141,7 +141,7 @@ def test_heat():
 
     def mse(u, x, y):
         true_u = torch.sin(np.pi * y) * torch.sinh(np.pi * (1 - x)) / np.sinh(np.pi)
-        return torch.mean(torch.sum((u - true_u) ** 2))
+        return torch.mean((u - true_u) ** 2)
 
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
@@ -161,7 +161,7 @@ def test_heat():
     print('Heat test passed.')
 
 
-def test_neumann_boundaries():
+def test_neumann_boundaries_1():
 
     k, L, T = 0.3, 2, 3
     heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
@@ -192,6 +192,12 @@ def test_neumann_boundaries():
     assert isclose(sol_net, sol_ana, atol=0.1).all()
     print('Dirichlet on the left Neumann on the right test passed.')
 
+def test_neumann_boundaries_2():
+
+    k, L, T = 0.3, 2, 3
+    heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
+    solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
+
     # Neumann on the left Dirichlet on the right
     ibvp = IBVP1D(
         x_min=0, x_min_prime=lambda t: np.pi / L * torch.exp(-k * np.pi ** 2 * t / L ** 2),
@@ -216,6 +222,11 @@ def test_neumann_boundaries():
     sol_net = solution_neural_net_heat(xx, tt, as_type='np')
     assert isclose(sol_net, sol_ana, atol=0.1).all()
     print('Neumann on the left Dirichlet on the right test passed.')
+
+def test_neumann_boundaries_3():
+    k, L, T = 0.3, 2, 3
+    heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
+    solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
 
     # Neumann on both sides
     ibvp = IBVP1D(
