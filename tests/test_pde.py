@@ -141,7 +141,7 @@ def test_heat():
 
     def mse(u, x, y):
         true_u = torch.sin(np.pi * y) * torch.sinh(np.pi * (1 - x)) / np.sinh(np.pi)
-        return torch.mean(torch.sum((u - true_u) ** 2))
+        return torch.mean((u - true_u) ** 2)
 
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
@@ -161,7 +161,7 @@ def test_heat():
     print('Heat test passed.')
 
 
-def test_neumann_boundaries():
+def test_neumann_boundaries_1():
 
     k, L, T = 0.3, 2, 3
     heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
@@ -192,6 +192,12 @@ def test_neumann_boundaries():
     assert isclose(sol_net, sol_ana, atol=0.1).all()
     print('Dirichlet on the left Neumann on the right test passed.')
 
+def test_neumann_boundaries_2():
+
+    k, L, T = 0.3, 2, 3
+    heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
+    solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
+
     # Neumann on the left Dirichlet on the right
     ibvp = IBVP1D(
         x_min=0, x_min_prime=lambda t: np.pi / L * torch.exp(-k * np.pi ** 2 * t / L ** 2),
@@ -216,6 +222,11 @@ def test_neumann_boundaries():
     sol_net = solution_neural_net_heat(xx, tt, as_type='np')
     assert isclose(sol_net, sol_ana, atol=0.1).all()
     print('Neumann on the left Dirichlet on the right test passed.')
+
+def test_neumann_boundaries_3():
+    k, L, T = 0.3, 2, 3
+    heat = lambda u, x, t: diff(u, t) - k * diff(u, x, order=2)
+    solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
 
     # Neumann on both sides
     ibvp = IBVP1D(
@@ -351,22 +362,6 @@ def test_pde_system():
 
     xs, ys = np.linspace(0, L, 101), np.linspace(-1, 1, 101)
     xx, yy = np.meshgrid(xs, ys)
-    u_ana, v_ana, p_ana = solution_analytical_poiseuille(xx, yy)
-    u_net, v_net, p_net = solution_neural_net_poiseuille(xx, yy, as_type='np')
-
-    assert isclose(u_ana, u_net, atol=0.01).all()
-    assert isclose(v_ana, v_net, atol=0.01).all()
-    assert isclose(p_ana, p_net, atol=0.01).all()
-
-    # use a single neural network
-    net = FCNN(n_input_units=2, n_output_units=3, n_hidden_units=32, n_hidden_layers=1, actv=nn.Softplus)
-    solution_neural_net_poiseuille, _ = solve2D_system(
-        pde_system=poiseuille, conditions=conditions, xy_min=(0, -1), xy_max=(L, 1),
-        train_generator=ExampleGenerator2D((32, 32), (0, -1), (L, 1), method='equally-spaced-noisy'),
-        max_epochs=300, batch_size=64, single_net=net, additional_loss_term=zero_divergence,
-        monitor=Monitor2D(check_every=10, xy_min=(0, -1), xy_max=(L, 1))
-    )
-
     u_ana, v_ana, p_ana = solution_analytical_poiseuille(xx, yy)
     u_net, v_net, p_net = solution_neural_net_poiseuille(xx, yy, as_type='np')
 
