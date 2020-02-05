@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.tri as tri
 
 from .networks import FCNN
 from .neurodiffeq import diff
@@ -43,6 +44,10 @@ class Condition:
 
     def enforce(self, net, *dimensions):
         raise NotImplementedError
+
+    def in_domain(self, *dimensions):
+        return np.ones_like(dimensions[0], dtype=bool)
+
 
 class NoCondition2D(Condition):
 
@@ -328,11 +333,30 @@ class Monitor2D:
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
+        # self.caxs = []  # colorbars
         self.cbs = []  # color bars
         # input for neural network
         gen = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = gen.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
+        self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
+        self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
+
+    @staticmethod
+    def _create_contour(ax, xs, ys, zs, condition):
+        triang = tri.Triangulation(xs, ys)
+        xs = xs[triang.triangles].mean(axis=1)
+        ys = ys[triang.triangles].mean(axis=1)
+        if condition:
+            xs, ys = torch.tensor(xs), torch.tensor(ys)
+            in_domain = condition.in_domain(xs, ys)
+            triang.set_mask(~in_domain)
+
+        contour = ax.tricontourf(triang, zs, cmap='coolwarm')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_aspect('equal', adjustable='box')
+        return contour
 
 
     def check(self, single_net, nets, conditions, history):
@@ -359,19 +383,20 @@ class Monitor2D:
             self.fig = plt.figure(figsize=(20, 8*n_row))
             for i in range(n_axs):
                 self.axs.append( self.fig.add_subplot(n_row, n_col, i+1) )
-            for i in range(n_axs-1):
+            for i in range(n_axs-2):
                 self.cbs.append(None)
 
         us = _trial_solution_2input(single_net, nets, self.xs_ann, self.ys_ann, conditions)
 
-        for i, ax_u in enumerate( zip(self.axs[:-1], us) ):
-            ax, u = ax_u
+        for i, ax_u_con in enumerate( zip(self.axs[:-2], us, conditions) ):
+            ax, u, con = ax_u_con
             ax.clear()
-            u_as_mat = u.detach().cpu().numpy().reshape((32, 32))
-            cax = ax.matshow(u_as_mat, cmap='hot', interpolation='nearest')
-            if self.cbs[i]:
-                self.cbs[i].remove()
-            self.cbs[i] = self.fig.colorbar(cax, ax=ax)
+            u = u.detach().cpu().numpy().flatten()
+            cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
+            if self.cbs[i] is None:
+                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
+            else:
+                self.cbs[i].set_clim(vmin=u.min(), vmax=u.max())
             ax.set_title(f'u[{i}](x, y)')
 
         self.axs[-2].clear()
@@ -392,7 +417,9 @@ class Monitor2D:
         self.axs[-1].set_ylabel('metrics')
         self.axs[-1].set_xlabel('epochs')
         self.axs[-1].set_yscale('log')
-        self.axs[-1].legend()
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.axs[-1].legend()
 
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:

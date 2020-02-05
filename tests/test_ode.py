@@ -74,7 +74,7 @@ def test_ode():
 
     def mse(x, t):
         true_x = torch.sin(t)
-        return torch.mean(torch.sum((x - true_x) ** 2))
+        return torch.mean((x - true_x) ** 2)
     exponential = lambda x, t: diff(x, t) - x
     init_val_ex = IVP(t_0=0.0, x_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
