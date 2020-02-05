@@ -12,6 +12,10 @@ from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
 
+import torch
+import torch.nn as nn
+torch.manual_seed(42)
+np.random.seed(42)
 
 def laplacian_spherical(u, r, theta, phi):
     """a helper function that computes the Laplacian in spherical coordinates
