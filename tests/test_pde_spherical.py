@@ -14,8 +14,8 @@ from neurodiffeq.pde_spherical import MonitorSpherical
 
 import torch
 import torch.nn as nn
-torch.manual_seed(42)
-np.random.seed(42)
+torch.manual_seed(43)
+np.random.seed(43)
 
 def laplacian_spherical(u, r, theta, phi):
     """a helper function that computes the Laplacian in spherical coordinates
