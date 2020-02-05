@@ -376,7 +376,9 @@ class Monitor2D:
         self.axs[-1].set_ylabel('metrics')
         self.axs[-1].set_xlabel('epochs')
         self.axs[-1].set_yscale('log')
-        self.axs[-1].legend()
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.axs[-1].legend()
 
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:
