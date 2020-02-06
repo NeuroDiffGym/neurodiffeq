@@ -326,7 +326,7 @@ class Monitor2D:
     :type check_every: int, optional
     """
 
-    def __init__(self, xy_min, xy_max, check_every=100):
+    def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
         """Initializer method
         """
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
@@ -336,8 +336,9 @@ class Monitor2D:
         # self.caxs = []  # colorbars
         self.cbs = []  # color bars
         # input for neural network
-        gen = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
-        xs_ann, ys_ann = gen.get_examples()
+        if valid_generator is None:
+            valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+        xs_ann, ys_ann = valid_generator.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
         self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
         self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
@@ -396,7 +397,7 @@ class Monitor2D:
             if self.cbs[i] is None:
                 self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
             else:
-                self.cbs[i].set_clim(vmin=u.min(), vmax=u.max())
+                self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
             ax.set_title(f'u[{i}](x, y)')
 
         self.axs[-2].clear()
