@@ -111,3 +111,6 @@ notebooks/
 
 # Sphinx build
 docs/_build/
+
+# vscode
+.vscode/
