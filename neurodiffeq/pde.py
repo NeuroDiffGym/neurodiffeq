@@ -812,7 +812,7 @@ class Condition:
 
 class CustomBoundaryCondition(Condition):
 
-    def __init__(self, dirichlet_control_points, neumann_control_points, center_point):
+    def __init__(self, center_point, dirichlet_control_points, neumann_control_points=None):
         super().__init__()
 
         # for Dirichlet control points, drop deplicates and sort 'clockwise'
@@ -822,15 +822,23 @@ class CustomBoundaryCondition(Condition):
         # fit Dirichlet length factor (L_D(x) in MacFall's paper)
         self.l_d_interp = InterpolatorCreator.fit_length_factor(self.dirichlet_control_points)
 
-        # for Naumann control points, drop deplicates and sort 'clockwise'
-        self.neumann_control_points = self._clean_control_points(neumann_control_points, center_point)
-        # fit Neumann boundary condition (g(x) in MacFall's paper)
-        self.g_interp = InterpolatorCreator.fit_surface(self.neumann_control_points)
-        # fit Naumann length factor (L_M(x) in MacFall's paper)
-        self.l_m_interp = InterpolatorCreator.fit_length_factor(self.neumann_control_points)
-
-        # fir normal vector (n_hat(x) in MacFall's paper)
-        self.n_hat_interp = InterpolatorCreator.fit_normal_vector(self.neumann_control_points)
+        if neumann_control_points is None:
+            neumann_control_points = []
+        if len(neumann_control_points) > 0:
+            # for Naumann control points, drop deplicates and sort 'clockwise'
+            self.neumann_control_points = self._clean_control_points(neumann_control_points, center_point)
+            # fit Neumann boundary condition (g(x) in MacFall's paper)
+            self.g_interp = InterpolatorCreator.fit_surface(self.neumann_control_points)
+            # fit Naumann length factor (L_M(x) in MacFall's paper)
+            self.l_m_interp = InterpolatorCreator.fit_length_factor(self.neumann_control_points)
+            # fit normal vector (n_hat(x) in MacFall's paper)
+            self.n_hat_interp = InterpolatorCreator.fit_normal_vector(self.neumann_control_points)
+        else:
+            # the following fields are not needed when we don't have a Neumann boundary condition
+            self.neumann_control_points = None
+            self.g_interp = None
+            self.l_m_interp = None
+            self.n_hat_interp = None
 
     # A_D(x) in MacFall's paper
     def a_d(self, *dimensions):
@@ -859,6 +867,10 @@ class CustomBoundaryCondition(Condition):
 
     # A_M(x) in MacFall's paper
     def a_m(self, net, *dimensions):
+        # when we don't have a Neumann boundary condition
+        if self.neumann_control_points is None:
+            return 0.0
+
         fs = self.f(net, *dimensions)
         a_ds = self.a_d(*dimensions)
         l_ds = self.l_d(*dimensions)
@@ -877,6 +889,9 @@ class CustomBoundaryCondition(Condition):
         return l_ds * l_ms * numer / denom
 
     def in_domain(self, *dimensions):
+        # when we don't have a Neumann boundary condition
+        if self.neumann_control_points is None:
+            return self.l_d(*dimensions) > 0.0
         return (self.l_d(*dimensions) > 0.0) & (self.l_m(*dimensions) > 0.0)
 
     def enforce(self, net, *dimensions):
