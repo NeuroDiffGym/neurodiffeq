@@ -14,9 +14,21 @@ authors:
     affiliation: 1
   - name: Marios Mattheakis
     affiliation: 1
+  - name: Shuheng Liu
+  - name: Devansh Agarwal
+    affiliation: 2, 3
+  - name: Marco Di Giovanni
+    affiliation: 4
+
 affiliations:
  - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
+ - name: Department of Physics and Astronomy, Virginia University, Morgantown, WV, United States
+   index: 2
+ - name: Center for Gravitational Waves and Cosmology, West Virginia University, Morgantown, WV, USA
+   index: 3
+ - name: Politecnico di Milano, Milano, Italy
+   index: 4
 date: 31 October 2019
 bibliography: paper.bib
 ---
