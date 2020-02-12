@@ -28,7 +28,7 @@ affiliations:
    index: 2
  - name: Department of Physics and Astronomy, Virginia University, Morgantown, WV, United States
    index: 3
- - name: Center for Gravitational Waves and Cosmology, West Virginia University, Morgantown, WV, USA
+ - name: Center for Gravitational Waves and Cosmology, West Virginia University, Morgantown, WV, United States
    index: 4
  - name: Politecnico di Milano, Milano, Italy
    index: 5
