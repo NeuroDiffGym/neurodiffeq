@@ -12,6 +12,14 @@ from .networks import FCNN
 from .neurodiffeq import diff
 from copy import deepcopy
 
+# make a function to set global state
+FLOAT_DTYPE=torch.float32
+
+def set_default_dtype(dtype):
+    global FLOAT_DTYPE
+    FLOAT_DTYPE=dtype
+    torch.set_default_dtype(FLOAT_DTYPE)
+
 def _network_output_2input(net, xs, ys, ith_unit):
     xys = torch.cat((xs, ys), 1)
     nn_output = net(xys)
@@ -307,8 +315,8 @@ class PredefinedExampleGenerator2D:
 
     def __init__(self, xs, ys):
         self.size = len(xs)
-        x = torch.tensor(xs, requires_grad=True, dtype=torch.float32)
-        y = torch.tensor(ys, requires_grad=True, dtype=torch.float32)
+        x = torch.tensor(xs, requires_grad=True, dtype=FLOAT_DTYPE)
+        y = torch.tensor(ys, requires_grad=True, dtype=FLOAT_DTYPE)
         self.x, self.y = x.flatten(), y.flatten()
 
     def get_examples(self):
@@ -706,9 +714,9 @@ class Solution:
             `torch.tensor` or `numpy.array` (when there is only one dependent variable).
         """
         if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor(xs, dtype=torch.float32)
+            xs = torch.tensor(xs, dtype=FLOAT_DTYPE)
         if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor(ys, dtype=torch.float32)
+            ys = torch.tensor(ys, dtype=FLOAT_DTYPE)
         original_shape = xs.shape
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
         if as_type not in ('tf', 'np'):
@@ -852,7 +860,7 @@ class CustomBoundaryCondition(Condition):
     def g(self, *dimensions):
         return self.g_interp.interpolate(dimensions)
 
-    # L_M(x) in MacFall's pape
+    # L_M(x) in MacFall's paper
     def l_m(self, *dimensions):
         return self.l_m_interp.interpolate(dimensions)
 
@@ -972,6 +980,23 @@ class InterpolatorCreator:
             InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
             for to_values in to_values_each_dim
         ]
+
+        # DEBUG this should be zero to machine precision, but it is not
+        # changed to torch.double and error goes down???
+        # numpy uses float64 as default, but torch uses float32 as default, so the coefficients fit by numpy is truncated when used in calculation that involves torch.tensor?
+        # Can I make fix the default tensor type? I remember hard coded float32 somewhere
+        # xs = torch.tensor([p.loc[0] for p in from_points], dtype=FLOAT_DTYPE)
+        # ys = torch.tensor([p.loc[1] for p in from_points], dtype=FLOAT_DTYPE)
+        # target = torch.tensor([p.loc[0] for p in to_points], dtype=FLOAT_DTYPE)
+        # print(Interpolator._interpolate_by_thin_plate_spline(coefs_each_dim[0], from_points, (xs, ys))-target)
+
+
+        # DEBUG this should be zero to machine precision, but it is not
+        # ret = LengthFactorInterpolator(coefs_each_dim, control_points, radius)
+        # xs = torch.tensor([p.loc[0] for p in control_points])
+        # ys = torch.tensor([p.loc[1] for p in control_points])
+        # print(ret.interpolate( (xs, ys) ))
+
         return LengthFactorInterpolator(coefs_each_dim, control_points, radius)
 
     @staticmethod
@@ -1035,6 +1060,10 @@ class InterpolatorCreator:
         b = np.zeros(n_eqs)
         b[:n_pnts] = to_values
 
+        # DEBUG this looks right
+        # coefs = np.linalg.solve(W, b)
+        # print(W @ coefs - b)
+
         # solve linear system and return coefficients
         return np.linalg.solve(W, b)
 
@@ -1066,7 +1095,8 @@ class Interpolator:
         # the rest #dimension basis functions
         for j, d in enumerate(dimensions):
             to_value_unfinished += coefs[n_pnts + 1 + j] * d
-        return to_value_unfinished
+        to_value = to_value_unfinished
+        return to_value
 
     # to be used in fitting soefficients of thin plate spline
     @staticmethod
