@@ -24,7 +24,7 @@ authors:
 affiliations:
  - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
- - name: Chongqing University
+ - name: Chongqing University, Chongqing, China
    index: 2
  - name: Department of Physics and Astronomy, Virginia University, Morgantown, WV, United States
    index: 3
