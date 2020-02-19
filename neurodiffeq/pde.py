@@ -572,7 +572,7 @@ def solve2D_system(
             batch_end += batch_size
 
         train_loss_epoch = calculate_loss(train_examples_x, train_examples_y, net, nets, pde_system, conditions, criterion, additional_loss_term)
-
+        train_loss_epoch = train_loss_epoch.item()
         train_metrics_epoch = calculate_metrics(train_examples_x, train_examples_y, net, nets, conditions, metrics)
         return train_loss_epoch, train_metrics_epoch
 
@@ -981,22 +981,6 @@ class InterpolatorCreator:
             for to_values in to_values_each_dim
         ]
 
-        # DEBUG this should be zero to machine precision, but it is not
-        # changed to torch.double and error goes down???
-        # numpy uses float64 as default, but torch uses float32 as default, so the coefficients fit by numpy is truncated when used in calculation that involves torch.tensor?
-        # Can I make fix the default tensor type? I remember hard coded float32 somewhere
-        # xs = torch.tensor([p.loc[0] for p in from_points], dtype=FLOAT_DTYPE)
-        # ys = torch.tensor([p.loc[1] for p in from_points], dtype=FLOAT_DTYPE)
-        # target = torch.tensor([p.loc[0] for p in to_points], dtype=FLOAT_DTYPE)
-        # print(Interpolator._interpolate_by_thin_plate_spline(coefs_each_dim[0], from_points, (xs, ys))-target)
-
-
-        # DEBUG this should be zero to machine precision, but it is not
-        # ret = LengthFactorInterpolator(coefs_each_dim, control_points, radius)
-        # xs = torch.tensor([p.loc[0] for p in control_points])
-        # ys = torch.tensor([p.loc[1] for p in control_points])
-        # print(ret.interpolate( (xs, ys) ))
-
         return LengthFactorInterpolator(coefs_each_dim, control_points, radius)
 
     @staticmethod
@@ -1059,10 +1043,6 @@ class InterpolatorCreator:
             W[eq_no] = equation_weights(eq_no)
         b = np.zeros(n_eqs)
         b[:n_pnts] = to_values
-
-        # DEBUG this looks right
-        # coefs = np.linalg.solve(W, b)
-        # print(W @ coefs - b)
 
         # solve linear system and return coefficients
         return np.linalg.solve(W, b)
