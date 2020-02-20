@@ -5,13 +5,15 @@ matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during tes
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
-from neurodiffeq.pde import DirichletBVP2D, IBVP1D, Condition, _network_output_2input
-from neurodiffeq.pde import solve2D, solve2D_system, ExampleGenerator2D, Monitor2D, make_animation
+from neurodiffeq.pde import DirichletBVP2D, IBVP1D, Condition,_network_output_2input
+from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition, PredefinedExampleGenerator2D
+from neurodiffeq.pde import solve2D, solve2D_system, ExampleGenerator2D, Monitor2D, make_animation, set_default_dtype
 
 from pytest import raises
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 torch.manual_seed(42)
 np.random.seed(42)
 
@@ -368,3 +370,201 @@ def test_neumann_boundaries_3():
 #     assert isclose(u_ana, u_net, atol=0.01).all()
 #     assert isclose(v_ana, v_net, atol=0.01).all()
 #     assert isclose(p_ana, p_net, atol=0.01).all()
+
+def test_arbitrary_boundary():
+    set_default_dtype(torch.float64)
+
+    def solution_analytical_problem_c(x, y):
+        return np.log(1 + x ** 2 + y ** 2)
+
+    def gradient_solution_analytical_problem_c(x, y):
+        return 2 * x / (1 + x ** 2 + y ** 2), 2 * y / (1 + x ** 2 + y ** 2),
+
+    # creating control points for Dirichlet boundary conditions
+
+    edge_length = 2.0 / np.sin(np.pi / 3) / 4
+    points_on_each_edge = 11
+    step_size = edge_length / (points_on_each_edge - 1)
+
+    direction_theta = np.pi * 2 / 3
+    left_turn_theta = np.pi * 1 / 3
+    right_turn_theta = -np.pi * 2 / 3
+
+    dirichlet_control_points_problem_c = []
+    point_x, point_y = 0.0, -1.0
+    for i_edge in range(6):
+        for i_step in range(points_on_each_edge - 1):
+            dirichlet_control_points_problem_c.append(
+                DirichletControlPoint(
+                    loc=(point_x, point_y),
+                    val=solution_analytical_problem_c(point_x, point_y)
+                )
+            )
+            point_x += step_size * np.cos(direction_theta)
+            point_y += step_size * np.sin(direction_theta)
+        direction_theta += left_turn_theta if (i_edge % 2 == 0) else right_turn_theta
+
+    # dummy control points to form closed domain
+
+    radius_circle = 1.0 / np.sin(np.pi / 6)
+    center_circle_x = radius_circle * np.cos(np.pi / 6)
+    center_circle_y = 0.0
+
+    dirichlet_control_points_problem_c_dummy = []
+    for theta in np.linspace(-np.pi * 5 / 6, np.pi * 5 / 6, 60):
+        point_x = center_circle_x + radius_circle * np.cos(theta)
+        point_y = center_circle_y + radius_circle * np.sin(theta)
+        dirichlet_control_points_problem_c_dummy.append(
+            DirichletControlPoint(
+                loc=(point_x, point_y),
+                val=solution_analytical_problem_c(point_x, point_y)
+            )
+        )
+
+    # all Dirichlet control points
+
+    dirichlet_control_points_problem_c_all = \
+        dirichlet_control_points_problem_c + dirichlet_control_points_problem_c_dummy
+
+    # creating control points for Neumann boundary condition
+
+    edge_length = 2.0 / np.sin(np.pi / 3) / 4
+    points_on_each_edge = 11
+    step_size = edge_length / (points_on_each_edge - 1)
+
+    normal_theta = np.pi / 6
+
+    direction_theta = -np.pi * 1 / 3
+    left_turn_theta = np.pi * 1 / 3
+    right_turn_theta = -np.pi * 2 / 3
+
+    neumann_control_points_problem_c = []
+    point_x, point_y = 0.0, 1.0
+    for i_edge in range(6):
+        normal_x = np.cos(normal_theta)
+        normal_y = np.sin(normal_theta)
+
+        # skip the points on the "tip", their normal vector is undefined?
+        point_x += step_size * np.cos(direction_theta)
+        point_y += step_size * np.sin(direction_theta)
+
+        for i_step in range(points_on_each_edge - 2):
+            grad_x, grad_y = gradient_solution_analytical_problem_c(point_x, point_y)
+            neumann_val = grad_x * normal_x + grad_y * normal_y
+            neumann_control_points_problem_c.append(
+                NeumannControlPoint(
+                    loc=(point_x, point_y),
+                    val=neumann_val,
+                    normal_vector=(normal_x, normal_y)
+                )
+            )
+            point_x += step_size * np.cos(direction_theta)
+            point_y += step_size * np.sin(direction_theta)
+        direction_theta += left_turn_theta if (i_edge % 2 == 0) else right_turn_theta
+        normal_theta += left_turn_theta if (i_edge % 2 == 0) else right_turn_theta
+
+    # dummy control points to form closed domain
+
+    radius_circle = 1.0 / np.sin(np.pi / 6)
+    center_circle_x = -radius_circle * np.cos(np.pi / 6)
+    center_circle_y = 0.0
+
+    neumann_control_points_problem_c_dummy = []
+    for theta in np.linspace(np.pi * 1 / 6, np.pi * 11 / 6, 60):
+        point_x = center_circle_x + radius_circle * np.cos(theta)
+        point_y = center_circle_y + radius_circle * np.sin(theta)
+        normal_x = np.cos(theta)
+        normal_y = np.sin(theta)
+        grad_x, grad_y = gradient_solution_analytical_problem_c(point_x, point_y)
+        neumann_val = grad_x * normal_x + grad_y * normal_y
+        neumann_control_points_problem_c_dummy.append(
+            NeumannControlPoint(
+                loc=(point_x, point_y),
+                val=neumann_val,
+                normal_vector=(normal_x, normal_y)
+            )
+        )
+
+    # all Neumann control points
+
+    neumann_control_points_problem_c_all = \
+        neumann_control_points_problem_c + neumann_control_points_problem_c_dummy
+
+    cbc_problem_c = CustomBoundaryCondition(
+        center_point=Point(loc=(0.0, 0.0)),
+        dirichlet_control_points=dirichlet_control_points_problem_c_all,
+        neumann_control_points=neumann_control_points_problem_c_all
+    )
+
+    def get_grid(x_from_to, y_from_to, x_n_points=100, y_n_points=100, as_tensor=False):
+        x_from, x_to = x_from_to
+        y_from, y_to = y_from_to
+        if as_tensor:
+            x = torch.linspace(x_from, x_to, x_n_points)
+            y = torch.linspace(y_from, y_to, y_n_points)
+            return torch.meshgrid(x, y)
+        else:
+            x = np.linspace(x_from, x_to, x_n_points)
+            y = np.linspace(y_from, y_to, y_n_points)
+            return np.meshgrid(x, y)
+
+    def to_np(tensor):
+        return tensor.detach().numpy()
+
+    xx_train, yy_train = get_grid(
+        x_from_to=(-1, 1), y_from_to=(-1, 1),
+        x_n_points=100, y_n_points=100,
+        as_tensor=True
+    )
+    is_in_domain_train = cbc_problem_c.in_domain(xx_train, yy_train)
+    xx_train, yy_train = to_np(xx_train), to_np(yy_train)
+    xx_train, yy_train = xx_train[is_in_domain_train], yy_train[is_in_domain_train]
+    train_gen = PredefinedExampleGenerator2D(xx_train, yy_train)
+
+    xx_valid, yy_valid = get_grid(
+        x_from_to=(-1, 1), y_from_to=(-1, 1),
+        x_n_points=30, y_n_points=30,
+        as_tensor=True
+    )
+    is_in_domain_valid = cbc_problem_c.in_domain(xx_valid, yy_valid)
+    xx_valid, yy_valid = to_np(xx_valid), to_np(yy_valid)
+    xx_valid, yy_valid = xx_valid[is_in_domain_valid], yy_valid[is_in_domain_valid]
+    valid_gen = PredefinedExampleGenerator2D(xx_valid, yy_valid)
+
+    def rmse(u, x, y):
+        true_u = torch.log(1 + x ** 2 + y ** 2)
+        return torch.mean((u - true_u) ** 2) ** 0.5
+
+    # nabla^2 psi(x, y) = (e^(-x))(x-2+y^3+6y)
+    def de_problem_c(u, x, y):
+        return diff(u, x, order=2) + diff(u, y, order=2) + torch.exp(u) - 1.0 - x ** 2 - y ** 2 - 4.0 / (
+                    1.0 + x ** 2 + y ** 2) ** 2
+
+    # fully connected network with one hidden layer (100 hidden units with ELU activation)
+    net = FCNN(n_input_units=2, n_hidden_units=100, n_hidden_layers=1, actv=nn.ELU)
+    adam = optim.Adam(params=net.parameters(), lr=0.001)
+
+    # train on 28 X 28 grid
+    solution_neural_net_problem_c, history_problem_c = solve2D(
+        pde=de_problem_c, condition=cbc_problem_c,
+        xy_min=(-1, -1), xy_max=(1, 1),
+        train_generator=train_gen, valid_generator=valid_gen,
+        net=net, max_epochs=1, batch_size=528, optimizer=adam,
+        monitor=Monitor2D(check_every=1, xy_min=(-1, -1), xy_max=(1, 1), valid_generator=valid_gen),
+        metrics={'rmse': rmse}
+    )
+
+    xs = torch.tensor([p.loc[0] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
+    ys = torch.tensor([p.loc[1] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
+    us = solution_neural_net_problem_c(xs, ys, as_type='np')
+    true_us = solution_analytical_problem_c(to_np(xs), to_np(ys))
+    assert isclose(us, true_us, atol=1e-8).all()
+
+    xs = torch.tensor([p.loc[0] for p in neumann_control_points_problem_c], requires_grad=True).reshape(-1, 1)
+    ys = torch.tensor([p.loc[1] for p in neumann_control_points_problem_c], requires_grad=True).reshape(-1, 1)
+    us = solution_neural_net_problem_c(xs, ys)
+    nxs = torch.tensor([p.normal_vector[0] for p in neumann_control_points_problem_c]).reshape(-1, 1)
+    nys = torch.tensor([p.normal_vector[1] for p in neumann_control_points_problem_c]).reshape(-1, 1)
+    normal_derivative = to_np(nxs * diff(us, xs) + nys * diff(us, ys)).flatten()
+    true_normal_derivative = np.array([p.val for p in neumann_control_points_problem_c])
+    assert isclose(normal_derivative, true_normal_derivative, atol=1e-8).all()
