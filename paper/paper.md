@@ -14,9 +14,24 @@ authors:
     affiliation: 1
   - name: Marios Mattheakis
     affiliation: 1
+  - name: Shuheng Liu
+    affiliation: 2
+  - name: Devansh Agarwal
+    affiliation: 3, 4
+  - name: Marco Di Giovanni
+    affiliation: 5
+
 affiliations:
  - name: Institute for Applied Computational Science, Harvard University, Cambridge, MA, United States
    index: 1
+ - name: Chongqing University, Chongqing, China
+   index: 2
+ - name: Department of Physics and Astronomy, Virginia University, Morgantown, WV, United States
+   index: 3
+ - name: Center for Gravitational Waves and Cosmology, West Virginia University, Morgantown, WV, United States
+   index: 4
+ - name: Politecnico di Milano, Milano, Italy
+   index: 5
 date: 31 October 2019
 bibliography: paper.bib
 ---
@@ -31,14 +46,14 @@ methods [@conde2017implicit].
 Common spatial discretization approaches include the finite difference method (FDM), finite volume method (FVM), and finite
 element method (FEM) as well as spectral methods such as the Fourier-spectral method.  These classical methods have been
 studied in detail and much is known about their convergence properties.  Moreover, highly optimized codes exist for solving
-differential equations of practical interest with these techniques [@seefeldt2017drekar][@smith2017phasta].  While these methods are efficient and well-studied,
+differential equations of practical interest with these techniques [@seefeldt2017drekar; @smith2017phasta].  While these methods are efficient and well-studied,
 their expressibility is limited by their function representation.  
 
 Artificial neural networks (ANN) are a framework of machine learning algorithms that use a collection of connected units to
 learn function mappings. The most basic form of ANNs, multilayer perceptrons, have been proven to be universal function approximators [@hornik1989multilayer]. This suggests the possibility of using ANNs to solve differential equations. Previous studies have 
 demonstrated that ANNs have the potential to solve ordinary differential equations (ODEs) and partial
 differential equations (PDEs) with certain initial/boundary conditions [@lagaris1998artificial]. These methods show nice
-properties including (1) continuous and differentiable solutions, (2) good interpolation properties, (3) less
+properties including (1) continuous and differentiable solutions, (2) good interpolation properties, and (3) less
 memory-intensive.  By less memory-intensive we mean that only the weights of the neural network have to be stored.  The
 solution can then be recovered anywhere in the solution domain because a trained neural network is a closed form solution.
 Given the

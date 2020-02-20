@@ -573,6 +573,7 @@ def solve2D_system(
 
         train_loss_epoch = calculate_loss(train_examples_x, train_examples_y, net, nets, pde_system, conditions, criterion, additional_loss_term)
         train_loss_epoch = train_loss_epoch.item()
+
         train_metrics_epoch = calculate_metrics(train_examples_x, train_examples_y, net, nets, conditions, metrics)
         return train_loss_epoch, train_metrics_epoch
 
