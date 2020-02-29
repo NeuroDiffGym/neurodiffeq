@@ -334,7 +334,7 @@ def test_spherical_harmonics_nn():
     # highest degree for spherical harmonics
     MAX_DEGREE = 4
     # expected output shape
-    OUTPUT_SHAPE = (N_SAMPLES,)
+    OUTPUT_SHAPE = (N_SAMPLES, 1)
 
     nn = SphericalHarmonicsNN(max_degree=MAX_DEGREE)
     inp = torch.rand(N_SAMPLES, 3)

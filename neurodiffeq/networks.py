@@ -76,4 +76,4 @@ class SphericalHarmonicsNN(nn.Module):
         phi = inp[:, 2]
         coefficients = self.r_net(r)
         harmonics = self.harmonics_fn(theta, phi)
-        return torch.sum(coefficients * harmonics, dim=1)
+        return torch.sum(coefficients * harmonics, dim=1, keepdim=True)
