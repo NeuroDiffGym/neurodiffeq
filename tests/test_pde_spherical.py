@@ -227,40 +227,46 @@ def test_electric_potential_uniformly_charged_ball():
 
 
 def test_electric_potential_gaussian_charged_density():
-    # total charge
-    Q = 1.
-    # standard deviation of gaussian
-    sigma = 1.
-    # medium permittivity
-    epsilon = 1.
-    # Coulomb constant
-    k = 1 / (4 * np.pi * epsilon)
-    # coefficient of gaussian term
-    gaussian_coeff = Q / (sigma ** 3) / np.power(2 * np.pi, 1.5)
-    # distribution of charge
-    rho_f = lambda r: gaussian_coeff * torch.exp(- r.pow(2) / (2 * sigma ** 2))
-    # analytic solution, refer to https://en.wikipedia.org/wiki/Poisson%27s_equation
-    analytic_solution = lambda r, th, ph: (k * Q / r) * torch.erf(r / (np.sqrt(2) * sigma))
+    def subtest(net=None, max_epoch=500):
+        print(f'subtest: network = {net}, max_epoch={max_epoch}')
+        # total charge
+        Q = 1.
+        # standard deviation of gaussian
+        sigma = 1.
+        # medium permittivity
+        epsilon = 1.
+        # Coulomb constant
+        k = 1 / (4 * np.pi * epsilon)
+        # coefficient of gaussian term
+        gaussian_coeff = Q / (sigma ** 3) / np.power(2 * np.pi, 1.5)
+        # distribution of charge
+        rho_f = lambda r: gaussian_coeff * torch.exp(- r.pow(2) / (2 * sigma ** 2))
+        # analytic solution, refer to https://en.wikipedia.org/wiki/Poisson%27s_equation
+        analytic_solution = lambda r, th, ph: (k * Q / r) * torch.erf(r / (np.sqrt(2) * sigma))
 
-    pde = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
-    r_0, r_1 = 0.1, 3.
-    v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
-    v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
-    condition = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
-    monitor = MonitorSpherical(r_0, r_1, check_every=50)
+        pde = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
+        r_0, r_1 = 0.1, 3.
+        v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
+        v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
+        condition = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
+        monitor = MonitorSpherical(r_0, r_1, check_every=50)
 
-    solution, loss_history, analytic_mse = solve_spherical(pde, condition, r_0, r_1, max_epochs=500, return_best=True,
-                                                           analytic_solution=analytic_solution, monitor=monitor)
+        solution, loss_history, analytic_mse = solve_spherical(pde, condition, r_0, r_1, max_epochs=max_epoch, net=net,
+                                                               return_best=True, analytic_solution=analytic_solution,
+                                                               monitor=monitor, batch_size=16)
 
-    generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
-    rs, thetas, phis = generator.get_examples()
-    us = solution(rs, thetas, phis, as_type="np")
-    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
-    rdiff = abs(us - vs) / vs
-    assert np.isclose(us, vs, rtol=0.05).all(), \
-        f"Solution doesn't match analytic expectattion {us} != {vs}, relative-diff={rdiff}"
+        generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
+        rs, thetas, phis = generator.get_examples()
+        us = solution(rs, thetas, phis, as_type="np")
+        vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
+        rdiff = abs(us - vs) / vs
+        assert np.isclose(us, vs, rtol=0.05).all(), \
+            f"Solution doesn't match analytic expectattion {us} != {vs}, relative-diff={rdiff}"
 
-    print("electric-potential-on-gaussian-charged-density passed")
+        print("subtest electric-potential-on-gaussian-charged-density passed")
+
+    subtest(SphericalHarmonicsNN(max_degree=1), max_epoch=200)
+    subtest(None, max_epoch=500)
 
 
 def test_spherical_harmonics():
