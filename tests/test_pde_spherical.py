@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib
 
 matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
-from math import erf
+from math import erf, sqrt
 from pytest import raises
 from neurodiffeq import diff
 from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
@@ -317,7 +317,48 @@ def test_spherical_harmonics():
         Y4n4, Y4n3, Y4n2, Y4n1, Y4_0, Y4p1, Y4p2, Y4p3, Y4p4,
     ]
 
+    # coefficients of spherical harmonics components
+    # l = 0
+    C0_0 = 1 / 2
+    # l = 1
+    C1n1 = sqrt(3 / 4)
+    C1_0 = sqrt(3 / 4)
+    C1p1 = sqrt(3 / 4)
+    # l = 2
+    C2n2 = sqrt(15) / 2
+    C2n1 = sqrt(15) / 2
+    C2_0 = sqrt(5) / 4
+    C2p1 = sqrt(15) / 2
+    C2p2 = sqrt(15) / 4
+    # l = 3
+    C3n3 = sqrt(35 / 2) / 4
+    C3n2 = sqrt(105) / 2
+    C3n1 = sqrt(21 / 2) / 4
+    C3_0 = sqrt(7) / 4
+    C3p1 = sqrt(21 / 2) / 4
+    C3p2 = sqrt(105) / 4
+    C3p3 = sqrt(35 / 2) / 4
+    # l = 4
+    C4n4 = sqrt(35) * 3 / 4
+    C4n3 = sqrt(35 / 2) * 3 / 4
+    C4n2 = sqrt(5) * 3 / 4
+    C4n1 = sqrt(5 / 2) * 3 / 4
+    C4_0 = 3 / 16
+    C4p1 = sqrt(5 / 2) * 3 / 4
+    C4p2 = sqrt(5) * 3 / 8
+    C4p3 = sqrt(35 / 2) * 3 / 4
+    C4p4 = sqrt(35) * 3 / 16
+
+    coefficients = [
+        C0_0,
+        C1n1, C1_0, C1p1,
+        C2n2, C2n1, C2_0, C2p1, C2p2,
+        C3n3, C3n2, C3n1, C3_0, C3p1, C3p2, C3p3,
+        C4n4, C4n3, C4n2, C4n1, C4_0, C4p1, C4p2, C4p3, C4p4,
+    ]
+
     harmonics_fn_cartesian = harmonics_fn_cartesian[:(MAX_DEGREE + 1) ** 2]
+    coefficients = coefficients[:(MAX_DEGREE + 1) ** 2]
     harmonics_fn = RealSphericalHarmonics(max_degree=MAX_DEGREE)
     theta = torch.rand(N_SAMPLES) * np.pi
     phi = torch.rand(N_SAMPLES) * 2 * np.pi
@@ -327,7 +368,10 @@ def test_spherical_harmonics():
     harmonics = harmonics_fn(theta, phi)
     # test the shape of output
     assert harmonics.shape == OUTPUT_SHAPE, f"got shape={harmonics.shape}; expected shape={OUTPUT_SHAPE}"
-    harmonics_cartesian = torch.stack([f(x, y, z) for f in harmonics_fn_cartesian], dim=1)
+    harmonics_cartesian = torch.stack(
+        [f(x, y, z) * c for f, c in zip(harmonics_fn_cartesian, coefficients)],
+        dim=1
+    )
     abs_diff = abs(harmonics - harmonics_cartesian)
 
     # test the correctness of spherical harmonics written in terms of theta and phi
