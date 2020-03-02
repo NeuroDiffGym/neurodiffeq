@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -470,7 +471,12 @@ def solve_spherical_system(
             Fs = pde_system(*us, rs, thetas, phis)
             loss = 0.0
             for F in Fs:
-                loss += criterion(F, train_zeros)  # type: torch.Tensor
+                if F.shape[0] < train_zeros.shape[0]:
+                    print("WARNING: batch size doesn't divide training size, which could lead to unstable behaviour",
+                          file=sys.stderr)
+                    loss += criterion(F, torch.zeros_like(F)) * F.shape[0] / train_zeros.shape[0]
+                else:
+                    loss += criterion(F, train_zeros)  # type: torch.Tensor
             train_loss_epoch += loss.item() * (batch_end - batch_start) / n_examples_train
 
             optimizer.zero_grad()
