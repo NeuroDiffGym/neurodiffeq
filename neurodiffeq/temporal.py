@@ -11,18 +11,20 @@ class Approximator(ABC):
     def parameters(self):
         pass
 
+    @abstractmethod
     def loss(self):
         pass
 
 
 class FirstOrderInitialCondition:
     def __init__(self, u0):
-        pass
+        self.u0 = u0
 
 
 class BoundaryCondition:
-    def __init__(self, form, points):
-        pass
+    def __init__(self, form, points_generator):
+        self.form = form
+        self.points_generator = points_generator
 
 
 def generator_1dspatial(size, x_min, x_max, random=True):
