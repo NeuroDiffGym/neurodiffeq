@@ -1,7 +1,11 @@
 from math import pi as PI
 import torch
+from torch import nn
+from neurodiffeq import diff
+from neurodiffeq.networks import FCNN
 from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
+from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal
 
 
 def test_generator_1dspatial():
@@ -69,6 +73,53 @@ def test_boundary_condition():
         return t
     uu = dummy_u(xx, tt)
     assert (boundary_condition.form(uu, xx, tt) == tt).all()
+
+
+def test_fully_connected_neural_network_approximator_1dspatial_temporal():
+    DIFFUSIVITY, X_MIN, X_MAX, T_MIN, T_MAX = 0.3, 0.0, 2.0, 0.0, 3.0
+
+    def heat_equation_1d(u, x, t):
+        return diff(u, t) - DIFFUSIVITY * diff(u, x, order=2)
+
+    initial_condition = FirstOrderInitialCondition(u0=lambda x: torch.sin(PI * x))
+
+    def points_gen_lo():
+        while True:
+            yield torch.tensor([X_MIN])
+    dirichlet_boundary_lo = BoundaryCondition(
+        form=lambda u, x, t: torch.zeros_like(u),
+        points_generator=points_gen_lo()
+    )
+    def points_gen_hi():
+        while True:
+            yield torch.tensor([X_MAX])
+    dirichlet_boundary_hi = BoundaryCondition(
+        form=lambda u, x, t: torch.zeros_like(u),
+        points_generator=points_gen_hi()
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
+        single_network=fcnn,
+        pde=heat_equation_1d,
+        initial_condition=initial_condition,
+        boundary_conditions=[dirichlet_boundary_lo, dirichlet_boundary_hi]
+    )
+
+    xx, tt = torch.rand(16), torch.rand(16)
+    assert fcnn_approximator(xx, tt).shape == torch.Size([16])
+    assert next(fcnn_approximator.parameters()).shape == torch.Size([32, 2])
+    x, t = torch.rand(4), torch.rand(4)
+    assert fcnn_approximator.loss(x, t).shape == torch.Size([])
+    xx, tt = torch.rand(16), torch.zeros(16)
+    assert fcnn_approximator(xx, tt).isclose(torch.sin(PI * xx)).all()
+
 
 
 
