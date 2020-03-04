@@ -3,17 +3,24 @@
 # For non-user facing part, avoid reshaping and use 1-d tensor as much as possible.
 # In function signatures, let u comes before x, let x comes before t
 # Use x and t for distinguish values for x or t; Use xx and tt when corresponding entries of xx and tt are
-# supposed to be paired to represent a point.
+# supposed to be paired to represent a point. ([xx, tt] is often the Cartesian product of x and t)
 from abc import ABC, abstractmethod
 import torch
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
+def _to_traning_set(x, t, x_grad=True, t_grad=True):
+    xt = torch.cartesian_prod(x, t)
+    xx = torch.squeeze(xt[:, 0])
+    xx.requires_grad = x_grad
+    tt = torch.squeeze(xt[:, 1])
+    tt.requires_grad = t_grad
+    return xx, tt
 
 class Approximator(ABC):
     @abstractmethod
-    def __call__(self, time_dimension, *spatial_dimensions):
+    def __call__(self):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
@@ -21,7 +28,11 @@ class Approximator(ABC):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    def loss(self):
+    def calculate_loss(self):
+        raise NotImplementedError  # pragma: no cover
+
+    @abstractmethod
+    def calculate_metrics(self):
         raise NotImplementedError  # pragma: no cover
 
 
@@ -42,12 +53,9 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
     def parameters(self):
         return self.single_network.parameters()
 
-    def loss(self, x, t):
-        xt = torch.cartesian_prod(x, t)
-        xx = torch.squeeze(xt[:, 0])
-        xx.requires_grad = True
-        tt = torch.squeeze(xt[:, 1])
-        tt.requires_grad = True
+    # AHHHHHHHHHHHHHHHH WHY IS THIS FUNCTION SIGNATURE SO UGLY
+    # Perhaps ugliness is an essential part of human condition
+    def calculate_loss(self, xx, tt, x, t):
         uu = self.__call__(xx, tt)
 
         equation_mse = torch.mean(self.pde(uu, xx, tt)**2)
@@ -59,12 +67,17 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
     def _boundary_mse(self, t, bc):
         x = next(bc.points_generator)
 
-        xt = torch.cartesian_prod(x, t)
-        xx = torch.squeeze(xt[:, 0])
-        xx.requires_grad = True
-        tt = torch.squeeze(xt[:, 1])
+        xx, tt = _to_traning_set(x, t, x_grad=True, t_grad=False)
         uu = self.__call__(xx, tt)
         return torch.mean(bc.form(uu, xx, tt)**2)
+
+    def calculate_metrics(self, xx, tt, x, t, metrics):
+        uu = self.__call__(xx, tt)
+
+        return {
+            metric_name: metric_func(uu, xx, tt)
+            for metric_name, metric_func in metrics.items()
+        }
 
 
 class FirstOrderInitialCondition:
@@ -110,11 +123,7 @@ class Monitor1DSpatialTemporal:
     def __init__(self, check_on_x, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
 
-        check_on_xt_tensor = torch.cartesian_prod(check_on_x, check_on_t)
-        self.xx_tensor = torch.squeeze(check_on_xt_tensor[:, 0])
-        self.xx_tensor.requires_grad = True
-        self.tt_tensor = torch.squeeze(check_on_xt_tensor[:, 1])
-        self.tt_tensor.requires_grad = True
+        self.xx_tensor, self.tt_tensor = _to_traning_set(check_on_x, check_on_t)
         self.x_array = check_on_x.clone().detach().numpy()
         self.t_array = check_on_t.clone().detach().numpy()
         self.check_every = check_every
@@ -175,8 +184,35 @@ def solve_1dspatial_temporal(
     raise NotImplementedError  # pragma: no cover
 
 
-def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle):
-    raise NotImplementedError  # pragma: no cover
+def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+    x = next(train_generator_spatial)
+    t = next(train_generator_temporal)
+    xx, tt = _to_traning_set(x, t)
+    training_set_size = len(xx)
+    idx = torch.randperm(training_set_size) if shuffle else torch.arange(training_set_size)
+
+    batch_start, batch_end = 0, batch_size
+    while batch_start < training_set_size:
+        if batch_end > training_set_size:
+            batch_end = training_set_size
+        batch_idx = idx[batch_start:batch_end]
+        batch_xx = xx[batch_idx]
+        batch_tt = tt[batch_idx]
+
+        batch_loss = approximator.calculate_loss(batch_xx, batch_tt, x, t)
+
+        optimizer.zero_grad()
+        batch_loss.backward()
+        optimizer.step()
+
+        batch_start += batch_size
+        batch_end += batch_size
+
+    epoch_loss = approximator.calculate_loss(xx, tt, x, t)
+
+    epoch_metrics = approximator.calculate_metrics(xx, tt, x, t, metrics)
+
+    return epoch_loss, epoch_metrics
 
 
 def _valid(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
