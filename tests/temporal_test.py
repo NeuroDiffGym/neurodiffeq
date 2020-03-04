@@ -6,6 +6,9 @@ from neurodiffeq.networks import FCNN
 from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
 from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal
+from neurodiffeq.temporal import Monitor1DSpatialTemporal
+import matplotlib
+matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
 
 def test_generator_1dspatial():
@@ -121,5 +124,58 @@ def test_fully_connected_neural_network_approximator_1dspatial_temporal():
     assert fcnn_approximator(xx, tt).isclose(torch.sin(PI * xx)).all()
 
 
+def test_monitor_1dspatial_temporal():
+    DIFFUSIVITY, X_MIN, X_MAX, T_MIN, T_MAX = 0.3, 0.0, 2.0, 0.0, 3.0
+
+    def heat_equation_1d(u, x, t):
+        return diff(u, t) - DIFFUSIVITY * diff(u, x, order=2)
+
+    initial_condition = FirstOrderInitialCondition(u0=lambda x: torch.sin(PI * x))
+
+    def points_gen_lo():
+        while True:
+            yield torch.tensor([X_MIN])
+
+    dirichlet_boundary_lo = BoundaryCondition(
+        form=lambda u, x, t: torch.zeros_like(u),
+        points_generator=points_gen_lo()
+    )
+
+    def points_gen_hi():
+        while True:
+            yield torch.tensor([X_MAX])
+
+    dirichlet_boundary_hi = BoundaryCondition(
+        form=lambda u, x, t: torch.zeros_like(u),
+        points_generator=points_gen_hi()
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
+        single_network=fcnn,
+        pde=heat_equation_1d,
+        initial_condition=initial_condition,
+        boundary_conditions=[dirichlet_boundary_lo, dirichlet_boundary_hi]
+    )
+
+    dummy_history = {
+        'train_loss': [100, 10, 1],
+        'valid_loss': [200, 20, 2],
+        'train_rmse': [1, 0.1, 0.01],
+        'valid_rmse': [2, 0.2, 0.02]
+    }
+
+    monitor = Monitor1DSpatialTemporal(
+        check_on_x=torch.linspace(X_MIN, X_MAX, 32),
+        check_on_t=torch.linspace(T_MIN, T_MAX, 4),
+        check_every=10
+    )
+    monitor.check(fcnn_approximator, dummy_history)
 
 

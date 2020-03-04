@@ -6,20 +6,23 @@
 # supposed to be paired to represent a point.
 from abc import ABC, abstractmethod
 import torch
+import matplotlib
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 
 
 class Approximator(ABC):
     @abstractmethod
     def __call__(self, time_dimension, *spatial_dimensions):
-        pass
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def parameters(self):
-        pass
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def loss(self):
-        pass
+        raise NotImplementedError  # pragma: no cover
 
 
 class SingleNetworkApproximator1DSpatialTemporal(Approximator):
@@ -105,7 +108,63 @@ def generator_temporal(size, t_min, t_max, random=True):
 
 class Monitor1DSpatialTemporal:
     def __init__(self, check_on_x, check_on_t, check_every):
-        pass
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+
+        check_on_xt_tensor = torch.cartesian_prod(check_on_x, check_on_t)
+        self.xx_tensor = torch.squeeze(check_on_xt_tensor[:, 0])
+        self.xx_tensor.requires_grad = True
+        self.tt_tensor = torch.squeeze(check_on_xt_tensor[:, 1])
+        self.tt_tensor.requires_grad = True
+        self.x_array = check_on_x.clone().detach().numpy()
+        self.t_array = check_on_t.clone().detach().numpy()
+        self.check_every = check_every
+        self.t_color = torch.linspace(0, 1, len(check_on_t)).detach().numpy()
+
+        self.fig = plt.figure(figsize=(15, 4))
+        self.ax1 = self.fig.add_subplot(131)
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
+
+    def check(self, approximator, history):
+        uu_array = approximator(self.xx_tensor, self.tt_tensor).detach().numpy()
+
+        self.ax1.clear()
+        for i, t_c in enumerate(zip(self.t_array, self.t_color)):
+            u_t = uu_array[i::len(self.t_array)]
+            t, c = t_c
+            t = float(t)
+            c = cm.viridis(c)
+
+            self.ax1.plot(self.x_array, u_t, color=c, label=f't = {t:.2E}')
+        self.ax1.legend()
+        self.ax1.set_title('approximation')
+
+        self.ax2.clear()
+        self.ax2.plot(history['train_loss'], label='training loss')
+        self.ax2.plot(history['valid_loss'], label='validation loss')
+        self.ax2.set_title('loss during training')
+        self.ax2.set_ylabel('loss')
+        self.ax2.set_xlabel('epochs')
+        self.ax2.set_yscale('log')
+        self.ax2.legend()
+
+        self.ax3.clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.ax3.plot(metric_values, label=metric_name)
+        self.ax3.set_title('metrics during training')
+        self.ax3.set_ylabel('metrics')
+        self.ax3.set_xlabel('epochs')
+        self.ax3.set_yscale('log')
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.ax3.legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)   # pragma: no cover (we are not using gui backend for testing)
+
 
 
 def solve_1dspatial_temporal(
@@ -113,12 +172,12 @@ def solve_1dspatial_temporal(
         train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
         batch_size, max_epochs, monitor
 ):
-    pass
+    raise NotImplementedError  # pragma: no cover
 
 
 def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle):
-    pass
+    raise NotImplementedError  # pragma: no cover
 
 
 def _valid(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
-    pass
+    raise NotImplementedError  # pragma: no cover
