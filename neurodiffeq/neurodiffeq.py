@@ -14,7 +14,7 @@ def diff(x, t, order=1):
     :returns: The derivative.
     :rtype: `torch.tensor`
     """
-    ones = torch.ones_like(t)
+    ones = torch.ones_like(x)
     der, = autograd.grad(x, t, create_graph=True, grad_outputs=ones)
     for i in range(1, order):
         der, = autograd.grad(der, t, create_graph=True, grad_outputs=ones)
