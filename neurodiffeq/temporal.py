@@ -10,7 +10,7 @@ import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
-def _to_traning_set(x, t, x_grad=True, t_grad=True):
+def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     xt = torch.cartesian_prod(x, t)
     xx = torch.squeeze(xt[:, 0])
     xx.requires_grad = x_grad
@@ -67,7 +67,7 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
     def _boundary_mse(self, t, bc):
         x = next(bc.points_generator)
 
-        xx, tt = _to_traning_set(x, t, x_grad=True, t_grad=False)
+        xx, tt = _cartesian_prod_dims(x, t, x_grad=True, t_grad=False)
         uu = self.__call__(xx, tt)
         return torch.mean(bc.form(uu, xx, tt)**2)
 
@@ -123,7 +123,7 @@ class Monitor1DSpatialTemporal:
     def __init__(self, check_on_x, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
 
-        self.xx_tensor, self.tt_tensor = _to_traning_set(check_on_x, check_on_t)
+        self.xx_tensor, self.tt_tensor = _cartesian_prod_dims(check_on_x, check_on_t)
         self.x_array = check_on_x.clone().detach().numpy()
         self.t_array = check_on_t.clone().detach().numpy()
         self.check_every = check_every
@@ -187,7 +187,7 @@ def solve_1dspatial_temporal(
 def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
     x = next(train_generator_spatial)
     t = next(train_generator_temporal)
-    xx, tt = _to_traning_set(x, t)
+    xx, tt = _cartesian_prod_dims(x, t)
     training_set_size = len(xx)
     idx = torch.randperm(training_set_size) if shuffle else torch.arange(training_set_size)
 
@@ -208,12 +208,24 @@ def _train(train_generator_spatial, train_generator_temporal, approximator, opti
         batch_start += batch_size
         batch_end += batch_size
 
-    epoch_loss = approximator.calculate_loss(xx, tt, x, t)
+    epoch_loss = approximator.calculate_loss(xx, tt, x, t).item()
 
     epoch_metrics = approximator.calculate_metrics(xx, tt, x, t, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
 
     return epoch_loss, epoch_metrics
 
 
 def _valid(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
-    raise NotImplementedError  # pragma: no cover
+    x = next(valid_generator_spatial)
+    t = next(valid_generator_temporal)
+    xx, tt = _cartesian_prod_dims(x, t)
+
+    epoch_loss = approximator.calculate_loss(xx, tt, x, t).item()
+
+    epoch_metrics = approximator.calculate_metrics(xx, tt, x, t, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
+
+    return epoch_loss, epoch_metrics

@@ -7,7 +7,7 @@ from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
 from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal
 from neurodiffeq.temporal import Monitor1DSpatialTemporal
-from neurodiffeq.temporal import _train
+from neurodiffeq.temporal import _train, _valid
 import matplotlib
 matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
@@ -188,7 +188,7 @@ def test_monitor_1dspatial_temporal():
     )
     monitor.check(fcnn_approximator, dummy_history)
 
-def test__monitor_1dspatial_temporal():
+def test__train__valid():
     DIFFUSIVITY, X_MIN, X_MAX, T_MIN, T_MAX = 0.3, 0.0, 2.0, 0.0, 3.0
 
     def heat_equation_1d(u, x, t):
@@ -237,6 +237,10 @@ def test__monitor_1dspatial_temporal():
         return torch.mean((uu - (xx+tt))**2)
     metrics = {'dummy_mse': dummy_mse}
 
-    epoch_loss, epoch_metrics = _train(s_gen, t_gen, fcnn_approximator, adam, metrics, shuffle=True, batch_size=100)
-    assert epoch_loss.shape == torch.Size([])
-    assert epoch_metrics['dummy_mse'].shape == torch.Size([])
+    train_epoch_loss, train_epoch_metrics = _train(s_gen, t_gen, fcnn_approximator, adam, metrics, shuffle=True, batch_size=100)
+    assert train_epoch_loss > 0
+    assert train_epoch_metrics['dummy_mse'] > 0
+
+    valid_epoch_loss, valid_epoch_metrics = _valid(s_gen, t_gen, fcnn_approximator, metrics)
+    assert valid_epoch_loss > 0
+    assert valid_epoch_metrics['dummy_mse'] > 0
