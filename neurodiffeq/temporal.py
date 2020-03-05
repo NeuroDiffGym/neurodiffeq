@@ -37,11 +37,12 @@ class Approximator(ABC):
 
 
 class SingleNetworkApproximator1DSpatialTemporal(Approximator):
-    def __init__(self, single_network, pde, initial_condition, boundary_conditions):
+    def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
         self.initial_condition = initial_condition
         self.boundary_conditions = boundary_conditions
+        self.boundary_strictness = boundary_strictness
 
     def __call__(self, xx, tt):
         xx = torch.unsqueeze(xx, dim=1)
@@ -55,12 +56,12 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
     # AHHHHHHHHHHHHHHHH WHY IS THIS FUNCTION SIGNATURE SO UGLY
     # Perhaps ugliness is an essential part of human condition
-    def calculate_loss(self, xx, tt, x, t, strictness=1):
+    def calculate_loss(self, xx, tt, x, t):
         uu = self.__call__(xx, tt)
 
         equation_mse = torch.mean(self.pde(uu, xx, tt)**2)
 
-        boundary_mse = strictness * sum(self._boundary_mse(t, bc) for bc in self.boundary_conditions)
+        boundary_mse = self.boundary_strictness * sum(self._boundary_mse(t, bc) for bc in self.boundary_conditions)
 
         return equation_mse + boundary_mse
 
