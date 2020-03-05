@@ -55,12 +55,12 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
     # AHHHHHHHHHHHHHHHH WHY IS THIS FUNCTION SIGNATURE SO UGLY
     # Perhaps ugliness is an essential part of human condition
-    def calculate_loss(self, xx, tt, x, t):
+    def calculate_loss(self, xx, tt, x, t, strictness=1):
         uu = self.__call__(xx, tt)
 
         equation_mse = torch.mean(self.pde(uu, xx, tt)**2)
 
-        boundary_mse = sum(self._boundary_mse(t, bc) for bc in self.boundary_conditions)
+        boundary_mse = strictness * sum(self._boundary_mse(t, bc) for bc in self.boundary_conditions)
 
         return equation_mse + boundary_mse
 
@@ -129,7 +129,7 @@ class Monitor1DSpatialTemporal:
         self.check_every = check_every
         self.t_color = torch.linspace(0, 1, len(check_on_t)).detach().numpy()
 
-        self.fig = plt.figure(figsize=(15, 4))
+        self.fig = plt.figure(figsize=(30, 8))
         self.ax1 = self.fig.add_subplot(131)
         self.ax2 = self.fig.add_subplot(132)
         self.ax3 = self.fig.add_subplot(133)
@@ -175,13 +175,34 @@ class Monitor1DSpatialTemporal:
             plt.pause(0.05)   # pragma: no cover (we are not using gui backend for testing)
 
 
-
-def solve_1dspatial_temporal(
-        pde, initial_condition, boundary_conditions,
+def _solve_1dspatial_temporal(
         train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
-        batch_size, max_epochs, monitor
+        approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
-    raise NotImplementedError  # pragma: no cover
+    history = {'train_loss': [], 'valid_loss': []}
+    for metric_name, _ in metrics.items():
+        history['train_' + metric_name] = []
+        history['valid_' + metric_name] = []
+
+    for epoch in range(max_epochs):
+        train_epoch_loss, train_epoch_metrics = _train(
+            train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size
+        )
+        history['train_loss'].append(train_epoch_loss)
+        for metric_name, metric_value in train_epoch_metrics.items():
+            history['train_'+metric_name].append(metric_value)
+
+        valid_epoch_loss, valid_epoch_metrics = _valid(
+            valid_generator_spatial, valid_generator_temporal, approximator, metrics
+        )
+        history['valid_loss'].append(valid_epoch_loss)
+        for metric_name, metric_value in valid_epoch_metrics.items():
+            history['valid_'+metric_name].append(metric_value)
+
+        if monitor and epoch % monitor.check_every == 0:
+            monitor.check(approximator, history)
+
+    return approximator, history
 
 
 def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
