@@ -4,7 +4,7 @@ from torch import sin, cos
 
 # List of real spherical harmonics (normalized) with degree l<=4; see following link
 # https://en.wikipedia.org/wiki/Table_of_spherical_harmonics
-# Note that the normalization term doesn't include the factor :math:`\sqrt{\frac{1}{\pi}}`
+# Note that the normalization term doesn't include the factor :math:`\\sqrt{\\frac{1}{\\pi}}`
 # Correctness of these lambda functions are tested in `test_pde_spherical`
 
 # l = 0
@@ -49,6 +49,7 @@ class RealSphericalHarmonics(nn.Module):
     def __init__(self, max_degree=4):
         super(RealSphericalHarmonics, self).__init__()
         self.harmonics = []
+        self.max_degree = max_degree
         if max_degree >= 0:
             self.harmonics += [Y0_0]
         if max_degree >= 1:
@@ -63,7 +64,17 @@ class RealSphericalHarmonics(nn.Module):
             raise NotImplementedError(f'max_degree = {max_degree} not implemented for {self.__class__.__name__} yet')
 
     def forward(self, theta, phi):
-        if len(theta.shape) >= 2 or len(phi.shape) >= 2:
-            raise ValueError(f'theta/phi must be both of shape (n,); got f{theta.shape} and f{phi.shape}')
+        """ compute the value of each spherical harmonic component evaluated at each point
+        :param theta: theta in spherical coordinates, must have shape (-1, 1)
+        :type theta: `torch.Tensor`
+        :param phi: phis in spherical coordinates, must have the same shape as theta
+        :type phi: `torch.Tensor`
+        :return: spherical harmonics evaluated at each point, will be of shape (-1, n_components)
+        :rtype: `torch.Tensor`
+        """
+        if len(theta.shape) != 2 or theta.shape[1] != 1:
+            raise ValueError(f'theta must be of shape (-1, 1); got {theta.shape}')
+        if theta.shape != phi.shape:
+            raise ValueError(f'theta/phi must be of the same shape; got f{theta.shape} and f{phi.shape}')
         components = [Y(theta, phi) for Y in self.harmonics]
-        return torch.stack(components, dim=1)
+        return torch.cat(components, dim=1)

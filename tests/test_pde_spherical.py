@@ -12,7 +12,8 @@ from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherica
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
-from neurodiffeq.spherical_harmonics import RealSphericalHarmonics
+from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
+from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import SphericalHarmonicsNN
 
 import torch
@@ -349,7 +350,7 @@ def test_spherical_harmonics():
     C4p3 = sqrt(35 / 2) * 3 / 4
     C4p4 = sqrt(35) * 3 / 16
 
-    coefficients = [
+    normalizer = [
         C0_0,
         C1n1, C1_0, C1p1,
         C2n2, C2n1, C2_0, C2p1, C2p2,
@@ -358,18 +359,18 @@ def test_spherical_harmonics():
     ]
 
     harmonics_fn_cartesian = harmonics_fn_cartesian[:(MAX_DEGREE + 1) ** 2]
-    coefficients = coefficients[:(MAX_DEGREE + 1) ** 2]
+    normalizer = normalizer[:(MAX_DEGREE + 1) ** 2]
     harmonics_fn = RealSphericalHarmonics(max_degree=MAX_DEGREE)
-    theta = torch.rand(N_SAMPLES) * np.pi
-    phi = torch.rand(N_SAMPLES) * 2 * np.pi
+    theta = torch.rand(N_SAMPLES, 1) * np.pi
+    phi = torch.rand(N_SAMPLES, 1) * 2 * np.pi
     x = torch.sin(theta) * torch.cos(phi)
     y = torch.sin(theta) * torch.sin(phi)
     z = torch.cos(theta)
     harmonics = harmonics_fn(theta, phi)
     # test the shape of output
     assert harmonics.shape == OUTPUT_SHAPE, f"got shape={harmonics.shape}; expected shape={OUTPUT_SHAPE}"
-    harmonics_cartesian = torch.stack(
-        [f(x, y, z) * c for f, c in zip(harmonics_fn_cartesian, coefficients)],
+    harmonics_cartesian = torch.cat(
+        [f(x, y, z) * c for f, c in zip(harmonics_fn_cartesian, normalizer)],
         dim=1
     )
     abs_diff = abs(harmonics - harmonics_cartesian)
