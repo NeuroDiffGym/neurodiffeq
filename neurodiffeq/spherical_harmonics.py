@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import sin, cos
+from neurodiffeq.neurodiffeq import diff
 
 # List of real spherical harmonics (normalized) with degree l<=4; see following link
 # https://en.wikipedia.org/wiki/Table_of_spherical_harmonics
@@ -78,3 +79,32 @@ class RealSphericalHarmonics(nn.Module):
             raise ValueError(f'theta/phi must be of the same shape; got f{theta.shape} and f{phi.shape}')
         components = [Y(theta, phi) for Y in self.harmonics]
         return torch.cat(components, dim=1)
+
+
+class HarmonicsLaplacian:
+    """
+        Laplacian of spherical harmonics can be reduced in the following way. Using this method, we can avoid the :math:`\\frac{1}{\\sin \\theta}` singularity
+        :math:```
+        \\begin{aligned}
+        &\\nabla^{2} R_{l, m}(r) Y_{l,m}(\\theta, \\phi)\\\\
+        &=\\left(\\nabla_{r}^{2}+\\nabla_{\\theta}^{2}+\\nabla_{\\phi}^{2}\\right)\\left(R_{l, m}(r) Y_{l, m}(\\theta, \\phi)\\right)\\\\
+        &=Y_{l, m} \\nabla_{r}^{2} R_{l, m}+R_{l, m}\\left(\\left(\\nabla_{\\theta}^{2}+\\nabla_{\\phi}^{2}\\right) Y_{l, m}\\right)\\\\
+        &=Y_{l, m} \\nabla_{r}^{2} R_{l, m}+R_{l, m} \\frac{-l(l+1)}{r^{2}} Y_{l, m}\\\\
+        &=Y_{l, m}\\left(\\nabla_{r}^{2} R_{l, m}+\\frac{-l(l+1)}{r^{2}} R_{l, m}\\right)
+        \\end{aligned}```
+    """
+
+    def __init__(self, max_degree=4):
+        self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+        laplacian_coefficients = [-l * (l + 1) for l in range(max_degree + 1) for m in range(-l, l + 1)]
+        self.laplacian_coefficients = torch.tensor(laplacian_coefficients).type(torch.float)
+
+    def __call__(self, R, r, theta, phi):
+        # We would hope to do `radial_component = diff(R * r, r, order=2) / r`
+        # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
+        # we have to separate columns in R, compute derivates, and manually concatenate them back together
+        radial_component = torch.cat([diff(R[:, j] * r[:, 0], r, order=2) for j in range(R.shape[1])], dim=1) / r
+
+        angular_component = self.laplacian_coefficients * R / r ** 2
+        products = (radial_component + angular_component) * self.harmonics_fn(theta, phi)
+        return torch.sum(products, dim=1, keepdim=True)

@@ -9,12 +9,14 @@ from pytest import raises
 from neurodiffeq import diff
 from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
+from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
 from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import SphericalHarmonicsNN
+from neurodiffeq.networks import FCNN
 
 import torch
 import torch.nn as nn
@@ -391,3 +393,34 @@ def test_spherical_harmonics_nn():
     inp = torch.rand(N_SAMPLES, 3)
     outp = nn(inp)
     assert outp.shape == OUTPUT_SHAPE, f"got shape={outp.shape}; expected shape={OUTPUT_SHAPE}"
+
+
+def test_spherical_laplcian():
+    n_samples = 10
+    r_value = np.ones((n_samples, 1))
+    theta_value = np.random.rand(n_samples, 1)
+    phi_value = np.random.rand(n_samples, 1)
+    r_net = FCNN(n_input_units=1, n_output_units=25)
+
+    # compute laplacians using spherical harmonics property
+    r1 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
+    theta1 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
+    phi1 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    R1 = r_net(r1)
+    harmonics_laplacian = HarmonicsLaplacian(max_degree=4)
+    lap1 = harmonics_laplacian(R1, r1, theta1, phi1)
+
+    # compute laplacians using brute force
+    r2 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
+    theta2 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
+    phi2 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    R2 = r_net(r2)
+    spherical_fn = RealSphericalHarmonics(max_degree=4)
+    harmonics = spherical_fn(theta2, phi2)
+    u = torch.sum(R2 * harmonics, dim=1, keepdim=True)
+    lap2 = laplacian_spherical(u, r2, theta2, phi2)
+
+    assert (lap1 - lap2 < 1e-3).all(), \
+        f'Laplcians computed using spherical harmonics trick differ from brute force solution, {lap1} != {lap2}'
+
+
