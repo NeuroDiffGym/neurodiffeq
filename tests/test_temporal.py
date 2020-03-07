@@ -3,7 +3,7 @@ import torch
 from torch import nn, optim
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
-from neurodiffeq.temporal import generator_1dspatial, generator_temporal
+from neurodiffeq.temporal import generator_1dspatial, generator_temporal, generator_2dspatial_segment
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
 from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal
 from neurodiffeq.temporal import Monitor1DSpatialTemporal
@@ -30,6 +30,27 @@ def test_generator_1dspatial():
         assert (x <= 2).all()
         assert not x.requires_grad
     assert not (x == next(s_gen)).all()
+
+
+def test_generator_2dspatial_segment():
+    s_gen = generator_2dspatial_segment(size=32, start=(4., 2.), end=(-2., -4.), random=False)
+    for _ in range(3):
+        x, y = next(s_gen)
+        assert x.shape == torch.Size([32]) and y.shape == torch.Size([32])
+        assert (x - y - 2.).isclose(torch.zeros_like(x)).all()
+        assert not x.requires_grad
+    x_, y_ = next(s_gen)
+    assert (x == x_).all() and (y == y_).all()
+
+    s_gen = generator_2dspatial_segment(size=32, start=(4., 2.), end=(-2., -4.), random=True)
+    for _ in range(3):
+        x, y = next(s_gen)
+        assert x.shape == torch.Size([32]) and y.shape == torch.Size([32])
+        assert (x - y - 2.).isclose(torch.zeros_like(x), atol=1e-6).all()
+        assert not x.requires_grad
+    x_, y_ = next(s_gen)
+    assert not (x == x_).all()
+    assert not (y == y_).all()
 
 
 def test_generator_temporal():

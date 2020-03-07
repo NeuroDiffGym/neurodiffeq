@@ -111,8 +111,16 @@ def generator_1dspatial(size, x_min, x_max, random=True):
 
 
 def generator_2dspatial_segment(size, start, end, random=True):
-    pass
-
+    x1, y1 = start
+    x2, y2 = end
+    step = 1./size
+    center = torch.linspace(0. + 0.5*step, 1. - 0.5*step, size)
+    noise_lo = -step*0.5
+    while True:
+        if random:
+            noise = step*torch.rand(size) + noise_lo
+            center = center + noise
+        yield x1 + (x2-x1)*center, y1 + (y2-y1)*center
 
 def generator_2dspatial_recrangle(size, x_min, x_max, y_min, y_max, random=True):
     pass
@@ -196,25 +204,37 @@ def _solve_1dspatial_temporal(
     train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
+    return _solve_spatial_temporal(
+        train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+        approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
+        train_routine=_train_1dspatial_temporal, valid_routine=_valid_1dspatial_temporal
+    )
+
+
+def _solve_spatial_temporal(
+    train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
+    train_routine, valid_routine
+):
     history = {'train_loss': [], 'valid_loss': []}
     for metric_name, _ in metrics.items():
         history['train_' + metric_name] = []
         history['valid_' + metric_name] = []
 
     for epoch in range(max_epochs):
-        train_epoch_loss, train_epoch_metrics = _train(
+        train_epoch_loss, train_epoch_metrics = train_routine(
             train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size
         )
         history['train_loss'].append(train_epoch_loss)
         for metric_name, metric_value in train_epoch_metrics.items():
-            history['train_'+metric_name].append(metric_value)
+            history['train_' + metric_name].append(metric_value)
 
-        valid_epoch_loss, valid_epoch_metrics = _valid(
+        valid_epoch_loss, valid_epoch_metrics = valid_routine(
             valid_generator_spatial, valid_generator_temporal, approximator, metrics
         )
         history['valid_loss'].append(valid_epoch_loss)
         for metric_name, metric_value in valid_epoch_metrics.items():
-            history['valid_'+metric_name].append(metric_value)
+            history['valid_' + metric_name].append(metric_value)
 
         if monitor and epoch % monitor.check_every == 0:
             monitor.check(approximator, history)
@@ -222,14 +242,7 @@ def _solve_1dspatial_temporal(
     return approximator, history
 
 
-def _solve_2dspatial_temporal(
-    train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
-    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
-):
-    pass
-
-
-def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
     x = next(train_generator_spatial)
     t = next(train_generator_temporal)
     xx, tt = _cartesian_prod_dims(x, t)
@@ -262,7 +275,7 @@ def _train(train_generator_spatial, train_generator_temporal, approximator, opti
     return epoch_loss, epoch_metrics
 
 
-def _valid(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
+def _valid_1dspatial_temporal(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
     x = next(valid_generator_spatial)
     t = next(valid_generator_temporal)
     xx, tt = _cartesian_prod_dims(x, t)
