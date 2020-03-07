@@ -82,7 +82,39 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
 
 class SingleNetworkApproximator2DSpatialTemporal(Approximator):
-    pass
+    def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
+        self.single_network = single_network
+        self.pde = pde
+        self.initial_condition = initial_condition
+        self.boundary_conditions = boundary_conditions
+        self.boundary_strictness = boundary_strictness
+
+    def __call__(self, xx, yy, tt):
+        xx = torch.unsqueeze(xx, dim=1)
+        yy = torch.unsqueeze(yy, dim=1)
+        tt = torch.unsqueeze(tt, dim=1)
+        xyt = torch.cat((xx, yy, tt), dim=1)
+        uu = self.initial_condition.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
+        return torch.squeeze(uu)
+
+    def parameters(self):
+        return self.single_network.parameters()
+
+    def calculate_loss(self, xx, yy, tt, x, y, t):
+        uu = self.__call__(xx, yy, tt)
+
+        equation_mse = torch.mean(self.pde(uu, xx, yy, tt)**2)
+
+        boundary_mse = self.boundary_strictness * sum(self._boundary_mse(t, bc) for bc in self.boundary_conditions)
+
+        return equation_mse + boundary_mse
+
+    def _boundary_mse(self, t, bc):
+        x, y = next(bc.points_generator)
+
+        xx, tt = _cartesian_prod_dims(x, t, x_grad=True, t_grad=False)
+        uu = self.__call__(xx, tt)
+        return torch.mean(bc.form(uu, xx, tt)**2)
 
 
 class FirstOrderInitialCondition:
@@ -122,8 +154,18 @@ def generator_2dspatial_segment(size, start, end, random=True):
             center = center + noise
         yield x1 + (x2-x1)*center, y1 + (y2-y1)*center
 
-def generator_2dspatial_recrangle(size, x_min, x_max, y_min, y_max, random=True):
-    pass
+
+def generator_2dspatial_rectangle(size, x_min, x_max, y_min, y_max, random=True):
+    x_size, y_size = size
+    x_generator = generator_1dspatial(x_size, x_min, x_max, random)
+    y_generator = generator_1dspatial(y_size, y_min, y_max, random)
+    while True:
+        x = next(x_generator)
+        y = next(y_generator)
+        xy = torch.cartesian_prod(x, y)
+        xx = torch.squeeze(xy[:, 0])
+        yy = torch.squeeze(xy[:, 1])
+        yield xx, yy
 
 
 def generator_temporal(size, t_min, t_max, random=True):
