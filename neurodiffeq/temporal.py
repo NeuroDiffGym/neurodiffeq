@@ -81,6 +81,10 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
         }
 
 
+class SingleNetworkApproximator2DSpatialTemporal(Approximator):
+    pass
+
+
 class FirstOrderInitialCondition:
     def __init__(self, u0):
         self.u0 = u0
@@ -104,6 +108,14 @@ def generator_1dspatial(size, x_min, x_max, random=True):
             yield center + noise
         else:
             yield center
+
+
+def generator_2dspatial_segment(size, start, end, random=True):
+    pass
+
+
+def generator_2dspatial_recrangle(size, x_min, x_max, y_min, y_max, random=True):
+    pass
 
 
 def generator_temporal(size, t_min, t_max, random=True):
@@ -176,9 +188,13 @@ class Monitor1DSpatialTemporal:
             plt.pause(0.05)   # pragma: no cover (we are not using gui backend for testing)
 
 
+class Monitor2DSpatialTemporal:
+    pass
+
+
 def _solve_1dspatial_temporal(
-        train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
-        approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
+    train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
     history = {'train_loss': [], 'valid_loss': []}
     for metric_name, _ in metrics.items():
@@ -204,6 +220,13 @@ def _solve_1dspatial_temporal(
             monitor.check(approximator, history)
 
     return approximator, history
+
+
+def _solve_2dspatial_temporal(
+    train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
+):
+    pass
 
 
 def _train(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
