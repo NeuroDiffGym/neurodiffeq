@@ -6,7 +6,7 @@ from neurodiffeq.networks import FCNN
 from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import generator_2dspatial_segment, generator_2dspatial_rectangle
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
-from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal
+from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal, SingleNetworkApproximator2DSpatialTemporal
 from neurodiffeq.temporal import Monitor1DSpatialTemporal
 from neurodiffeq.temporal import _train_1dspatial_temporal, _valid_1dspatial_temporal, _solve_1dspatial_temporal
 import matplotlib
@@ -124,7 +124,7 @@ def test_boundary_condition():
     assert (boundary_condition.form(uu, xx, tt) == tt).all()
 
 
-def test_fully_connected_neural_network_approximator_1dspatial_temporal():
+def test_single_network_approximator_1dspatial_temporal():
     DIFFUSIVITY, X_MIN, X_MAX, T_MIN, T_MAX = 0.3, 0.0, 2.0, 0.0, 3.0
 
     def heat_equation_1d(u, x, t):
@@ -177,6 +177,85 @@ def test_fully_connected_neural_network_approximator_1dspatial_temporal():
     assert fcnn_approximator.calculate_metrics(xx, tt, x, t, metrics)['dummy_mse'].shape == torch.Size([])
     xx, tt = torch.rand(16), torch.zeros(16)
     assert fcnn_approximator(xx, tt).isclose(torch.sin(PI * xx)).all()
+
+
+def test_single_network_approximator_2dspatial_temporal():
+    DIFFUSIVITY = 0.3
+    X_MIN, X_MAX = -1.0, 1.0
+    Y_MIN, Y_MAX = -1.0, 1.0
+
+    def heat_equation_2d(u, x, y, t):
+        left = diff(u, t) - DIFFUSIVITY * (diff(u, x, order=2) + diff(u, y, order=2))
+        right = -torch.exp(-t) * ((X_MAX - x) * (x - X_MIN) * (Y_MAX - y) * (y - Y_MIN) - 2 * DIFFUSIVITY * (
+                    (Y_MAX - y) * (y - Y_MIN) + (X_MAX - x) * (x - X_MIN)))
+        return left - right
+
+    def analytical_solution(xx, yy, tt):
+        return torch.exp(-tt) * (X_MAX - xx) * (xx - X_MIN) * (Y_MAX - yy) * (yy - Y_MIN)
+
+    def rmse(uu, xx, yy, tt):
+        error = uu - analytical_solution(xx, yy, tt)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics = {'rmse': rmse}
+
+    def u0(x, y):
+        return (X_MAX - x) * (x - X_MIN) * (Y_MAX - y) * (y - Y_MIN)
+
+    initial_condition = FirstOrderInitialCondition(u0=u0)
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MIN), end=(X_MIN, Y_MAX))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MAX, Y_MIN), end=(X_MAX, Y_MAX))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MAX), end=(X_MAX, Y_MAX))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MIN), end=(X_MAX, Y_MIN))
+    )
+
+    fcnn = FCNN(
+        n_input_units=3,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
+        single_network=fcnn,
+        pde=heat_equation_2d,
+        initial_condition=initial_condition,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    xx, yy, tt = torch.rand(16), torch.rand(16), torch.rand(16)
+    assert fcnn_approximator(xx, yy, tt).shape == torch.Size([16])
+    assert next(fcnn_approximator.parameters()).shape == torch.Size([32, 3])
+    x, y, t = torch.rand(4), torch.rand(4), torch.rand(4)
+    xt = torch.cartesian_prod(x, t)
+    yt = torch.cartesian_prod(y, t)
+    xx = torch.squeeze(xt[:, 0])
+    xx.requires_grad = True
+    yy = torch.squeeze(yt[:, 0])
+    yy.requires_grad = True
+    tt = torch.squeeze(yt[:, 1])
+    tt.requires_grad = True
+    assert fcnn_approximator.calculate_loss(xx, yy, tt, x, y, t).shape == torch.Size([])
+    assert fcnn_approximator.calculate_metrics(xx, yy, tt, x, y, t, metrics)['rmse'].shape == torch.Size([])
+    xx, yy, tt = torch.rand(16), torch.rand(16), torch.zeros(16)
+    assert fcnn_approximator(xx, yy, tt).isclose(u0(xx, yy)).all()
 
 
 def test_monitor_1dspatial_temporal():

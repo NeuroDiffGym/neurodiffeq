@@ -113,8 +113,17 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
         x, y = next(bc.points_generator)
 
         xx, tt = _cartesian_prod_dims(x, t, x_grad=True, t_grad=False)
-        uu = self.__call__(xx, tt)
-        return torch.mean(bc.form(uu, xx, tt)**2)
+        yy, tt = _cartesian_prod_dims(y, t, x_grad=True, t_grad=False)
+        uu = self.__call__(xx, yy, tt)
+        return torch.mean(bc.form(uu, xx, yy, tt)**2)
+
+    def calculate_metrics(self, xx, yy, tt, x, y, t, metrics):
+        uu = self.__call__(xx, yy, tt)
+
+        return {
+            metric_name: metric_func(uu, xx, yy, tt)
+            for metric_name, metric_func in metrics.items()
+        }
 
 
 class FirstOrderInitialCondition:
