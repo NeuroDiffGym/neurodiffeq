@@ -55,8 +55,6 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
     def parameters(self):
         return self.single_network.parameters()
 
-    # AHHHHHHHHHHHHHHHH WHY IS THIS FUNCTION SIGNATURE SO UGLY
-    # Perhaps ugliness is an essential part of human condition
     def calculate_loss(self, xx, tt, x, t):
         uu = self.__call__(xx, tt)
 
@@ -402,6 +400,42 @@ def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
     return epoch_loss, epoch_metrics
 
 
+def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+    x, y = next(train_generator_spatial)
+    t = next(train_generator_temporal)
+    xx, tt = _cartesian_prod_dims(x, t)
+    yy, tt = _cartesian_prod_dims(y, t)
+    training_set_size = len(xx)
+    idx = torch.randperm(training_set_size) if shuffle else torch.arange(training_set_size)
+
+    batch_start, batch_end = 0, batch_size
+    while batch_start < training_set_size:
+        if batch_end > training_set_size:
+            batch_end = training_set_size
+        batch_idx = idx[batch_start:batch_end]
+        batch_xx = xx[batch_idx]
+        batch_yy = yy[batch_idx]
+        batch_tt = tt[batch_idx]
+
+        batch_loss = approximator.calculate_loss(batch_xx, batch_yy, batch_tt, x, y, t)
+
+        optimizer.zero_grad()
+        batch_loss.backward()
+        optimizer.step()
+
+        batch_start += batch_size
+        batch_end += batch_size
+
+    # TODO: this can give us the real loss after an epoch, but can be very memory intensive
+    epoch_loss = approximator.calculate_loss(xx, yy, tt, x, y, t).item()
+
+    epoch_metrics = approximator.calculate_metrics(xx, yy, tt, x, y, t, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
+
+    return epoch_loss, epoch_metrics
+
+
 def _valid_1dspatial_temporal(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
     x = next(valid_generator_spatial)
     t = next(valid_generator_temporal)
@@ -410,6 +444,21 @@ def _valid_1dspatial_temporal(valid_generator_spatial, valid_generator_temporal,
     epoch_loss = approximator.calculate_loss(xx, tt, x, t).item()
 
     epoch_metrics = approximator.calculate_metrics(xx, tt, x, t, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
+
+    return epoch_loss, epoch_metrics
+
+
+def _valid_2dspatial_temporal(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
+    x, y = next(valid_generator_spatial)
+    t = next(valid_generator_temporal)
+    xx, tt = _cartesian_prod_dims(x, t)
+    yy, tt = _cartesian_prod_dims(y, t)
+
+    epoch_loss = approximator.calculate_loss(xx, yy, tt, x, y, t).item()
+
+    epoch_metrics = approximator.calculate_metrics(xx, yy, tt, x, y, t, metrics)
     for k, v in epoch_metrics.items():
         epoch_metrics[k] = v.item()
 
