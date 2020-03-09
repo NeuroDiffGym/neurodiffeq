@@ -6,6 +6,7 @@
 # supposed to be paired to represent a point. ([xx, tt] is often the Cartesian product of x and t)
 from abc import ABC, abstractmethod
 import torch
+import numpy as np
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -333,6 +334,17 @@ def _solve_1dspatial_temporal(
         train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
         approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
         train_routine=_train_1dspatial_temporal, valid_routine=_valid_1dspatial_temporal
+    )
+
+
+def _solve_2dspatial_temporal(
+    train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
+):
+    return _solve_spatial_temporal(
+        train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
+        approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
+        train_routine=_train_2dspatial_temporal, valid_routine=_valid_2dspatial_temporal
     )
 
 
