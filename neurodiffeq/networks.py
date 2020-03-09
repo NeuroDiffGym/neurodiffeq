@@ -71,9 +71,11 @@ class SphericalHarmonicsNN(nn.Module):
     def forward(self, inp: torch.Tensor):
         if len(inp.shape) != 2 or inp.shape[1] != 3:
             raise ValueError(f'Illegal input shape {inp.shape}, must be (N, 3)')
-        r = torch.stack((inp[:, 0],), dim=1)
-        theta = inp[:, 1]
-        phi = inp[:, 2]
+        # use one-element slice; this keeps the second dimension unreduced
+        # see https://discuss.pytorch.org/t/solved-simple-question-about-keep-dim-when-slicing-the-tensor/9280
+        r = inp[:, 0:1]
+        theta = inp[:, 1:2]
+        phi = inp[:, 2:3]
         coefficients = self.r_net(r)
         harmonics = self.harmonics_fn(theta, phi)
         return torch.sum(coefficients * harmonics, dim=1, keepdim=True)

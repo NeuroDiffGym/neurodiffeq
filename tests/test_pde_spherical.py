@@ -9,11 +9,14 @@ from pytest import raises
 from neurodiffeq import diff
 from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
+from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
-from neurodiffeq.spherical_harmonics import RealSphericalHarmonics
+from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
+from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import SphericalHarmonicsNN
+from neurodiffeq.networks import FCNN
 
 import torch
 import torch.nn as nn
@@ -227,34 +230,28 @@ def test_electric_potential_uniformly_charged_ball():
 
 
 def test_electric_potential_gaussian_charged_density():
-    def subtest(net=None, max_epoch=500):
-        print(f'subtest: network = {net}, max_epoch={max_epoch}')
-        # total charge
-        Q = 1.
-        # standard deviation of gaussian
-        sigma = 1.
-        # medium permittivity
-        epsilon = 1.
-        # Coulomb constant
-        k = 1 / (4 * np.pi * epsilon)
-        # coefficient of gaussian term
-        gaussian_coeff = Q / (sigma ** 3) / np.power(2 * np.pi, 1.5)
-        # distribution of charge
-        rho_f = lambda r: gaussian_coeff * torch.exp(- r.pow(2) / (2 * sigma ** 2))
-        # analytic solution, refer to https://en.wikipedia.org/wiki/Poisson%27s_equation
-        analytic_solution = lambda r, th, ph: (k * Q / r) * torch.erf(r / (np.sqrt(2) * sigma))
+    # total charge
+    Q = 1.
+    # standard deviation of gaussian
+    sigma = 1.
+    # medium permittivity
+    epsilon = 1.
+    # Coulomb constant
+    k = 1 / (4 * np.pi * epsilon)
+    # coefficient of gaussian term
+    gaussian_coeff = Q / (sigma ** 3) / np.power(2 * np.pi, 1.5)
+    # distribution of charge
+    rho_f = lambda r: gaussian_coeff * torch.exp(- r.pow(2) / (2 * sigma ** 2))
+    # analytic solution, refer to https://en.wikipedia.org/wiki/Poisson%27s_equation
+    analytic_solution = lambda r, th, ph: (k * Q / r) * torch.erf(r / (np.sqrt(2) * sigma))
 
-        pde = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
-        r_0, r_1 = 0.1, 3.
-        v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
-        v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
-        condition = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
-        monitor = MonitorSpherical(r_0, r_1, check_every=50)
+    # interior and exterior radius
+    r_0, r_1 = 0.1, 3.
+    # values at interior and exterior boundary
+    v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
+    v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
 
-        solution, loss_history, analytic_mse = solve_spherical(pde, condition, r_0, r_1, max_epochs=max_epoch, net=net,
-                                                               return_best=True, analytic_solution=analytic_solution,
-                                                               monitor=monitor, batch_size=16)
-
+    def validate(solution, loss_history, analytical_mse):
         generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
         rs, thetas, phis = generator.get_examples()
         us = solution(rs, thetas, phis, as_type="np")
@@ -263,10 +260,49 @@ def test_electric_potential_gaussian_charged_density():
         assert np.isclose(us, vs, rtol=0.05).all(), \
             f"Solution doesn't match analytic expectattion {us} != {vs}, relative-diff={rdiff}"
 
-        print("subtest electric-potential-on-gaussian-charged-density passed")
+    # solving the problem using normal network (subject to the influence of polar singularity of laplacian operator)
 
-    subtest(SphericalHarmonicsNN(max_degree=1), max_epoch=200)
-    subtest(None, max_epoch=500)
+    pde1 = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
+    condition1 = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
+    monitor1 = MonitorSpherical(r_0, r_1, check_every=50)
+    solution1, loss_history1, analytic_mse1 = solve_spherical(
+        pde1, condition1, r_0, r_1,
+        max_epochs=500,
+        return_best=True,
+        analytic_solution=analytic_solution,
+        monitor=monitor1,
+        batch_size=64,
+    )
+    validate(solution1, loss_history1, analytic_mse1)
+
+    # solving the problem using spherical harmonics (laplcian computation is optimized)
+    max_degree = 2
+    harmonic_laplacian = HarmonicsLaplacian(max_degree=max_degree)
+    pde2 = lambda R, r, th, ph: harmonic_laplacian(R, r, th, ph) + rho_f(r) / epsilon
+    R_0 = torch.tensor([v_0 * 2] + [0 for _ in range((max_degree + 1) ** 2 - 1)])
+    R_1 = torch.tensor([v_1 * 2] + [0 for _ in range((max_degree + 1) ** 2 - 1)])
+
+    def analytic_solution2(r, th, ph):
+        sol = torch.zeros(r.shape[0], (max_degree + 1) ** 2)
+        sol[:, 0:1] = 2 * analytic_solution(r, th, ph)
+        return sol
+
+    condition2 = DirichletBVPSphericalHarmonics(r_0=r_0, R_0=R_0, r_1=r_1, R_1=R_1, max_degree=max_degree)
+    monitor2 = MonitorSphericalHarmonics(r_0, r_1, check_every=50, max_degree=max_degree)
+    net2 = FCNN(n_input_units=1, n_output_units=(max_degree + 1) ** 2)
+    solution2, loss_history2, analytic_mse2 = solve_spherical(
+        pde2, condition2, r_0, r_1,
+        net=net2,
+        max_epochs=150,
+        return_best=True,
+        analytic_solution=analytic_solution2,
+        monitor=monitor2,
+        batch_size=64,
+    )
+
+    validate(solution2, loss_history2, analytic_mse2)
+
+    print("electric-potential-on-gaussian-charged-density passed")
 
 
 def test_spherical_harmonics():
@@ -349,7 +385,7 @@ def test_spherical_harmonics():
     C4p3 = sqrt(35 / 2) * 3 / 4
     C4p4 = sqrt(35) * 3 / 16
 
-    coefficients = [
+    normalizer = [
         C0_0,
         C1n1, C1_0, C1p1,
         C2n2, C2n1, C2_0, C2p1, C2p2,
@@ -358,18 +394,18 @@ def test_spherical_harmonics():
     ]
 
     harmonics_fn_cartesian = harmonics_fn_cartesian[:(MAX_DEGREE + 1) ** 2]
-    coefficients = coefficients[:(MAX_DEGREE + 1) ** 2]
+    normalizer = normalizer[:(MAX_DEGREE + 1) ** 2]
     harmonics_fn = RealSphericalHarmonics(max_degree=MAX_DEGREE)
-    theta = torch.rand(N_SAMPLES) * np.pi
-    phi = torch.rand(N_SAMPLES) * 2 * np.pi
+    theta = torch.rand(N_SAMPLES, 1) * np.pi
+    phi = torch.rand(N_SAMPLES, 1) * 2 * np.pi
     x = torch.sin(theta) * torch.cos(phi)
     y = torch.sin(theta) * torch.sin(phi)
     z = torch.cos(theta)
     harmonics = harmonics_fn(theta, phi)
     # test the shape of output
     assert harmonics.shape == OUTPUT_SHAPE, f"got shape={harmonics.shape}; expected shape={OUTPUT_SHAPE}"
-    harmonics_cartesian = torch.stack(
-        [f(x, y, z) * c for f, c in zip(harmonics_fn_cartesian, coefficients)],
+    harmonics_cartesian = torch.cat(
+        [f(x, y, z) * c for f, c in zip(harmonics_fn_cartesian, normalizer)],
         dim=1
     )
     abs_diff = abs(harmonics - harmonics_cartesian)
@@ -390,3 +426,34 @@ def test_spherical_harmonics_nn():
     inp = torch.rand(N_SAMPLES, 3)
     outp = nn(inp)
     assert outp.shape == OUTPUT_SHAPE, f"got shape={outp.shape}; expected shape={OUTPUT_SHAPE}"
+
+
+def test_spherical_laplcian():
+    n_samples = 10
+    r_value = np.ones((n_samples, 1))
+    theta_value = np.random.rand(n_samples, 1)
+    phi_value = np.random.rand(n_samples, 1)
+    r_net = FCNN(n_input_units=1, n_output_units=25)
+
+    # compute laplacians using spherical harmonics property
+    r1 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
+    theta1 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
+    phi1 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    R1 = r_net(r1)
+    harmonics_laplacian = HarmonicsLaplacian(max_degree=4)
+    lap1 = harmonics_laplacian(R1, r1, theta1, phi1)
+
+    # compute laplacians using brute force
+    r2 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
+    theta2 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
+    phi2 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    R2 = r_net(r2)
+    spherical_fn = RealSphericalHarmonics(max_degree=4)
+    harmonics = spherical_fn(theta2, phi2)
+    u = torch.sum(R2 * harmonics, dim=1, keepdim=True)
+    lap2 = laplacian_spherical(u, r2, theta2, phi2)
+
+    assert (lap1 - lap2 < 1e-3).all(), \
+        f'Laplcians computed using spherical harmonics trick differ from brute force solution, {lap1} != {lap2}'
+
+
