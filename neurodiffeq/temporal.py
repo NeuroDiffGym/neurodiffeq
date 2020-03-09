@@ -9,6 +9,7 @@ import torch
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 
 def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     xt = torch.cartesian_prod(x, t)
@@ -196,10 +197,10 @@ class Monitor1DSpatialTemporal:
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
 
         self.xx_tensor, self.tt_tensor = _cartesian_prod_dims(check_on_x, check_on_t)
-        self.x_array = check_on_x.clone().detach().numpy()
-        self.t_array = check_on_t.clone().detach().numpy()
+        self.x_array = check_on_x.clone().detach().cpu().numpy()
+        self.t_array = check_on_t.clone().detach().cpu().numpy()
         self.check_every = check_every
-        self.t_color = torch.linspace(0, 1, len(check_on_t)).detach().numpy()
+        self.t_color = torch.linspace(0, 1, len(check_on_t)).detach().cpu().numpy()
 
         self.fig = plt.figure(figsize=(30, 8))
         self.ax1 = self.fig.add_subplot(131)
@@ -207,7 +208,7 @@ class Monitor1DSpatialTemporal:
         self.ax3 = self.fig.add_subplot(133)
 
     def check(self, approximator, history):
-        uu_array = approximator(self.xx_tensor, self.tt_tensor).detach().numpy()
+        uu_array = approximator(self.xx_tensor, self.tt_tensor).detach().cpu().numpy()
 
         self.ax1.clear()
         for i, t_c in enumerate(zip(self.t_array, self.t_color)):
@@ -248,7 +249,82 @@ class Monitor1DSpatialTemporal:
 
 
 class Monitor2DSpatialTemporal:
-    pass
+    def __init__(self, check_on_x, check_on_y, check_on_t, check_every):
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+
+        xy_tensor = torch.cartesian_prod(check_on_x, check_on_y)
+        self.xx_tensor = torch.squeeze(xy_tensor[:, 0])
+        self.yy_tensor = torch.squeeze(xy_tensor[:, 1])
+        self.tt_tensors = [
+            torch.ones(len(xy_tensor)) * t
+            for t in check_on_t
+        ]
+        self.xx_array = self.xx_tensor.clone().detach().cpu().numpy()
+        self.yy_array = self.yy_tensor.clone().detach().cpu().numpy()
+        self.t_array = check_on_t.clone().detach().cpu().numpy()
+        self.check_every = check_every
+
+        self.fig = None
+        self.axs = []  # subplots
+        self.cbs = []  # color bars
+
+    @staticmethod
+    def _create_contour(ax, xx, yy, uu):
+        triang = tri.Triangulation(xx, yy)
+        contour = ax.tricontourf(triang, uu, cmap='coolwarm')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_aspect('equal', adjustable='box')
+        return contour
+
+    def check(self, approximator, history):
+        if not self.fig:
+            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
+            # size of the figure, number of the subplots, etc.
+            n_axs = len(self.t_array)+2  # one for each time slice, plus one for training and validation loss, plus one for metrics
+            n_row, n_col = (n_axs+1) // 2, 2
+            self.fig = plt.figure(figsize=(20, 8*n_row))
+            for i in range(n_axs):
+                self.axs.append(self.fig.add_subplot(n_row, n_col, i+1))
+            for i in range(n_axs-2):
+                self.cbs.append(None)
+
+        for i, ax in enumerate(self.axs[:-2]):
+            ax.clear()
+            uu_array = approximator(self.xx_tensor, self.yy_tensor, self.tt_tensors[i]).detach().cpu().numpy()
+            cs = self._create_contour(ax, self.xx_array, self.yy_array, uu_array)
+            if self.cbs[i] is None:
+                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
+            else:
+                self.cbs[i].mappable.set_clim(vmin=uu_array.min(), vmax=uu_array.max())
+            ax.set_title(f'approximation t = {self.t_array[i]:.2E}')
+
+        self.axs[-2].clear()
+        self.axs[-2].plot(history['train_loss'], label='training loss')
+        self.axs[-2].plot(history['valid_loss'], label='validation loss')
+        self.axs[-2].set_title('loss during training')
+        self.axs[-2].set_ylabel('loss')
+        self.axs[-2].set_xlabel('epochs')
+        self.axs[-2].set_yscale('log')
+        self.axs[-2].legend()
+
+        self.axs[-1].clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.axs[-1].plot(metric_values, label=metric_name)
+        self.axs[-1].set_title('metrics during training')
+        self.axs[-1].set_ylabel('metrics')
+        self.axs[-1].set_xlabel('epochs')
+        self.axs[-1].set_yscale('log')
+
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.axs[-1].legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)  # pragma: no cover (we are not using gui backend for testing)
 
 
 def _solve_1dspatial_temporal(

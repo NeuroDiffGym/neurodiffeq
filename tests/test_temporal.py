@@ -7,7 +7,7 @@ from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import generator_2dspatial_segment, generator_2dspatial_rectangle
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
 from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal, SingleNetworkApproximator2DSpatialTemporal
-from neurodiffeq.temporal import Monitor1DSpatialTemporal
+from neurodiffeq.temporal import Monitor1DSpatialTemporal, Monitor2DSpatialTemporal
 from neurodiffeq.temporal import _train_1dspatial_temporal, _valid_1dspatial_temporal, _solve_1dspatial_temporal
 import matplotlib
 matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
@@ -311,6 +311,86 @@ def test_monitor_1dspatial_temporal():
         check_every=10
     )
     monitor.check(fcnn_approximator, dummy_history)
+
+
+def test_monitor_2dspatial_temporal():
+    DIFFUSIVITY = 0.3
+    X_MIN, X_MAX = -1.0, 1.0
+    Y_MIN, Y_MAX = -1.0, 1.0
+    T_MIN, T_MAX = 0.0, 6.0
+
+    def heat_equation_2d(u, x, y, t):
+        left = diff(u, t) - DIFFUSIVITY * (diff(u, x, order=2) + diff(u, y, order=2))
+        right = -torch.exp(-t) * ((X_MAX - x) * (x - X_MIN) * (Y_MAX - y) * (y - Y_MIN) - 2 * DIFFUSIVITY * (
+                    (Y_MAX - y) * (y - Y_MIN) + (X_MAX - x) * (x - X_MIN)))
+        return left - right
+
+    def analytical_solution(xx, yy, tt):
+        return torch.exp(-tt) * (X_MAX - xx) * (xx - X_MIN) * (Y_MAX - yy) * (yy - Y_MIN)
+
+    def rmse(uu, xx, yy, tt):
+        error = uu - analytical_solution(xx, yy, tt)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics = {'rmse': rmse}
+
+    def u0(x, y):
+        return (X_MAX - x) * (x - X_MIN) * (Y_MAX - y) * (y - Y_MIN)
+
+    initial_condition = FirstOrderInitialCondition(u0=u0)
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MIN), end=(X_MIN, Y_MAX))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MAX, Y_MIN), end=(X_MAX, Y_MAX))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MAX), end=(X_MAX, Y_MAX))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y, t: u,
+        points_generator=generator_2dspatial_segment(size=16, start=(X_MIN, Y_MIN), end=(X_MAX, Y_MIN))
+    )
+
+    fcnn = FCNN(
+        n_input_units=3,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
+        single_network=fcnn,
+        pde=heat_equation_2d,
+        initial_condition=initial_condition,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    monitor = Monitor2DSpatialTemporal(
+        check_on_x=torch.linspace(X_MIN, X_MAX, 32),
+        check_on_y=torch.linspace(Y_MIN, Y_MAX, 32),
+        check_on_t=torch.linspace(T_MIN, T_MAX, 4),
+        check_every=10
+    )
+
+    dummy_history = {
+        'train_loss': [100, 10, 1],
+        'valid_loss': [200, 20, 2],
+        'train_rmse': [1, 0.1, 0.01],
+        'valid_rmse': [2, 0.2, 0.02]
+    }
+
+    monitor.check(fcnn_approximator, dummy_history)
+
 
 def test__train_1dspatial_temporal():
     DIFFUSIVITY, X_MIN, X_MAX, T_MIN, T_MAX = 0.3, 0.0, 2.0, 0.0, 3.0
