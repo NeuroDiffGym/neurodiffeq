@@ -6,10 +6,11 @@ from neurodiffeq.networks import FCNN
 from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import generator_2dspatial_segment, generator_2dspatial_rectangle
 from neurodiffeq.temporal import FirstOrderInitialCondition, BoundaryCondition
-from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal, SingleNetworkApproximator2DSpatialTemporal
-from neurodiffeq.temporal import Monitor1DSpatialTemporal, Monitor2DSpatialTemporal
+from neurodiffeq.temporal import SingleNetworkApproximator1DSpatialTemporal, SingleNetworkApproximator2DSpatial, SingleNetworkApproximator2DSpatialTemporal
+from neurodiffeq.temporal import Monitor1DSpatialTemporal, Monitor2DSpatial, Monitor2DSpatialTemporal
 from neurodiffeq.temporal import _train_1dspatial_temporal, _valid_1dspatial_temporal, _solve_1dspatial_temporal
 from neurodiffeq.temporal import _train_2dspatial_temporal, _valid_2dspatial_temporal, _solve_2dspatial_temporal
+from neurodiffeq.temporal import _train_2dspatial, _valid_2dspatial, _solve_2dspatial
 import matplotlib
 matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
@@ -180,6 +181,65 @@ def test_single_network_approximator_1dspatial_temporal():
     assert fcnn_approximator(xx, tt).isclose(torch.sin(PI * xx)).all()
 
 
+def test_single_network_approximator_2dspatial():
+    def laplace_2d(u, xx, yy):
+        return diff(u, xx, order=2) + diff(u, yy, order=2)
+
+    def analytical_solution(xx, yy):
+        return torch.sin(PI * yy) * torch.sinh(PI * (1 - xx)) / torch.sinh(torch.ones_like(xx) * PI)
+
+    metrics = {}
+
+    def rmse(uu, xx, yy):
+        error = uu - analytical_solution(xx, yy)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics['rmse'] = rmse
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y: u - torch.sin(PI * y),
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(0.0, 1.0))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(1.0, 0.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 1.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(1.0, 1.0))
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatial(
+        single_network=fcnn,
+        pde=laplace_2d,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    xx, yy = torch.rand(16), torch.rand(16)
+    assert fcnn_approximator(xx, yy).shape == torch.Size([16])
+    assert next(fcnn_approximator.parameters()).shape == torch.Size([32, 2])
+    xx.requires_grad = True
+    yy.requires_grad = True
+    assert fcnn_approximator.calculate_loss(xx, yy).shape == torch.Size([])
+    assert fcnn_approximator.calculate_metrics(xx, yy, metrics)['rmse'].shape == torch.Size([])
+
+
 def test_single_network_approximator_2dspatial_temporal():
     DIFFUSIVITY = 0.3
     X_MIN, X_MAX = -1.0, 1.0
@@ -311,6 +371,73 @@ def test_monitor_1dspatial_temporal():
         check_on_t=torch.linspace(T_MIN, T_MAX, 4),
         check_every=10
     )
+    monitor.check(fcnn_approximator, dummy_history)
+    monitor.check(fcnn_approximator, dummy_history)
+
+
+def test_monitor_2dspatial():
+    def laplace_2d(u, xx, yy):
+        return diff(u, xx, order=2) + diff(u, yy, order=2)
+
+    def analytical_solution(xx, yy):
+        return torch.sin(PI * yy) * torch.sinh(PI * (1 - xx)) / torch.sinh(torch.ones_like(xx) * PI)
+
+    metrics = {}
+
+    def rmse(uu, xx, yy):
+        error = uu - analytical_solution(xx, yy)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics['rmse'] = rmse
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y: u - torch.sin(PI * y),
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(0.0, 1.0))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(1.0, 0.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 1.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(1.0, 1.0))
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatial(
+        single_network=fcnn,
+        pde=laplace_2d,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    monitor = Monitor2DSpatial(
+        check_on_x=torch.linspace(0.0, 1.0, 32),
+        check_on_y=torch.linspace(0.0, 1.0, 32),
+        check_every=10
+    )
+
+    dummy_history = {
+        'train_loss': [100, 10, 1],
+        'valid_loss': [200, 20, 2],
+        'train_rmse': [1, 0.1, 0.01],
+        'valid_rmse': [2, 0.2, 0.02]
+    }
+
     monitor.check(fcnn_approximator, dummy_history)
     monitor.check(fcnn_approximator, dummy_history)
 
@@ -583,6 +710,129 @@ def test__solve_1dspatial_temporal():
     assert fcnn_approximator(xx, tt).isclose(torch.sin(PI * xx / X_MAX)).all()
 
 
+def test__train_2dspatial():
+    def laplace_2d(u, xx, yy):
+        return diff(u, xx, order=2) + diff(u, yy, order=2)
+
+    def analytical_solution(xx, yy):
+        return torch.sin(PI * yy) * torch.sinh(PI * (1 - xx)) / torch.sinh(torch.ones_like(xx) * PI)
+
+    metrics = {}
+
+    def rmse(uu, xx, yy):
+        error = uu - analytical_solution(xx, yy)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics['rmse'] = rmse
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y: u - torch.sin(PI * y),
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(0.0, 1.0))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(1.0, 0.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 1.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(1.0, 1.0))
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatial(
+        single_network=fcnn,
+        pde=laplace_2d,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    train_gen_spatial = generator_2dspatial_rectangle(
+        size=(8, 8), x_min=0.0, x_max=1.0, y_min=0.0, y_max=1.0
+    )
+
+    adam = optim.Adam(fcnn_approximator.parameters())
+
+    train_epoch_loss, train_epoch_metrics = _train_2dspatial(train_gen_spatial, None, fcnn_approximator, adam, metrics,
+                                                             shuffle=True, batch_size=100)
+    assert train_epoch_loss > 0
+    assert train_epoch_metrics['rmse'] > 0
+
+
+def test__valid_2dspatial():
+    def laplace_2d(u, xx, yy):
+        return diff(u, xx, order=2) + diff(u, yy, order=2)
+
+    def analytical_solution(xx, yy):
+        return torch.sin(PI * yy) * torch.sinh(PI * (1 - xx)) / torch.sinh(torch.ones_like(xx) * PI)
+
+    metrics = {}
+
+    def rmse(uu, xx, yy):
+        error = uu - analytical_solution(xx, yy)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics['rmse'] = rmse
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y: u - torch.sin(PI * y),
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(0.0, 1.0))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(1.0, 0.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 1.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(1.0, 1.0))
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatial(
+        single_network=fcnn,
+        pde=laplace_2d,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+
+    valid_gen_spatial = generator_2dspatial_rectangle(
+        size=(8, 8), x_min=0.0, x_max=1.0, y_min=0.0, y_max=1.0
+    )
+
+    adam = optim.Adam(fcnn_approximator.parameters())
+
+    valid_epoch_loss, valid_epoch_metrics = _valid_2dspatial(valid_gen_spatial, None, fcnn_approximator, metrics)
+    assert valid_epoch_loss > 0
+    assert valid_epoch_metrics['rmse'] > 0
+
+
 def test__train_2dspatial_temporal():
     DIFFUSIVITY = 0.3
     X_MIN, X_MAX = -1.0, 1.0
@@ -657,7 +907,7 @@ def test__train_2dspatial_temporal():
     assert train_epoch_metrics['rmse'] > 0
 
 
-def test_valid_2dspatial_temporal():
+def test__valid_2dspatial_temporal():
     DIFFUSIVITY = 0.3
     X_MIN, X_MAX = -1.0, 1.0
     Y_MIN, Y_MAX = -1.0, 1.0
@@ -825,3 +1075,77 @@ def test__solve_2dspatial_temporal():
     assert heat_equation_2d_solution(xx, yy, tt).shape == torch.Size([16])
     xx, yy, tt = torch.rand(16), torch.rand(16), torch.zeros(16)
     assert fcnn_approximator(xx, yy, tt).isclose(u0(xx, yy)).all()
+
+
+def test__solve_2dspatial():
+    def poisson_2d(u, xx, yy):
+        return diff(u, xx, order=2) + diff(u, yy, order=2) - torch.sin(PI * xx) * torch.sin(PI * yy)
+
+    def analytical_solution(xx, yy):
+        return -1 / (2 * PI ** 2) * torch.sin(PI * xx) * torch.sin(PI * yy)
+
+    metrics = {}
+
+    def rmse(uu, xx, yy):
+        error = uu - analytical_solution(xx, yy)
+        return torch.mean(error ** 2) ** 0.5
+
+    metrics['rmse'] = rmse
+
+    dirichlet_boundary_left = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(0.0, 1.0))
+    )
+    dirichlet_boundary_right = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(1.0, 0.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_upper = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 1.0), end=(1.0, 1.0))
+    )
+    dirichlet_boundary_lower = BoundaryCondition(
+        form=lambda u, x, y: u,
+        points_generator=generator_2dspatial_segment(size=32, start=(0.0, 0.0), end=(1.0, 0.0))
+    )
+
+    fcnn = FCNN(
+        n_input_units=2,
+        n_output_units=1,
+        n_hidden_units=32,
+        n_hidden_layers=1,
+        actv=nn.Tanh
+    )
+    fcnn_approximator = SingleNetworkApproximator2DSpatial(
+        single_network=fcnn,
+        pde=poisson_2d,
+        boundary_conditions=[
+            dirichlet_boundary_left,
+            dirichlet_boundary_right,
+            dirichlet_boundary_upper,
+            dirichlet_boundary_lower
+        ]
+    )
+    adam = optim.Adam(fcnn_approximator.parameters(), lr=0.0005)
+
+    train_gen_spatial = generator_2dspatial_rectangle(size=(32, 32), x_min=0.0, x_max=1.0, y_min=0.0, y_max=1.0)
+    valid_gen_spatial = generator_2dspatial_rectangle(size=(20, 20), x_min=0.0, x_max=1.0, y_min=0.0, y_max=1.0,
+                                                      random=False)
+
+    poisson_2d_solution, _ = _solve_2dspatial(
+        train_generator_spatial=train_gen_spatial,
+        valid_generator_spatial=valid_gen_spatial,
+        approximator=fcnn_approximator,
+        optimizer=adam,
+        batch_size=256,
+        max_epochs=1,
+        shuffle=True,
+        metrics=metrics,
+        monitor=Monitor2DSpatial(
+            check_on_x=torch.linspace(0.0, 1.0, 20),
+            check_on_y=torch.linspace(0.0, 1.0, 20),
+            check_every=100
+        )
+    )
+    xx, yy = torch.rand(16), torch.rand(16)
+    assert poisson_2d_solution(xx, yy).shape == torch.Size([16])

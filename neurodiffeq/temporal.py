@@ -81,6 +81,46 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
         }
 
 
+class SingleNetworkApproximator2DSpatial(Approximator):
+    def __init__(self, single_network, pde, boundary_conditions, boundary_strictness=1.):
+        self.single_network = single_network
+        self.pde = pde
+        self.boundary_conditions = boundary_conditions
+        self.boundary_strictness = boundary_strictness
+
+    def __call__(self, xx, yy):
+        xx = torch.unsqueeze(xx, dim=1)
+        yy = torch.unsqueeze(yy, dim=1)
+        xy = torch.cat((xx, yy), dim=1)
+        uu = self.single_network(xy)
+        return torch.squeeze(uu)
+
+    def parameters(self):
+        return self.single_network.parameters()
+
+    def calculate_loss(self, xx, yy):
+        uu = self.__call__(xx, yy)
+
+        equation_mse = torch.mean(self.pde(uu, xx, yy)**2)
+
+        boundary_mse = self.boundary_strictness * sum(self._boundary_mse(bc) for bc in self.boundary_conditions)
+
+        return equation_mse + boundary_mse
+
+    def _boundary_mse(self, bc):
+        xx, yy = next(bc.points_generator)
+        uu = self.__call__(xx, yy)
+        return torch.mean(bc.form(uu, xx, yy) ** 2)
+
+    def calculate_metrics(self, xx, yy, metrics):
+        uu = self.__call__(xx, yy)
+
+        return {
+            metric_name: metric_func(uu, xx, yy)
+            for metric_name, metric_func in metrics.items()
+        }
+
+
 class SingleNetworkApproximator2DSpatialTemporal(Approximator):
     def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
@@ -115,7 +155,7 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
         xx, tt = _cartesian_prod_dims(x, t, x_grad=True, t_grad=False)
         yy, tt = _cartesian_prod_dims(y, t, x_grad=True, t_grad=False)
         uu = self.__call__(xx, yy, tt)
-        return torch.mean(bc.form(uu, xx, yy, tt)**2)
+        return torch.mean(bc.form(uu, xx, yy, tt) ** 2)
 
     def calculate_metrics(self, xx, yy, tt, x, y, t, metrics):
         uu = self.__call__(xx, yy, tt)
@@ -326,6 +366,73 @@ class Monitor2DSpatialTemporal:
             plt.pause(0.05)  # pragma: no cover (we are not using gui backend for testing)
 
 
+class Monitor2DSpatial:
+    def __init__(self, check_on_x, check_on_y, check_every):
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+
+        xy_tensor = torch.cartesian_prod(check_on_x, check_on_y)
+        self.xx_tensor = torch.squeeze(xy_tensor[:, 0])
+        self.yy_tensor = torch.squeeze(xy_tensor[:, 1])
+
+        self.xx_array = self.xx_tensor.clone().detach().cpu().numpy()
+        self.yy_array = self.yy_tensor.clone().detach().cpu().numpy()
+
+        self.check_every = check_every
+
+        self.fig = plt.figure(figsize=(30, 8))
+        self.ax1 = self.fig.add_subplot(131)
+        self.cb1 = None
+        self.ax2 = self.fig.add_subplot(132)
+        self.ax3 = self.fig.add_subplot(133)
+
+
+    @staticmethod
+    def _create_contour(ax, xx, yy, uu):
+        triang = tri.Triangulation(xx, yy)
+        contour = ax.tricontourf(triang, uu, cmap='coolwarm')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_aspect('equal', adjustable='box')
+        return contour
+
+    def check(self, approximator, history):
+        self.ax1.clear()
+        uu_array = approximator(self.xx_tensor, self.yy_tensor).detach().cpu().numpy()
+        cs = self._create_contour(self.ax1, self.xx_array, self.yy_array, uu_array)
+        if self.cb1 is None:
+            self.cb1 = self.fig.colorbar(cs, format='%.0e', ax=self.ax1)
+        else:
+            self.cb1.mappable.set_clim(vmin=uu_array.min(), vmax=uu_array.max())
+        self.ax1.set_title(f'approximation')
+
+        self.ax2.clear()
+        self.ax2.plot(history['train_loss'], label='training loss')
+        self.ax2.plot(history['valid_loss'], label='validation loss')
+        self.ax2.set_title('loss during training')
+        self.ax2.set_ylabel('loss')
+        self.ax2.set_xlabel('epochs')
+        self.ax2.set_yscale('log')
+        self.ax2.legend()
+
+        self.ax3.clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.ax3.plot(metric_values, label=metric_name)
+        self.ax3.set_title('metrics during training')
+        self.ax3.set_ylabel('metrics')
+        self.ax3.set_xlabel('epochs')
+        self.ax3.set_yscale('log')
+
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.ax3.legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)  # pragma: no cover (we are not using gui backend for testing)
+
+
 def _solve_1dspatial_temporal(
     train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
@@ -345,6 +452,16 @@ def _solve_2dspatial_temporal(
         train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
         approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
         train_routine=_train_2dspatial_temporal, valid_routine=_valid_2dspatial_temporal
+    )
+
+def _solve_2dspatial(
+    train_generator_spatial, valid_generator_spatial,
+    approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
+):
+    return _solve_spatial_temporal(
+        train_generator_spatial, None, valid_generator_spatial, None,
+        approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
+        train_routine=_train_2dspatial, valid_routine=_valid_2dspatial
     )
 
 
@@ -406,6 +523,52 @@ def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
     epoch_loss = approximator.calculate_loss(xx, tt, x, t).item()
 
     epoch_metrics = approximator.calculate_metrics(xx, tt, x, t, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
+
+    return epoch_loss, epoch_metrics
+
+def _train_2dspatial(train_generator_spatial, trian_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+    xx, yy = next(train_generator_spatial)
+    xx.requires_grad = True
+    yy.requires_grad = True
+    training_set_size = len(xx)
+    idx = torch.randperm(training_set_size) if shuffle else torch.arange(training_set_size)
+
+    batch_start, batch_end = 0, batch_size
+    while batch_start < training_set_size:
+        if batch_end > training_set_size:
+            batch_end = training_set_size
+        batch_idx = idx[batch_start:batch_end]
+        batch_xx = xx[batch_idx]
+        batch_yy = yy[batch_idx]
+
+        batch_loss = approximator.calculate_loss(batch_xx, batch_yy)
+
+        optimizer.zero_grad()
+        batch_loss.backward()
+        optimizer.step()
+
+        batch_start += batch_size
+        batch_end += batch_size
+
+    epoch_loss = approximator.calculate_loss(xx, yy).item()
+
+    epoch_metrics = approximator.calculate_metrics(xx, yy, metrics)
+    for k, v in epoch_metrics.items():
+        epoch_metrics[k] = v.item()
+
+    return epoch_loss, epoch_metrics
+
+
+def _valid_2dspatial(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
+    xx, yy = next(valid_generator_spatial)
+    xx.requires_grad = True
+    yy.requires_grad = True
+
+    epoch_loss = approximator.calculate_loss(xx, yy).item()
+
+    epoch_metrics = approximator.calculate_metrics(xx, yy, metrics)
     for k, v in epoch_metrics.items():
         epoch_metrics[k] = v.item()
 
