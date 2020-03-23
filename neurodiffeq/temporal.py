@@ -50,7 +50,7 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
         xx = torch.unsqueeze(xx, dim=1)
         tt = torch.unsqueeze(tt, dim=1)
         xt = torch.cat((xx, tt), dim=1)
-        uu = self.initial_condition.u0(xx) + (1 - torch.exp(-tt)) * self.single_network(xt)
+        uu = torch.exp(-tt) * self.initial_condition.u0(xx) + (1 - torch.exp(-tt)) * self.single_network(xt)
         return torch.squeeze(uu)
 
     def parameters(self):
@@ -134,7 +134,7 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
         yy = torch.unsqueeze(yy, dim=1)
         tt = torch.unsqueeze(tt, dim=1)
         xyt = torch.cat((xx, yy, tt), dim=1)
-        uu = self.initial_condition.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
+        uu = torch.exp(-tt) * self.initial_condition.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
         return torch.squeeze(uu)
 
     def parameters(self):
