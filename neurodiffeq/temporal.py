@@ -11,6 +11,7 @@ import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
+from copy import deepcopy
 
 def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     xt = torch.cartesian_prod(x, t)
@@ -121,11 +122,55 @@ class SingleNetworkApproximator2DSpatial(Approximator):
         }
 
 
+class SingleNetworkApproximator2DSpatialSystem(Approximator):
+    def __init__(self, single_network, pde, boundary_conditions, boundary_strictness=1.):
+        self.single_network = single_network
+        self.pde = pde
+        self.boundary_conditions = boundary_conditions
+        self.boundary_strictness = boundary_strictness
+
+    def __call__(self, xx, yy):
+        xx = torch.unsqueeze(xx, dim=1)
+        yy = torch.unsqueeze(yy, dim=1)
+        xy = torch.cat((xx, yy), dim=1)
+        uu = self.single_network(xy)
+        return tuple(torch.squeeze(uu[:, i]) for i in range(uu.shape[1]))
+
+    def parameters(self):
+        return self.single_network.parameters()
+
+    def calculate_loss(self, xx, yy):
+        uu = self.__call__(xx, yy)
+
+        equation_mse = sum(
+            torch.mean(eq**2)
+            for eq in self.pde(*uu, xx, yy)
+        )
+
+        boundary_mse = self.boundary_strictness * sum(self._boundary_mse(bc) for bc in self.boundary_conditions)
+
+        return equation_mse + boundary_mse
+
+    def _boundary_mse(self, bc):
+        xx, yy = next(bc.points_generator)
+        uu = self.__call__(xx, yy)
+        return torch.mean(bc.form(*uu, xx, yy) ** 2)
+
+    def calculate_metrics(self, xx, yy, metrics):
+        uu = self.__call__(xx, yy)
+
+        return {
+            metric_name: metric_func(*uu, xx, yy)
+            for metric_name, metric_func in metrics.items()
+        }
+
+
 class SingleNetworkApproximator2DSpatialTemporal(Approximator):
     def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
-        self.initial_condition = initial_condition
+        self.u0 = initial_condition.u0
+        self.u0dot = initial_condition.u0dot if hasattr(initial_condition, 'u0dot') else None
         self.boundary_conditions = boundary_conditions
         self.boundary_strictness = boundary_strictness
 
@@ -134,7 +179,11 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
         yy = torch.unsqueeze(yy, dim=1)
         tt = torch.unsqueeze(tt, dim=1)
         xyt = torch.cat((xx, yy, tt), dim=1)
-        uu = torch.exp(-tt) * self.initial_condition.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
+        if self.u0dot is None:
+            uu = torch.exp(-tt) * self.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
+        else:
+            # not sure about this line
+            uu = (1 - (1 - torch.exp(-tt))**2) * self.u0(xx, yy) + (1 - torch.exp(-tt)) * self.u0dot(xx, yy) + (1 - torch.exp(-tt))**2 * self.single_network(xyt)
         return torch.squeeze(uu)
 
     def parameters(self):
@@ -169,6 +218,12 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
 class FirstOrderInitialCondition:
     def __init__(self, u0):
         self.u0 = u0
+
+
+class SecondOrderInitialCondition:
+    def __init__(self, u0, u0dot):
+        self.u0 = u0
+        self.u0dot = u0dot
 
 
 class BoundaryCondition:
@@ -229,6 +284,44 @@ def generator_temporal(size, t_min, t_max, random=True):
             yield center + noise
         else:
             yield center
+
+
+class MonitorMinimal:
+    def __init__(self, check_every):
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.check_every = check_every
+
+        self.fig = plt.figure(figsize=(20, 8))
+        self.ax1 = self.fig.add_subplot(121)
+        self.ax2 = self.fig.add_subplot(122)
+
+    def check(self, approximator, history):
+
+        self.ax1.clear()
+        self.ax1.plot(history['train_loss'], label='training loss')
+        self.ax1.plot(history['valid_loss'], label='validation loss')
+        self.ax1.set_title('loss during training')
+        self.ax1.set_ylabel('loss')
+        self.ax1.set_xlabel('epochs')
+        self.ax1.set_yscale('log')
+        self.ax1.legend()
+
+        self.ax2.clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.ax2.plot(metric_values, label=metric_name)
+        self.ax2.set_title('metrics during training')
+        self.ax2.set_ylabel('metrics')
+        self.ax2.set_xlabel('epochs')
+        self.ax2.set_yscale('log')
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.ax2.legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)   # pragma: no cover (we are not using gui backend for testing)
 
 
 class Monitor1DSpatialTemporal:
@@ -528,7 +621,7 @@ def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
 
     return epoch_loss, epoch_metrics
 
-def _train_2dspatial(train_generator_spatial, trian_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+def _train_2dspatial(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
     xx, yy = next(train_generator_spatial)
     xx.requires_grad = True
     yy.requires_grad = True
