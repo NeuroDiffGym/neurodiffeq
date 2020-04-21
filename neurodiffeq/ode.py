@@ -252,7 +252,7 @@ class Monitor:
         self.ax3.set_yscale('log')
         # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
-            self.axs[-1].legend()
+            self.ax3.legend()
 
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:
