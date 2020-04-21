@@ -397,6 +397,7 @@ def solve_system(
             batch_end += batch_size
 
         train_loss_epoch = calculate_loss(train_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
+        train_loss_epoch = train_loss_epoch.item()
         
         train_metrics_epoch = calculate_metrics(train_examples_t, net, nets, conditions, metrics)
         return train_loss_epoch, train_metrics_epoch
