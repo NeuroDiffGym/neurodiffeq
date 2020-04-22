@@ -97,6 +97,7 @@ class SolidHarmonicsNN(nn.Module):
         super(SolidHarmonicsNN, self).__init__()
         self.output_shape = ((max_degree + 1) ** 2,)
         self.weights = nn.Parameter(torch.rand(self.output_shape))
+        self.mask = [1] * self.output_shape[0]
         powers = [
             l
             for l in range(max_degree + 1)
@@ -105,6 +106,22 @@ class SolidHarmonicsNN(nn.Module):
         self.powers = torch.tensor(powers, dtype=torch.float).requires_grad_(False)
         self.register_parameter(name="solid-harmonics-weights", param=self.weights)
 
+    def set_mask(self, degrees=None):
+        """
+        set the coefficients of some components to 0, this prevents explosion and vanishment of :math:`r^l` when :math:`l` is a large number
+        :param degrees: list of degrees to be masked, each must be in [0, max_degree]
+        :type degrees: list[int]
+        """
+        self.mask = [1] * self.output_shape[0]
+        if degrees is None:
+            return self
+
+        for l in degrees:
+            for m in range(l ** 2, (l + 1) ** 2):
+                self.mask[m] = 0
+        return self
+
     def forward(self, r):
         output = r.pow(self.powers) * self.weights
-        return output
+        masked_output = output * torch.tensor(self.mask)
+        return masked_output
