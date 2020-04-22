@@ -79,3 +79,27 @@ class SphericalHarmonicsNN(nn.Module):
         coefficients = self.r_net(r)
         harmonics = self.harmonics_fn(theta, phi)
         return torch.sum(coefficients * harmonics, dim=1, keepdim=True)
+
+
+class SolidHarmonicsNN(nn.Module):
+    """A network whose only trainable parameters are constant coefficients of the solid harmonics
+    The network only accepts inputs (a batch of :math:`r`s)/
+    For each :math:`r`, the network outputs a vector whose elements are :math:`w_l^m r^l` where :math:`w_l^m` are the only trainable parameters and :math:`r^l` is the the :math:`l`-th power of :math:`r`
+    :param max_degree: max degree (aka the superscript :math:`l`) in spherical harmonics, defaults to 4
+    :type max_degree: int
+    """
+
+    def __init__(self, max_degree=4):
+        super(SolidHarmonicsNN, self).__init__()
+        self.output_shape = ((max_degree + 1) ** 2,)
+        self.weights = torch.rand(self.output_shape)
+        powers = [
+            l
+            for l in range(max_degree + 1)
+            for m in range(-l, l + 1)
+        ]
+        self.powers = torch.tensor(powers, dtype=torch.float).requires_grad_(False)
+
+    def forward(self, r):
+        output = r.pow(self.powers) * self.weights
+        return output
