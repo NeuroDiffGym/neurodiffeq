@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from .spherical_harmonics import RealSphericalHarmonics
 
+
 class FCNN(nn.Module):
     """A fully connected neural network.
 
@@ -16,6 +17,7 @@ class FCNN(nn.Module):
     :param actv: the activation layer used in each hidden layer, defaults to `torch.nn.Tanh`.
     :type actv: `torch.nn.Module`
     """
+
     def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=32, n_hidden_layers=1,
                  actv=nn.Tanh):
         r"""Initializer method.
@@ -35,9 +37,11 @@ class FCNN(nn.Module):
         x = self.NN(t)
         return x
 
+
 class SinActv(nn.Module):
     """The sin activation function.
     """
+
     def __init__(self):
         """Initializer method.
         """
@@ -92,13 +96,14 @@ class SolidHarmonicsNN(nn.Module):
     def __init__(self, max_degree=4):
         super(SolidHarmonicsNN, self).__init__()
         self.output_shape = ((max_degree + 1) ** 2,)
-        self.weights = torch.rand(self.output_shape).requires_grad_(True)
+        self.weights = nn.Parameter(torch.rand(self.output_shape))
         powers = [
             l
             for l in range(max_degree + 1)
             for m in range(-l, l + 1)
         ]
         self.powers = torch.tensor(powers, dtype=torch.float).requires_grad_(False)
+        self.register_parameter(name="solid-harmonics-weights", param=self.weights)
 
     def forward(self, r):
         output = r.pow(self.powers) * self.weights
