@@ -92,7 +92,7 @@ class SolidHarmonicsNN(nn.Module):
     def __init__(self, max_degree=4):
         super(SolidHarmonicsNN, self).__init__()
         self.output_shape = ((max_degree + 1) ** 2,)
-        self.weights = torch.rand(self.output_shape)
+        self.weights = torch.rand(self.output_shape).requires_grad_(True)
         powers = [
             l
             for l in range(max_degree + 1)
