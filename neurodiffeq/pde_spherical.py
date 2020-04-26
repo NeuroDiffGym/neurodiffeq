@@ -632,32 +632,32 @@ class MonitorSpherical:
             # prepare data for plotting
             u_across_r = u.reshape(10, 10, 10).sum(0)
             df = pd.DataFrame({
-                'r': self.rs.detach().cpu().numpy().reshape(-1),
-                'theta': self.thetas.detach().cpu().numpy().reshape(-1),
-                'phi': self.phis.detach().cpu().numpy().reshape(-1),
+                '$r$': self.rs.detach().cpu().numpy().reshape(-1),
+                '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
+                '$\\phi$': self.phis.detach().cpu().numpy().reshape(-1),
                 'u': u.reshape(-1),
             })
 
             # ax for u-r curve grouped by phi
             ax = self.axs[3 * i]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by phi')
+            sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
             ax.set_ylabel(var_name)
 
             # ax for u-r curve grouped by theta
             ax = self.axs[3 * i + 1]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by theta')
+            sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
             ax.set_ylabel(var_name)
 
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
-            ax.set_xlabel('$theta$')
-            ax.set_ylabel('$phi$')
-            ax.set_title(f'{var_name} averaged across r')
+            ax.set_xlabel('$\\theta$')
+            ax.set_ylabel('$\\phi$')
+            ax.set_title(f'{var_name} averaged across $r$')
             cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
             if self.cbs[i]:
                 self.cbs[i].remove()
