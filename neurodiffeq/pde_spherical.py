@@ -630,7 +630,7 @@ class MonitorSpherical:
                 var_name = f"u[{i}]"
 
             # prepare data for plotting
-            u_across_r = u.reshape(10, 10, 10).sum(0)
+            u_across_r = u.reshape(10, 10, 10).mean(0)
             df = pd.DataFrame({
                 '$r$': self.rs.detach().cpu().numpy().reshape(-1),
                 '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
