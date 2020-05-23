@@ -846,24 +846,24 @@ class DirichletControlPoint(Point):
 
 
 # TODO: Irregular Neumann boundary conditions are not working yet.
-# class NeumannControlPoint(Point):
-#     """A 2D point on the Neumann boundary.
+class NeumannControlPoint(Point):
+    """A 2D point on the Neumann boundary.
 
-#     :param loc: the location of the point in the form of :math:`(x, y)`
-#     :type loc: tuple[float, float]
-#     :param val: the expected normal derivative of :math:`u` at this location (:math:`u(x, y)` is the function we are solving for)
-#     :type val: float
-#     """
+    :param loc: the location of the point in the form of :math:`(x, y)`
+    :type loc: tuple[float, float]
+    :param val: the expected normal derivative of :math:`u` at this location (:math:`u(x, y)` is the function we are solving for)
+    :type val: float
+    """
 
-#     def __repr__(self):
-#         return f'NeumannControlPoint({self.loc}, val={self.val}, ' + \
-#                f'normal_vector={self.normal_vector})'
+    def __repr__(self):
+        return f'NeumannControlPoint({self.loc}, val={self.val}, ' + \
+               f'normal_vector={self.normal_vector})'
 
-#     def __init__(self, loc, val, normal_vector):
-#         super().__init__(loc)
-#         self.val = float(val)
-#         scale = sum(d ** 2 for d in normal_vector) ** 0.5
-#         self.normal_vector = tuple(d / scale for d in normal_vector)
+    def __init__(self, loc, val, normal_vector):
+        super().__init__(loc)
+        self.val = float(val)
+        scale = sum(d ** 2 for d in normal_vector) ** 0.5
+        self.normal_vector = tuple(d / scale for d in normal_vector)
 
 
 class CustomBoundaryCondition(Condition):
