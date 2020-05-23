@@ -655,8 +655,8 @@ class MonitorSpherical:
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
-            ax.set_xlabel('$\\theta$')
-            ax.set_ylabel('$\\phi$')
+            ax.set_xlabel('$\\phi$')
+            ax.set_ylabel('$\\theta$')
             ax.set_title(f'{var_name} averaged across $r$')
             cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
             if self.cbs[i]:
