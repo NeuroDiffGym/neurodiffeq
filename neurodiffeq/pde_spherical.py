@@ -139,6 +139,24 @@ class ExampleGeneratorSpherical:
         return r, theta, phi
 
 
+class EnsembleExampleGenerator:
+    r"""
+    An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
+    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    """
+
+    def __init__(self, *generators):
+        self.generators = generators
+        self.size = sum(gen.size for gen in generators)
+
+    def get_examples(self):
+        all_examples = [gen.get_examples() for gen in self.generators]
+        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
+        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
+        segmented = zip(*all_examples)
+        return [torch.cat(seg) for seg in segmented]
+
+
 class DirichletBVPSpherical(BaseBVPSpherical):
     """Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
         We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`
