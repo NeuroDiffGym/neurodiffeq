@@ -25,3 +25,8 @@ API Reference
 ---------------------------
 .. automodule:: neurodiffeq.pde_spherical
     :members:
+
+`neurodiffeq.temporal`
+---------------------------
+.. automodule:: neurodiffeq.temporal
+    :members:
