@@ -564,9 +564,11 @@ class MonitorSpherical:
     :type check_every: int, optional
     :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
     :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10)):
         """Initializer method
         """
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
@@ -575,17 +577,18 @@ class MonitorSpherical:
         self.axs = []  # subplots
         self.cbs = []  # color bars
         self.names = var_names
+        self.shape = shape
         # input for neural network
         gen = ExampleGenerator3D(
-            grid=(10, 10, 10),
+            grid=shape,
             xyz_min=(r_min, 0., 0.),
             xyz_max=(r_max, np.pi, 2 * np.pi),
             method='equally-spaced'
         )
         rs, thetas, phis = gen.get_examples()
 
-        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().cpu().numpy()
-        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().cpu().numpy()
+        th = thetas.reshape(*shape)[0, :, 0].detach().cpu().numpy()
+        ph = phis.reshape(*shape)[0, 0, :].detach().cpu().numpy()
 
         self.rs = rs.reshape(-1, 1)
         self.thetas = thetas.reshape(-1, 1)
@@ -648,7 +651,7 @@ class MonitorSpherical:
                 var_name = f"u[{i}]"
 
             # prepare data for plotting
-            u_across_r = u.reshape(10, 10, 10).mean(0)
+            u_across_r = u.reshape(*self.shape).mean(0)
             df = pd.DataFrame({
                 '$r$': self.rs.detach().cpu().numpy().reshape(-1),
                 '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
@@ -866,10 +869,18 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type var_names: list[str]
     :param max_degree: highest degree for spherical harmonics; defaults to None
     :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, max_degree=4):
-        super(MonitorSphericalHarmonics, self).__init__(r_min, r_max, check_every=check_every, var_names=var_names)
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), max_degree=4):
+        super(MonitorSphericalHarmonics, self).__init__(
+            r_min,
+            r_max,
+            check_every=check_every,
+            var_names=var_names,
+            shape=shape
+        )
 
         self.max_degree = max_degree
         self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
