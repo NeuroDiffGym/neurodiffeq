@@ -451,7 +451,7 @@ def solve_spherical_system(
     n_examples_valid = valid_generator.size
     # R.H.S. for the PDE system
     train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
+    valid_zeros = torch.zeros(batch_size).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
     analytic_mse = {'train': [], 'valid': []} if analytic_solutions else None
