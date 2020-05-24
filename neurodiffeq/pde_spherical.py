@@ -509,7 +509,8 @@ def solve_spherical_system(
             batch_end += batch_size
 
         loss_history['train'].append(train_loss_epoch / n_examples_train)
-        analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
+        if analytic_solutions:
+            analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
 
         # calculate the validation loss
         valid_analytic_loss_epoch = 0.0
@@ -532,7 +533,7 @@ def solve_spherical_system(
             if analytic_solutions:
                 vs = analytic_solutions(rs, thetas, phis)
                 with torch.no_grad():
-                    valid_loss_epoch += \
+                    valid_analytic_loss_epoch += \
                         mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
             Fs = pde_system(*us, rs, thetas, phis)
@@ -541,9 +542,9 @@ def solve_spherical_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        valid_loss_epoch = valid_loss_epoch / n_examples_valid
-        analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)).item())
-        loss_history['valid'].append(valid_loss_epoch)
+        loss_history['valid'].append(valid_loss_epoch / n_examples_valid)
+        if analytic_solutions:
+            analytic_mse['valid'].append(valid_analytic_loss_epoch / n_examples_valid)
 
         if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
             monitor.check(nets, conditions, loss_history, analytic_mse_history=analytic_mse)
