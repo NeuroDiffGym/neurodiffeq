@@ -488,7 +488,7 @@ def solve_spherical_system(
                 vs = analytic_solutions(rs, thetas, phis)
                 with torch.no_grad():
                     train_analytic_loss_epoch += \
-                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start) / n_examples_train
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
             Fs = pde_system(*us, rs, thetas, phis)
             loss = 0.0
@@ -499,7 +499,7 @@ def solve_spherical_system(
                     loss += criterion(F, torch.zeros_like(F)) * F.shape[0] / train_zeros.shape[0]
                 else:
                     loss += criterion(F, train_zeros)  # type: torch.Tensor
-            train_loss_epoch += loss.item() * (batch_end - batch_start) / n_examples_train
+            train_loss_epoch += loss.item() * (batch_end - batch_start)
 
             optimizer.zero_grad()
             loss.backward()
@@ -508,29 +508,41 @@ def solve_spherical_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        loss_history['train'].append(train_loss_epoch)
+        loss_history['train'].append(train_loss_epoch / n_examples_train)
+        analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
 
         # calculate the validation loss
-        valid_examples_rs, valid_examples_thetas, valid_examples_phis = valid_generator.get_examples()
-        rs = valid_examples_rs.reshape(-1, 1)
-        thetas = valid_examples_thetas.reshape(-1, 1)
-        phis = valid_examples_phis.reshape(-1, 1)
-        us = [
-            _auto_enforce(con, net, rs, thetas, phis)
-            for con, net in zip(conditions, nets)
-        ]
-        if analytic_solutions:
-            vs = analytic_solutions(rs, thetas, phis)
-            analytic_mse['train'].append(train_analytic_loss_epoch)
-            with torch.no_grad():
-                analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)))
+        valid_analytic_loss_epoch = 0.0
+        valid_examples_r, valid_examples_theta, valid_examples_phi = valid_generator.get_examples()
+        valid_examples_r = valid_examples_r.reshape(-1, 1)
+        valid_examples_theta = valid_examples_theta.reshape(-1, 1)
+        valid_examples_phi = valid_examples_phi.reshape(-1, 1)
+        idx = np.random.permutation(n_examples_valid) if shuffle else np.arange(n_examples_valid)
+        batch_start, batch_end = 0, batch_size
 
-        Fs = pde_system(*us, rs, thetas, phis)
         valid_loss_epoch = 0.0
-        for F in Fs:
-            valid_loss_epoch += criterion(F, valid_zeros)
-        valid_loss_epoch = valid_loss_epoch.item()
+        while batch_start < n_examples_valid:
+            if batch_end > n_examples_valid:
+                batch_end = n_examples_valid
+            batch_idx = idx[batch_start:batch_end]
+            rs = valid_examples_r[batch_idx]
+            thetas = valid_examples_theta[batch_idx]
+            phis = valid_examples_phi[batch_idx]
+            us = [_auto_enforce(con, net, rs, thetas, phis) for con, net in zip(conditions, nets)]
+            if analytic_solutions:
+                vs = analytic_solutions(rs, thetas, phis)
+                with torch.no_grad():
+                    valid_loss_epoch += \
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
+            Fs = pde_system(*us, rs, thetas, phis)
+            for F in Fs:
+                valid_loss_epoch += criterion(F, valid_zeros).item() * (batch_end - batch_start)
+            batch_start += batch_size
+            batch_end += batch_size
+
+        valid_loss_epoch = valid_loss_epoch / n_examples_valid
+        analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)).item())
         loss_history['valid'].append(valid_loss_epoch)
 
         if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
