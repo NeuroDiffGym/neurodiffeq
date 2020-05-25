@@ -291,7 +291,7 @@ class FirstOrderInitialCondition:
     """A first order initial condition. It is used to initialize `temporal.Approximator`s.
 
     :param u0: A function representing the initial condition. If we are solving for
-        is :math:`u`, then `u0` is :math:`u\\bigg_{t=0}`. The input of the function
+        is :math:`u`, then `u0` is :math:`u\\bigg｜_{t=0}`. The input of the function
         dependes on where it is used. If it is used as the input for
         `temporal.SingleNetworkApproximator1DSpatialTemporal`, then `u0` should map
         :math:`x` to :math:`u(x, t)\\bigg|_{t = 0}`. If it is used as the input for
@@ -307,7 +307,7 @@ class SecondOrderInitialCondition:
     """A second order initial condition. It is used to initialize `temporal.Approximator`s.
 
     :param u0: A function representing the initial condition. If we are solving for
-        is :math:`u`, then `u0` is :math:`u\\bigg_{t=0}`. The input of the function
+        is :math:`u`, then `u0` is :math:`u\\bigg|_{t=0}`. The input of the function
         dependes on where it is used. If it is used as the input for
         `temporal.SingleNetworkApproximator1DSpatialTemporal`, then `u0` should map
         :math:`x` to :math:`u(x, t)\\bigg|_{t = 0}`. If it is used as the input for
@@ -315,7 +315,7 @@ class SecondOrderInitialCondition:
         :math:`(x, y)` to :math:`u(x, y, t)\\bigg|_{t = 0}`.
     :type u0: function
     :param u0dot: A function representing the initial derivative w.r.t. time. If we are solving for
-        is :math:`u`, then `u0dot` is :math:`\\frac{\\partial u}{\\paritial t}\\bigg_{t=0}`. 
+        is :math:`u`, then `u0dot` is :math:`\\frac{\\partial u}{\\paritial t}\\bigg|_{t=0}`. 
         The input of the function
         dependes on where it is used. If it is used as the input for
         `temporal.SingleNetworkApproximator1DSpatialTemporal`, then `u0` should map
