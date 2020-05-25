@@ -315,13 +315,13 @@ class SecondOrderInitialCondition:
         :math:`(x, y)` to :math:`u(x, y, t)\\bigg|_{t = 0}`.
     :type u0: function
     :param u0dot: A function representing the initial derivative w.r.t. time. If we are solving for
-        is :math:`u`, then `u0dot` is :math:`\\frac{\\partial u}{\\paritial t}\\bigg|_{t=0}`. 
+        is :math:`u`, then `u0dot` is :math:`\\frac{\\partial u}{\\partial t}\\bigg|_{t=0}`. 
         The input of the function
         dependes on where it is used. If it is used as the input for
         `temporal.SingleNetworkApproximator1DSpatialTemporal`, then `u0` should map
-        :math:`x` to :math:`\\frac{\\partial u}{\\paritial t}\\bigg|_{t = 0}`. If it is used as the input for
+        :math:`x` to :math:`\\frac{\\partial u}{\\partial t}\\bigg|_{t = 0}`. If it is used as the input for
         `temporal.SingleNetworkApproximator2DSpatialTemporal`, then `u0` should map
-        :math:`(x, y)` to :math:`\\frac{\\partial u}{\\paritial t}\\bigg|_{t = 0}`.
+        :math:`(x, y)` to :math:`\\frac{\\partial u}{\\partial t}\\bigg|_{t = 0}`.
     :type u0dot: function
     """
     def __init__(self, u0, u0dot):
