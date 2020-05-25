@@ -457,3 +457,4 @@ def test_spherical_laplcian():
         f'Laplcians computed using spherical harmonics trick differ from brute force solution, {lap1} != {lap2}'
 
 
+# TODO test neurodiffeq.networks.SolidHarmonicsNN; although I know it works

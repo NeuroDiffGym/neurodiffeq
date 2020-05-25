@@ -139,6 +139,24 @@ class ExampleGeneratorSpherical:
         return r, theta, phi
 
 
+class EnsembleExampleGenerator:
+    r"""
+    An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
+    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    """
+
+    def __init__(self, *generators):
+        self.generators = generators
+        self.size = sum(gen.size for gen in generators)
+
+    def get_examples(self):
+        all_examples = [gen.get_examples() for gen in self.generators]
+        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
+        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
+        segmented = zip(*all_examples)
+        return [torch.cat(seg) for seg in segmented]
+
+
 class DirichletBVPSpherical(BaseBVPSpherical):
     """Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
         We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`
@@ -433,7 +451,7 @@ def solve_spherical_system(
     n_examples_valid = valid_generator.size
     # R.H.S. for the PDE system
     train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
+    valid_zeros = torch.zeros(batch_size).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
     analytic_mse = {'train': [], 'valid': []} if analytic_solutions else None
@@ -470,7 +488,7 @@ def solve_spherical_system(
                 vs = analytic_solutions(rs, thetas, phis)
                 with torch.no_grad():
                     train_analytic_loss_epoch += \
-                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start) / n_examples_train
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
             Fs = pde_system(*us, rs, thetas, phis)
             loss = 0.0
@@ -481,7 +499,7 @@ def solve_spherical_system(
                     loss += criterion(F, torch.zeros_like(F)) * F.shape[0] / train_zeros.shape[0]
                 else:
                     loss += criterion(F, train_zeros)  # type: torch.Tensor
-            train_loss_epoch += loss.item() * (batch_end - batch_start) / n_examples_train
+            train_loss_epoch += loss.item() * (batch_end - batch_start)
 
             optimizer.zero_grad()
             loss.backward()
@@ -490,30 +508,43 @@ def solve_spherical_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        loss_history['train'].append(train_loss_epoch)
+        loss_history['train'].append(train_loss_epoch / n_examples_train)
+        if analytic_solutions:
+            analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
 
         # calculate the validation loss
-        valid_examples_rs, valid_examples_thetas, valid_examples_phis = valid_generator.get_examples()
-        rs = valid_examples_rs.reshape(-1, 1)
-        thetas = valid_examples_thetas.reshape(-1, 1)
-        phis = valid_examples_phis.reshape(-1, 1)
-        us = [
-            _auto_enforce(con, net, rs, thetas, phis)
-            for con, net in zip(conditions, nets)
-        ]
-        if analytic_solutions:
-            vs = analytic_solutions(rs, thetas, phis)
-            analytic_mse['train'].append(train_analytic_loss_epoch)
-            with torch.no_grad():
-                analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)))
+        valid_analytic_loss_epoch = 0.0
+        valid_examples_r, valid_examples_theta, valid_examples_phi = valid_generator.get_examples()
+        valid_examples_r = valid_examples_r.reshape(-1, 1)
+        valid_examples_theta = valid_examples_theta.reshape(-1, 1)
+        valid_examples_phi = valid_examples_phi.reshape(-1, 1)
+        idx = np.random.permutation(n_examples_valid) if shuffle else np.arange(n_examples_valid)
+        batch_start, batch_end = 0, batch_size
 
-        Fs = pde_system(*us, rs, thetas, phis)
         valid_loss_epoch = 0.0
-        for F in Fs:
-            valid_loss_epoch += criterion(F, valid_zeros)
-        valid_loss_epoch = valid_loss_epoch.item()
+        while batch_start < n_examples_valid:
+            if batch_end > n_examples_valid:
+                batch_end = n_examples_valid
+            batch_idx = idx[batch_start:batch_end]
+            rs = valid_examples_r[batch_idx]
+            thetas = valid_examples_theta[batch_idx]
+            phis = valid_examples_phi[batch_idx]
+            us = [_auto_enforce(con, net, rs, thetas, phis) for con, net in zip(conditions, nets)]
+            if analytic_solutions:
+                vs = analytic_solutions(rs, thetas, phis)
+                with torch.no_grad():
+                    valid_analytic_loss_epoch += \
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
-        loss_history['valid'].append(valid_loss_epoch)
+            Fs = pde_system(*us, rs, thetas, phis)
+            for F in Fs:
+                valid_loss_epoch += criterion(F, valid_zeros).item() * (batch_end - batch_start)
+            batch_start += batch_size
+            batch_end += batch_size
+
+        loss_history['valid'].append(valid_loss_epoch / n_examples_valid)
+        if analytic_solutions:
+            analytic_mse['valid'].append(valid_analytic_loss_epoch / n_examples_valid)
 
         if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
             monitor.check(nets, conditions, loss_history, analytic_mse_history=analytic_mse)
@@ -546,9 +577,11 @@ class MonitorSpherical:
     :type check_every: int, optional
     :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
     :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10)):
         """Initializer method
         """
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
@@ -557,17 +590,18 @@ class MonitorSpherical:
         self.axs = []  # subplots
         self.cbs = []  # color bars
         self.names = var_names
+        self.shape = shape
         # input for neural network
         gen = ExampleGenerator3D(
-            grid=(10, 10, 10),
+            grid=shape,
             xyz_min=(r_min, 0., 0.),
             xyz_max=(r_max, np.pi, 2 * np.pi),
             method='equally-spaced'
         )
         rs, thetas, phis = gen.get_examples()
 
-        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().cpu().numpy()
-        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().cpu().numpy()
+        th = thetas.reshape(*shape)[0, :, 0].detach().cpu().numpy()
+        ph = phis.reshape(*shape)[0, 0, :].detach().cpu().numpy()
 
         self.rs = rs.reshape(-1, 1)
         self.thetas = thetas.reshape(-1, 1)
@@ -630,34 +664,34 @@ class MonitorSpherical:
                 var_name = f"u[{i}]"
 
             # prepare data for plotting
-            u_across_r = u.reshape(10, 10, 10).sum(0)
+            u_across_r = u.reshape(*self.shape).mean(0)
             df = pd.DataFrame({
-                'r': self.rs.detach().cpu().numpy().reshape(-1),
-                'theta': self.thetas.detach().cpu().numpy().reshape(-1),
-                'phi': self.phis.detach().cpu().numpy().reshape(-1),
+                '$r$': self.rs.detach().cpu().numpy().reshape(-1),
+                '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
+                '$\\phi$': self.phis.detach().cpu().numpy().reshape(-1),
                 'u': u.reshape(-1),
             })
 
             # ax for u-r curve grouped by phi
             ax = self.axs[3 * i]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by phi')
+            sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
             ax.set_ylabel(var_name)
 
             # ax for u-r curve grouped by theta
             ax = self.axs[3 * i + 1]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by theta')
+            sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
             ax.set_ylabel(var_name)
 
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
-            ax.set_xlabel('$theta$')
-            ax.set_ylabel('$phi$')
-            ax.set_title(f'{var_name} averaged across r')
+            ax.set_xlabel('$\\phi$')
+            ax.set_ylabel('$\\theta$')
+            ax.set_title(f'{var_name} averaged across $r$')
             cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
             if self.cbs[i]:
                 self.cbs[i].remove()
@@ -848,10 +882,18 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type var_names: list[str]
     :param max_degree: highest degree for spherical harmonics; defaults to None
     :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, max_degree=4):
-        super(MonitorSphericalHarmonics, self).__init__(r_min, r_max, check_every=check_every, var_names=var_names)
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), max_degree=4):
+        super(MonitorSphericalHarmonics, self).__init__(
+            r_min,
+            r_max,
+            check_every=check_every,
+            var_names=var_names,
+            shape=shape
+        )
 
         self.max_degree = max_degree
         self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
