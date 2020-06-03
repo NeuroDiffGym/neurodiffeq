@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -5,8 +6,10 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from .spherical_harmonics import RealSphericalHarmonics
 
 from .networks import FCNN
 from .neurodiffeq import diff
@@ -39,9 +42,7 @@ class ExampleGenerator3D:
         :type xyz_min: tuple[float, float, float], optional
         :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is `(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
         :type xyz_max: tuple[float, float, float], optional
-        :param method: The distribution of the 2-D points generated.
-            If set to 'equally-spaced', the points will be fixed to the grid specified.
-            If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
+        :param method: The distribution of the 3-D points generated. If set to 'equally-spaced', the points will be fixed to the grid specified. If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
         :type method: str, optional
         :raises ValueError: When provided with an unknown method.
     """
@@ -87,9 +88,7 @@ class ExampleGeneratorSpherical:
     :type r_min: float, optional
     :param r_max: radius of the exterior boundary
     :type r_max: float, optional
-    :param method: The distribution of the 2-D points generated.
-        If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`
-        If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
+    :param method: The distribution of the 3-D points generated. If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`. If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
     :type method: str, optional
     """
 
@@ -138,6 +137,24 @@ class ExampleGeneratorSpherical:
         r = self.get_r().requires_grad_(True)
 
         return r, theta, phi
+
+
+class EnsembleExampleGenerator:
+    r"""
+    An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
+    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    """
+
+    def __init__(self, *generators):
+        self.generators = generators
+        self.size = sum(gen.size for gen in generators)
+
+    def get_examples(self):
+        all_examples = [gen.get_examples() for gen in self.generators]
+        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
+        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
+        segmented = zip(*all_examples)
+        return [torch.cat(seg) for seg in segmented]
 
 
 class DirichletBVPSpherical(BaseBVPSpherical):
@@ -214,7 +231,7 @@ class InfDirichletBVPSpherical(BaseBVPSpherical):
     def enforce(self, net, r, theta, phi):
         r"""Enforce the output of a neural network to satisfy the boundary condition.
 
-        :param net: The neural network that approximates the ODE.
+        :param net: The neural network that approximates the PDE.
         :type net: `torch.nn.Module`
         :param r: The radii of points where the neural network output is evaluated.
         :type r: `torch.tensor`
@@ -251,6 +268,9 @@ class SolutionSpherical:
         self.nets = deepcopy(nets)
         self.conditions = deepcopy(conditions)
 
+    def _compute_u(self, net, condition, rs, thetas, phis):
+        return condition.enforce(net, rs, thetas, phis)
+
     def __call__(self, rs, thetas, phis, as_type='tf'):
         """Evaluate the solution at certain points.
 
@@ -280,7 +300,7 @@ class SolutionSpherical:
             raise ValueError("The valid return types are 'tf' and 'np'.")
 
         vs = [
-            con.enforce(net, rs, thetas, phis).reshape(original_shape)
+            self._compute_u(net, con, rs, thetas, phis).reshape(original_shape)
             for con, net in zip(self.conditions, self.nets)
         ]
         if as_type == 'np':
@@ -301,7 +321,7 @@ def solve_spherical(
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
         :type pde: function
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
-        :type condition: `neurodiffeq.pde_spherical.BaseBVPSpherical`
+        :type condition: `neurodiffeq.pde_spherical.BaseBVPSpherical` or `neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
@@ -364,15 +384,15 @@ def solve_spherical_system(
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
-        :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`]
+        :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`] or list[`neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`]
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
         :type r_max: float
         :param nets: The neural networks used to approximate the solution, defaults to None.
-        :type nets: list[`torch.nn.Module`], optional
-        :param train_generator: The example generator to generate 3-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :type nets: list[`torch.nn.Module`], optionalnerate 3-D training points, default to None.
+        :type train_generator: `neurodiffeq.pde_spherical.E
+        :param train_generator: The example generator to gexampleGeneratorSpherical`, optional
         :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
         :type shuffle: bool, optional
         :param valid_generator: The example generator to generate 3-D validation points, default to None.
@@ -431,7 +451,7 @@ def solve_spherical_system(
     n_examples_valid = valid_generator.size
     # R.H.S. for the PDE system
     train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(n_examples_valid).reshape((-1, 1))
+    valid_zeros = torch.zeros(batch_size).reshape((-1, 1))
 
     loss_history = {'train': [], 'valid': []}
     analytic_mse = {'train': [], 'valid': []} if analytic_solutions else None
@@ -460,7 +480,7 @@ def solve_spherical_system(
 
             # the dependent variables
             us = [
-                con.enforce(net, rs, thetas, phis)
+                _auto_enforce(con, net, rs, thetas, phis)
                 for con, net in zip(conditions, nets)
             ]
 
@@ -468,13 +488,18 @@ def solve_spherical_system(
                 vs = analytic_solutions(rs, thetas, phis)
                 with torch.no_grad():
                     train_analytic_loss_epoch += \
-                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start) / n_examples_train
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
             Fs = pde_system(*us, rs, thetas, phis)
             loss = 0.0
             for F in Fs:
-                loss += criterion(F, train_zeros)  # type: torch.Tensor
-            train_loss_epoch += loss.item() * (batch_end - batch_start) / n_examples_train
+                if F.shape[0] < train_zeros.shape[0]:
+                    print("WARNING: batch size doesn't divide training size, which could lead to unstable behaviour",
+                          file=sys.stderr)
+                    loss += criterion(F, torch.zeros_like(F)) * F.shape[0] / train_zeros.shape[0]
+                else:
+                    loss += criterion(F, train_zeros)  # type: torch.Tensor
+            train_loss_epoch += loss.item() * (batch_end - batch_start)
 
             optimizer.zero_grad()
             loss.backward()
@@ -483,42 +508,55 @@ def solve_spherical_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        loss_history['train'].append(train_loss_epoch)
+        loss_history['train'].append(train_loss_epoch / n_examples_train)
+        if analytic_solutions:
+            analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
 
         # calculate the validation loss
-        valid_examples_rs, valid_examples_thetas, valid_examples_phis = valid_generator.get_examples()
-        rs = valid_examples_rs.reshape(-1, 1)
-        thetas = valid_examples_thetas.reshape(-1, 1)
-        phis = valid_examples_phis.reshape(-1, 1)
-        us = [
-            con.enforce(net, rs, thetas, phis)
-            for con, net in zip(conditions, nets)
-        ]
-        if analytic_solutions:
-            vs = analytic_solutions(rs, thetas, phis)
-            analytic_mse['train'].append(train_analytic_loss_epoch)
-            with torch.no_grad():
-                analytic_mse['valid'].append(mse_fn(torch.stack(us), torch.stack(vs)))
+        valid_analytic_loss_epoch = 0.0
+        valid_examples_r, valid_examples_theta, valid_examples_phi = valid_generator.get_examples()
+        valid_examples_r = valid_examples_r.reshape(-1, 1)
+        valid_examples_theta = valid_examples_theta.reshape(-1, 1)
+        valid_examples_phi = valid_examples_phi.reshape(-1, 1)
+        idx = np.random.permutation(n_examples_valid) if shuffle else np.arange(n_examples_valid)
+        batch_start, batch_end = 0, batch_size
 
-        Fs = pde_system(*us, rs, thetas, phis)
         valid_loss_epoch = 0.0
-        for F in Fs:
-            valid_loss_epoch += criterion(F, valid_zeros)
-        valid_loss_epoch = valid_loss_epoch.item()
+        while batch_start < n_examples_valid:
+            if batch_end > n_examples_valid:
+                batch_end = n_examples_valid
+            batch_idx = idx[batch_start:batch_end]
+            rs = valid_examples_r[batch_idx]
+            thetas = valid_examples_theta[batch_idx]
+            phis = valid_examples_phi[batch_idx]
+            us = [_auto_enforce(con, net, rs, thetas, phis) for con, net in zip(conditions, nets)]
+            if analytic_solutions:
+                vs = analytic_solutions(rs, thetas, phis)
+                with torch.no_grad():
+                    valid_analytic_loss_epoch += \
+                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
 
-        loss_history['valid'].append(valid_loss_epoch)
+            Fs = pde_system(*us, rs, thetas, phis)
+            for F in Fs:
+                valid_loss_epoch += criterion(F, valid_zeros).item() * (batch_end - batch_start)
+            batch_start += batch_size
+            batch_end += batch_size
+
+        loss_history['valid'].append(valid_loss_epoch / n_examples_valid)
+        if analytic_solutions:
+            analytic_mse['valid'].append(valid_analytic_loss_epoch / n_examples_valid)
 
         if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
             monitor.check(nets, conditions, loss_history, analytic_mse_history=analytic_mse)
 
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
-            solution_min = SolutionSpherical(nets, conditions)
+            solution_min = get_solution(nets, conditions)
 
     if return_best:
         solution = solution_min
     else:
-        solution = SolutionSpherical(nets, conditions)
+        solution = get_solution(nets, conditions)
 
     ret = (solution, loss_history)
     if analytic_solutions is not None:
@@ -539,33 +577,40 @@ class MonitorSpherical:
     :type check_every: int, optional
     :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
     :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10)):
         """Initializer method
         """
+        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
         self.cbs = []  # color bars
         self.names = var_names
+        self.shape = shape
         # input for neural network
         gen = ExampleGenerator3D(
-            grid=(10, 10, 10),
+            grid=shape,
             xyz_min=(r_min, 0., 0.),
             xyz_max=(r_max, np.pi, 2 * np.pi),
             method='equally-spaced'
         )
         rs, thetas, phis = gen.get_examples()
 
-        th = thetas.reshape(10, 10, 10)[0, :, 0].detach().cpu().numpy()
-        ph = phis.reshape(10, 10, 10)[0, 0, :].detach().cpu().numpy()
+        th = thetas.reshape(*shape)[0, :, 0].detach().cpu().numpy()
+        ph = phis.reshape(*shape)[0, 0, :].detach().cpu().numpy()
 
         self.rs = rs.reshape(-1, 1)
         self.thetas = thetas.reshape(-1, 1)
         self.phis = phis.reshape(-1, 1)
         self.th = th
         self.ph = ph
+
+    def _compute_u(self, net, condition):
+        return condition.enforce(net, self.rs, self.thetas, self.phis)
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
         r"""Draw (3n + 2) plots:
@@ -607,7 +652,8 @@ class MonitorSpherical:
                 self.cbs.append(None)
 
         us = [
-            cond.enforce(net, self.rs, self.thetas, self.phis).detach().cpu().numpy()
+            self._compute_u(net, cond).detach().cpu().numpy()
+            # cond.enforce(net, self.rs, self.thetas, self.phis).detach().cpu().numpy()
             for net, cond in zip(nets, conditions)
         ]
 
@@ -618,34 +664,34 @@ class MonitorSpherical:
                 var_name = f"u[{i}]"
 
             # prepare data for plotting
-            u_across_r = u.reshape(10, 10, 10).sum(0)
+            u_across_r = u.reshape(*self.shape).mean(0)
             df = pd.DataFrame({
-                'r': self.rs.detach().cpu().numpy().reshape(-1),
-                'theta': self.thetas.detach().cpu().numpy().reshape(-1),
-                'phi': self.phis.detach().cpu().numpy().reshape(-1),
+                '$r$': self.rs.detach().cpu().numpy().reshape(-1),
+                '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
+                '$\\phi$': self.phis.detach().cpu().numpy().reshape(-1),
                 'u': u.reshape(-1),
             })
 
             # ax for u-r curve grouped by phi
             ax = self.axs[3 * i]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='phi', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by phi')
+            sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
             ax.set_ylabel(var_name)
 
             # ax for u-r curve grouped by theta
             ax = self.axs[3 * i + 1]
             ax.clear()
-            sns.lineplot(x='r', y='u', hue='theta', data=df, ax=ax)
-            ax.set_title(f'{var_name}(r) grouped by theta')
+            sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
+            ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
             ax.set_ylabel(var_name)
 
             # u-theta-phi heat map
             ax = self.axs[3 * i + 2]
             ax.clear()
-            ax.set_xlabel('$theta$')
-            ax.set_ylabel('$phi$')
-            ax.set_title(f'{var_name} averaged across r')
+            ax.set_xlabel('$\\phi$')
+            ax.set_ylabel('$\\theta$')
+            ax.set_title(f'{var_name} averaged across $r$')
             cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
             if self.cbs[i]:
                 self.cbs[i].remove()
@@ -673,10 +719,216 @@ class MonitorSpherical:
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
         # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
-        plt.pause(0.05)
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
 
     def new(self):
         self.fig = None
         self.axs = []
         self.cbs = []
         return self
+
+
+class BaseBVPSphericalHarmonics:
+    """
+    :param max_degree: highest degree for spherical harmonics
+    :type max_degree: int
+    """
+
+    def __init__(self, max_degree=4):
+        self.max_degree = max_degree
+
+    def enforce(self, net, r):
+        raise NotImplementedError(f'Abstract BVP {self.__class__.__name__} cannot be enforced')
+
+
+def _coefficients_at_radius(net, r):
+    # return net(torch.stack([r], dim=1))
+    return net(r)
+
+
+class NoConditionSphericalHarmonics(BaseBVPSphericalHarmonics):
+    def enforce(self, net, r):
+        return _coefficients_at_radius(net, r)
+
+
+class DirichletBVPSphericalHarmonics(BaseBVPSphericalHarmonics):
+    """Similar to `DirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
+        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
+        We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`R(r)\\bigg|_{r = r_1} = R_1`.
+
+    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :type r_0: float
+    :param R_0: The value of harmonic coefficients :math:R on the interior boundary. :math:`R(r)\\bigg|_{r = r_0} = R_0`.
+    :type R_0: torch.tensor
+    :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
+    :type r_1: float or None
+    :param R_1: The value of harmonic coefficients :math:R on the exterior bounadry. :math:`R(r)\\bigg|_{r = r_1} = R_1`.
+    :type R_1: torch.tensor
+    :param max_degree: highest degree for spherical harmonics
+    :type max_degree: int
+    """
+
+    def __init__(self, r_0, R_0, r_1=None, R_1=None, max_degree=4):
+        """Initializer method
+        """
+        super(DirichletBVPSphericalHarmonics, self).__init__(max_degree=max_degree)
+        if (r_1 is None) ^ (R_1 is None):
+            raise ValueError(f'r_1 and R_1 must be both/neither set to None; got r_1={r_1}, R_1={R_1}')
+        self.r_0, self.r_1 = r_0, r_1
+        self.R_0, self.R_1 = R_0, R_1
+
+    def enforce(self, net, r):
+        r"""Enforce the output of a neural network to satisfy the boundary condition.
+
+        :param net: The neural network that approximates the coefficients for spherical harmonics.
+        :type net: `torch.nn.Module`
+        :param r: The radii of points where the neural network output is evaluated.
+        :type r: `torch.tensor`
+        :return: The modified output which now satisfies the boundary condition.
+        :rtype: `torch.tensor`
+
+
+        .. note::
+            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
+        """
+        R_raw = _coefficients_at_radius(net, r)
+        if self.r_1 is None:
+            # noinspection PyTypeChecker
+            ret = (1 - torch.exp(-r + self.r_0)) * R_raw + self.R_0
+        else:
+            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
+            # noinspection PyTypeChecker
+            ret = self.R_0 * (1 - r_tilde) + self.R_1 * r_tilde + (1. - torch.exp((1 - r_tilde) * r_tilde)) * R_raw
+        return ret
+
+
+class InfDirichletBVPSphericalHarmonics(BaseBVPSphericalHarmonics):
+    """Similar to `InfDirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
+        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
+        We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`\\lim_{r \\to \\infty} R(r) = R_\\infty`
+
+    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :type r_0: float
+    :param R_0: The value of harmonic coefficients :math:R on the interior boundary. :math:`R(r)\\bigg|_{r = r_0} = R_0`.
+    :type R_0: torch.tensor
+    :param R_inf: The value of harmonic coefficients :math:R at infinity. :math:`\\lim_{r \\to \\infty} R(r) = R_\\infty`.
+    :type R_inf: torch.tensor
+    :param order: The smallest :math:k that guarantees :math:`\\lim_{r \\to +\\infty} R(r) e^{-k r} = \\bf 0`, defaults to 1
+    :type order: int or float, optional
+    :param max_degree: highest degree for spherical harmonics
+    :type max_degree: int
+    """
+
+    def __init__(self, r_0, R_0, R_inf, order=1, max_degree=4):
+        super(InfDirichletBVPSphericalHarmonics, self).__init__(max_degree=max_degree)
+        self.r_0 = r_0
+        self.R_0 = R_0
+        self.R_inf = R_inf
+        self.order = order
+
+    def enforce(self, net, r):
+        r"""Enforce the output of a neural network to satisfy the boundary condition.
+
+        :param net: The neural network that approximates the coefficients for the spherical harmonics.
+        :type net: `torch.nn.Module`
+        :param r: The radii of points where the neural network output is evaluated.
+        :type r: `torch.tensor`
+        :return: The modified output which now satisfies the boundary condition.
+        :rtype: `torch.tensor`
+
+        .. note::
+            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
+        """
+        R_raw = _coefficients_at_radius(net, r)
+        dr = r - self.r_0
+        return self.R_0 * torch.exp(-self.order * dr) + \
+               self.R_inf * torch.tanh(dr) + \
+               torch.exp(-self.order * dr) * torch.tanh(dr) * R_raw
+
+
+class SolutionSphericalHarmonics(SolutionSpherical):
+    """
+    A solution to a PDE (system) in spherical coordinates
+
+    :param nets: list of networks that takes in radius tensor and outputs the coefficients of spherical harmonics
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: list of conditions to be enforced on each nets; must be of the same length as nets
+    :type conditions: list[BaseBVPSphericalHarmonics]
+    :param max_degree: max_degree for spherical harmonics; defaults to 4
+    :type max_degree: int
+    """
+
+    def __init__(self, nets, conditions, max_degree=4):
+        super(SolutionSphericalHarmonics, self).__init__(nets, conditions)
+        self.max_degree = max_degree
+        self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+
+    def _compute_u(self, net, condition, rs, thetas, phis):
+        products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
+        return torch.sum(products, dim=1)
+
+
+class MonitorSphericalHarmonics(MonitorSpherical):
+    """A monitor for checking the status of the neural network during training.
+
+    :param r_min: The lower bound of radius, i.e., radius of interior boundary
+    :type r_min: float
+    :param r_max: The upper bound of radius, i.e., radius of exterior boundary
+    :type r_max: float
+    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
+    :type check_every: int, optional
+    :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
+    :type var_names: list[str]
+    :param max_degree: highest degree for spherical harmonics; defaults to None
+    :type var_names: list[str]
+    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :type shape: tuple[int]
+    """
+
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), max_degree=4):
+        super(MonitorSphericalHarmonics, self).__init__(
+            r_min,
+            r_max,
+            check_every=check_every,
+            var_names=var_names,
+            shape=shape
+        )
+
+        self.max_degree = max_degree
+        self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+
+    def _compute_u(self, net, condition):
+        products = condition.enforce(net, self.rs) * self.harmonics_fn(self.thetas, self.phis)
+        return torch.sum(products, dim=1)
+
+
+def _auto_enforce(cond, net, r, theta, phi):
+    """
+    This function automatically decides to return either of the two
+        1. cond.enforce(net, r, theta, phi) for BaseBVPSpherical
+        1. cond.enforce(net, r) for BaseBVPSphericalHarmonics
+    """
+    if isinstance(cond, BaseBVPSpherical):
+        return cond.enforce(net, r, theta, phi)
+    elif isinstance(cond, BaseBVPSphericalHarmonics):
+        return cond.enforce(net, r)
+    else:
+        raise TypeError(f'{cond} of class {cond.__class__.__name__} cannot be enforced')
+
+
+def get_solution(nets, conditions):
+    """
+    automatically choose between SolutionSpherical and SolutionSphericalHarmonics based on class of conditions
+    :param nets: list of networks that either return the output or coefficients of spherical harmonics
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: list of conditions that are compatible with the output of networks
+    :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`] or list[`neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`]
+    :return: appropriate solution class with `nets` and `conditions`
+    :rtype: `neurodiffeq.pde_spherical.SolutionSpherical`
+    """
+    if isinstance(conditions[0], BaseBVPSpherical):
+        return SolutionSpherical(nets, conditions)
+    elif isinstance(conditions[0], BaseBVPSphericalHarmonics):
+        max_degree = conditions[0].max_degree
+        return SolutionSphericalHarmonics(nets, conditions, max_degree=max_degree)
