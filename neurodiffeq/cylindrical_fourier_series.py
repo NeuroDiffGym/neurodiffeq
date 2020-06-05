@@ -6,7 +6,7 @@ from neurodiffeq.neurodiffeq import diff
 
 def get_fourier_series(degree, sine=True):
     if degree == 0:
-        return lambda th: torch.ones_like(th) * 0.5  # the 0.5 coefficient is to make the series orthonormal
+        return lambda th: torch.ones_like(th) * 0.5  # the coefficient 0.5 is to make the series orthonormal
     elif sine:
         return lambda th: sin(degree * th)
     else:
@@ -30,7 +30,7 @@ class RealFourierSeries(nn.Module):
         self.max_degree = max_degree
         for degree in range(self.max_degree + 1):
             if degree == 0:
-                self.harmonics.append(get_fourier_series(0, sine=True))
+                self.harmonics.append(get_fourier_series(0))
             else:
                 self.harmonics.append(get_fourier_series(degree, sine=True))
                 self.harmonics.append(get_fourier_series(degree, sine=False))
@@ -39,7 +39,7 @@ class RealFourierSeries(nn.Module):
         """ compute the value of each component evaluated at each point
         :param z: z in cylindrical coordinates, must have shape (-1, 1)
         :type z: `torch.Tensor`
-        :param phi: phis in cynlindrical coordinates, must have the same shape as theta
+        :param phi: phis in cynlindrical coordinates, must have the same shape as z
         :type phi: `torch.Tensor`
         :return: fourier series evaluated at each point, will be of shape (-1, n_components)
         :rtype: `torch.Tensor`
@@ -56,7 +56,7 @@ class FourierLaplacian:
     def __init__(self, max_degree=12):
         self.harmonics_fn = RealFourierSeries(max_degree=max_degree)
 
-    def __call__(self, R, r, theta, phi):
+    def __call__(self, R, r, z, phi):
         # We would hope to do `radial_component = diff(R, r) / r + diff(R, r, order=2)`
         # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivatives, and manually concatenate them back together
@@ -65,5 +65,5 @@ class FourierLaplacian:
         ], dim=1)
 
         angular_component = - R / r ** 2
-        products = (radial_component + angular_component) * self.harmonics_fn(theta, phi)
+        products = (radial_component + angular_component) * self.harmonics_fn(z, phi)
         return torch.sum(products, dim=1, keepdim=True)
