@@ -13,8 +13,8 @@ def get_fourier_series(degree, sine=True):
         return lambda th: cos(degree * th)
 
 
-def get_cylindrical_fourier_series(degree, sin=True):
-    fourier = get_fourier_series(degree, sin)
+def get_cylindrical_fourier_series(degree, sine=True):
+    fourier = get_fourier_series(degree, sine)
     return lambda z, ph: fourier(ph)
 
 
@@ -30,10 +30,10 @@ class RealFourierSeries(nn.Module):
         self.max_degree = max_degree
         for degree in range(self.max_degree + 1):
             if degree == 0:
-                self.harmonics.append(get_fourier_series(0))
+                self.harmonics.append(get_cylindrical_fourier_series(0))
             else:
-                self.harmonics.append(get_fourier_series(degree, sine=True))
-                self.harmonics.append(get_fourier_series(degree, sine=False))
+                self.harmonics.append(get_cylindrical_fourier_series(degree, sine=True))
+                self.harmonics.append(get_cylindrical_fourier_series(degree, sine=False))
 
     def forward(self, z, phi):
         """ compute the value of each component evaluated at each point
