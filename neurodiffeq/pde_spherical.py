@@ -62,6 +62,10 @@ class ExampleGenerator3D:
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
+        def trunc(tensor, min, max):
+            tensor[tensor < min] = min
+            tensor[tensor > max] = max
+
         if method == 'equally-spaced':
             self.get_examples = lambda: (self.grid_x, self.grid_y, self.grid_z)
         elif method == 'equally-spaced-noisy':
@@ -72,17 +76,12 @@ class ExampleGenerator3D:
             self.noise_ystd = torch.ones(self.size) * ((xyz_max[1] - xyz_min[1]) / grid[1]) / 4.0
             self.noise_zstd = torch.ones(self.size) * ((xyz_max[2] - xyz_min[2]) / grid[2]) / 4.0
             self.get_examples = lambda: (
-                self.truncate(self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd), xyz_min[0], xyz_max[0]),
-                self.truncate(self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd), xyz_min[1], xyz_max[1]),
-                self.truncate(self.grid_z + torch.normal(mean=self.noise_zmean, std=self.noise_zstd), xyz_min[2], xyz_max[2]),
+                trunc(self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd), xyz_min[0], xyz_max[0]),
+                trunc(self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd), xyz_min[1], xyz_max[1]),
+                trunc(self.grid_z + torch.normal(mean=self.noise_zmean, std=self.noise_zstd), xyz_min[2], xyz_max[2]),
             )
         else:
             raise ValueError(f'Unknown method: {method}')
-
-    def truncate(self, tensor, min_v, max_v):
-        tensor[tensor < min_v] = min_v
-        tensor[tensor > max_v] = max_v
-        return tensor
 
 
 class ExampleGeneratorSpherical:
@@ -872,7 +871,6 @@ class SolutionSphericalHarmonics(SolutionSpherical):
     def _compute_u(self, net, condition, rs, thetas, phis):
         products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
         return torch.sum(products, dim=1)
-
 
 
 class SolutionCylindricalFourier(SolutionSpherical):
