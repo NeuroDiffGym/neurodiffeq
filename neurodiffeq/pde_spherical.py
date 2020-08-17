@@ -72,12 +72,17 @@ class ExampleGenerator3D:
             self.noise_ystd = torch.ones(self.size) * ((xyz_max[1] - xyz_min[1]) / grid[1]) / 4.0
             self.noise_zstd = torch.ones(self.size) * ((xyz_max[2] - xyz_min[2]) / grid[2]) / 4.0
             self.get_examples = lambda: (
-                self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd),
-                self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd),
-                self.grid_z + torch.normal(mean=self.noise_zmean, std=self.noise_zstd),
+                self.truncate(self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd), xyz_min[0], xyz_max[0]),
+                self.truncate(self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd), xyz_min[1], xyz_max[1]),
+                self.truncate(self.grid_z + torch.normal(mean=self.noise_zmean, std=self.noise_zstd), xyz_min[2], xyz_max[2]),
             )
         else:
             raise ValueError(f'Unknown method: {method}')
+
+    def truncate(self, tensor, min_v, max_v):
+        tensor[tensor < min_v] = min_v
+        tensor[tensor > max_v] = max_v
+        return tensor
 
 
 class ExampleGeneratorSpherical:
@@ -869,6 +874,19 @@ class SolutionSphericalHarmonics(SolutionSpherical):
         return torch.sum(products, dim=1)
 
 
+
+class SolutionCylindricalFourier(SolutionSpherical):
+    def __init__(self, nets, conditions, max_degree=4):
+        from .cylindrical_fourier_series import RealFourierSeries
+        super(SolutionCylindricalFourier, self).__init__(nets, conditions)
+        self.max_degree = max_degree
+        self.harmonics_fn = RealFourierSeries(max_degree=max_degree)
+
+    def _compute_u(self, net, condition, rs, thetas, phis):
+        products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
+        return torch.sum(products, dim=1)
+
+
 class MonitorSphericalHarmonics(MonitorSpherical):
     """A monitor for checking the status of the neural network during training.
 
@@ -914,7 +932,8 @@ def _auto_enforce(cond, net, r, theta, phi):
     elif isinstance(cond, BaseBVPSphericalHarmonics):
         return cond.enforce(net, r)
     else:
-        raise TypeError(f'{cond} of class {cond.__class__.__name__} cannot be enforced')
+        return cond.enforce(net, r)
+        # raise TypeError(f'{cond} of class {cond.__class__.__name__} cannot be enforced')
 
 
 def get_solution(nets, conditions):
@@ -932,3 +951,6 @@ def get_solution(nets, conditions):
     elif isinstance(conditions[0], BaseBVPSphericalHarmonics):
         max_degree = conditions[0].max_degree
         return SolutionSphericalHarmonics(nets, conditions, max_degree=max_degree)
+    else:
+        max_degree = conditions[0].max_degree
+        return SolutionCylindricalFourier(nets, conditions, max_degree=max_degree)
