@@ -604,17 +604,16 @@ class MonitorSpherical:
         )
         rs, thetas, phis = gen.get_examples()
 
-        th = thetas.reshape(*shape)[0, :, 0].detach().cpu().numpy()
-        ph = phis.reshape(*shape)[0, 0, :].detach().cpu().numpy()
+        self.r_tensor = rs.reshape(-1, 1)
+        self.theta_tensor = thetas.reshape(-1, 1)
+        self.phi_tensor = phis.reshape(-1, 1)
 
-        self.rs = rs.reshape(-1, 1)
-        self.thetas = thetas.reshape(-1, 1)
-        self.phis = phis.reshape(-1, 1)
-        self.th = th
-        self.ph = ph
+        self.r_label = rs.reshape(-1).detach().cpu().numpy()
+        self.theta_label = thetas.reshape(-1).detach().cpu().numpy()
+        self.phi_label = phis.reshape(-1).detach().cpu().numpy()
 
     def _compute_u(self, net, condition):
-        return condition.enforce(net, self.rs, self.thetas, self.phis)
+        return condition.enforce(net, self.r_tensor, self.theta_tensor, self.phi_tensor)
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
         r"""Draw (3n + 2) plots:
@@ -670,9 +669,9 @@ class MonitorSpherical:
             # prepare data for plotting
             u_across_r = u.reshape(*self.shape).mean(0)
             df = pd.DataFrame({
-                '$r$': self.rs.detach().cpu().numpy().reshape(-1),
-                '$\\theta$': self.thetas.detach().cpu().numpy().reshape(-1),
-                '$\\phi$': self.phis.detach().cpu().numpy().reshape(-1),
+                '$r$': self.r_label,
+                '$\\theta$': self.theta_label,
+                '$\\phi$': self.phi_label,
                 'u': u.reshape(-1),
             })
 
@@ -915,7 +914,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
     def _compute_u(self, net, condition):
-        products = condition.enforce(net, self.rs) * self.harmonics_fn(self.thetas, self.phis)
+        products = condition.enforce(net, self.r_tensor) * self.harmonics_fn(self.theta_tensor, self.phi_tensor)
         return torch.sum(products, dim=1)
 
 
