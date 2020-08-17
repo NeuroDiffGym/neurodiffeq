@@ -583,9 +583,11 @@ class MonitorSpherical:
     :type var_names: list[str]
     :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
     :type shape: tuple[int]
+    :param r_scale: 'linear' or 'log'; controls the grid point in the :math:`r` direction; defaults to 'linear'
+    :type r_scale: str
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10)):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear'):
         """Initializer method
         """
         self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
@@ -596,13 +598,20 @@ class MonitorSpherical:
         self.names = var_names
         self.shape = shape
         # input for neural network
+
+        if r_scale == 'log':
+            r_min, r_max = np.log(r_min), np.log(r_max)
+
         gen = ExampleGenerator3D(
             grid=shape,
             xyz_min=(r_min, 0., 0.),
             xyz_max=(r_max, np.pi, 2 * np.pi),
             method='equally-spaced'
         )
-        rs, thetas, phis = gen.get_examples()
+        rs, thetas, phis = gen.get_examples()  # type: torch.Tensor, torch.Tensor, torch.Tensor
+
+        if r_scale == 'log':
+            rs = torch.exp(rs)
 
         self.r_tensor = rs.reshape(-1, 1)
         self.theta_tensor = thetas.reshape(-1, 1)
