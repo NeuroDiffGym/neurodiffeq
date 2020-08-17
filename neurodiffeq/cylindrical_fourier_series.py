@@ -55,15 +55,17 @@ class RealFourierSeries(nn.Module):
 class FourierLaplacian:
     def __init__(self, max_degree=12):
         self.harmonics_fn = RealFourierSeries(max_degree=max_degree)
+        laplacian_coefficients = [0] + [- deg ** 2 for deg in range(1, max_degree+1) for sign in range(2)]
+        self.laplacian_coefficients = torch.tensor(laplacian_coefficients).type(torch.float)
 
     def __call__(self, R, r, z, phi):
         # We would hope to do `radial_component = diff(R, r) / r + diff(R, r, order=2)`
         # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivatives, and manually concatenate them back together
         radial_component = torch.cat([
-            diff(R[:, j], r) / r[:, 0] + diff(R[:, j], r, order=2) for j in range(R.shape[1])
+            diff(R[:, j], r) / r + diff(R[:, j], r, order=2) for j in range(R.shape[1])
         ], dim=1)
 
-        angular_component = - R / r ** 2
+        angular_component = self.laplacian_coefficients * R / r ** 2
         products = (radial_component + angular_component) * self.harmonics_fn(z, phi)
         return torch.sum(products, dim=1, keepdim=True)
