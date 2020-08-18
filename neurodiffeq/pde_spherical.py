@@ -910,13 +910,14 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), max_degree=4):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear', max_degree=4):
         super(MonitorSphericalHarmonics, self).__init__(
             r_min,
             r_max,
             check_every=check_every,
             var_names=var_names,
-            shape=shape
+            shape=shape,
+            r_scale=r_scale,
         )
 
         self.max_degree = max_degree
