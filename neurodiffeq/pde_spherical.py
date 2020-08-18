@@ -590,7 +590,8 @@ class MonitorSpherical:
     def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear'):
         """Initializer method
         """
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.contour_plot_available = self._matplotlib_version_satisfies()
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
@@ -620,6 +621,22 @@ class MonitorSpherical:
         self.r_label = rs.reshape(-1).detach().cpu().numpy()
         self.theta_label = thetas.reshape(-1).detach().cpu().numpy()
         self.phi_label = phis.reshape(-1).detach().cpu().numpy()
+
+    @staticmethod
+    def _matplotlib_version_satisfies():
+        from packaging.version import parse as vparse
+        from matplotlib import __version__
+        return vparse(__version__) >= vparse('3.3.0')
+
+    @staticmethod
+    def _tick_formatter_pi(value, count):
+        multiple = value / np.pi
+        if multiple == 0:
+            return '$0$'
+        elif multiple == 1:
+            return '$\pi$'
+        else:
+            return f'${multiple}\pi$'
 
     def _compute_us(self, nets, conditions):
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
@@ -698,13 +715,31 @@ class MonitorSpherical:
             ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
             ax.set_ylabel(var_name)
 
-            # u-theta-phi heat map
+            # u-theta-phi heatmap/contourf depending on matplotlib version
             ax = self.axs[3 * i + 2]
             ax.clear()
             ax.set_xlabel('$\\phi$')
             ax.set_ylabel('$\\theta$')
+
             ax.set_title(f'{var_name} averaged across $r$')
-            cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
+            if self.contour_plot_available:
+                # matplotlib has problems plotting repeatedly `contourf` until version 3.3
+                # see https://github.com/matplotlib/matplotlib/issues/15986
+                theta = self.theta_label.reshape(*self.shape)[0, :, 0]
+                phi = self.phi_label.reshape(*self.shape)[0, 0, :]
+                cax = ax.contourf(phi, theta, u_across_r, cmap='magma')
+                ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
+                ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
+                ax.xaxis.set_major_formatter(plt.FuncFormatter(self._tick_formatter_pi))
+                ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
+                ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
+                ax.yaxis.set_major_formatter(plt.FuncFormatter(self._tick_formatter_pi))
+                ax.grid(which='major', linestyle='--', linewidth=0.5)
+                ax.grid(which='minor', linestyle=':', linewidth=0.5)
+            else:
+                # use matshow() to plot a heatmap instead
+                cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
+
             if self.cbs[i]:
                 self.cbs[i].remove()
             self.cbs[i] = self.fig.colorbar(cax, ax=ax)
