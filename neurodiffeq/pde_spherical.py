@@ -397,10 +397,10 @@ def solve_spherical_system(
         :type nets: list[`torch.nn.Module`], optionalnerate 3-D training points, default to None.
         :type train_generator: `neurodiffeq.pde_spherical.E
         :param train_generator: The example generator to gexampleGeneratorSpherical`, optional
-        :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
-        :type shuffle: bool, optional
         :param valid_generator: The example generator to generate 3-D validation points, default to None.
         :type valid_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :param shuffle: deprecated and ignored; shuffling should be implemented in genrators
+        :type shuffle: bool, optional
         :param analytic_solutions: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n]
         :type analytic_solutions: function
         :param optimizer: The optimization method to use for training, defaults to None.
@@ -423,151 +423,251 @@ def solve_spherical_system(
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
     # default values
-    n_dependent_vars = len(conditions)
-    if not nets:
-        nets = [
-            FCNN(n_input_units=3, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
-            for _ in range(n_dependent_vars)
-        ]
-    if not train_generator:
-        train_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
-    if not valid_generator:
-        valid_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
-    if not optimizer:
-        all_parameters = []
-        for net in nets:
-            all_parameters += list(net.parameters())
-        optimizer = optim.Adam(all_parameters, lr=0.001)
-    if not criterion:
-        criterion = nn.MSELoss()
+    print("solve_spherical_system is deprecated, consider using SphericalSolver instead", file=sys.stderr)
 
+    solver = SphericalSolver(
+        pde_system=pde_system,
+        conditions=conditions,
+        r_min=r_min,
+        r_max=r_max,
+        nets=nets,
+        train_generator=train_generator,
+        valid_generator=valid_generator,
+        analytic_solutions=analytic_solutions,
+        optimizer=optimizer,
+        criterion=criterion,
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+
+    solver.fit(max_epochs=max_epochs, monitor=monitor)
+    solution = solver.get_solution(copy=True, best=return_best)
+    ret = (solution, solver.loss)
+    if analytic_solutions is not None:
+        ret = ret + (solver.analytic_mse,)
     if return_internal:
-        internal = {
-            'nets': nets,
-            'conditions': conditions,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
+        params = ['nets', 'conditions', 'train_generator', 'valid_generator', 'optimizer', 'criterion']
+        internals = solver.get_internals(params, return_type="dict")
+        ret = ret + (internals,)
+    return ret
 
-    n_examples_train = train_generator.size
-    n_examples_valid = valid_generator.size
-    # R.H.S. for the PDE system
-    train_zeros = torch.zeros(batch_size).reshape((-1, 1))
-    valid_zeros = torch.zeros(batch_size).reshape((-1, 1))
 
-    loss_history = {'train': [], 'valid': []}
-    analytic_mse = {'train': [], 'valid': []} if analytic_solutions else None
-    mse_fn = nn.MSELoss()
-    valid_loss_epoch_min = np.inf
-    solution_min = None
+class SphericalSolver:
+    def __init__(self, pde_system, conditions, r_min, r_max,
+                 nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
+                 optimizer=None, criterion=None, batch_size=16, shuffle=False):
 
-    for epoch in range(max_epochs):
-        train_loss_epoch = 0.0
-        train_analytic_loss_epoch = 0.0
+        if shuffle:
+            print("param `shuffle` is deprecated and ignored; shuffling should be performed by generators",
+                  file=sys.stderr)
 
-        train_examples_r, train_examples_theta, train_examples_phi = train_generator.get_examples()
-        train_examples_r = train_examples_r.reshape((-1, 1))
-        train_examples_theta = train_examples_theta.reshape((-1, 1))
-        train_examples_phi = train_examples_phi.reshape((-1, 1))
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-        batch_start, batch_end = 0, batch_size
+        self.pdes = pde_system
+        self.conditions = conditions
+        self.n_funcs = len(conditions)
+        self.r_min = r_min
+        self.r_max = r_max
+        if nets is None:
+            self.nets = [
+                FCNN(n_input_units=3, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
+                for _ in range(self.n_funcs)
+            ]
+        else:
+            self.nets = nets
 
-        while batch_start < n_examples_train:
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            rs = train_examples_r[batch_idx]
-            thetas = train_examples_theta[batch_idx]
-            phis = train_examples_phi[batch_idx]
+        if train_generator is None:
+            train_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
 
-            # the dependent variables
-            us = [
-                _auto_enforce(con, net, rs, thetas, phis)
-                for con, net in zip(conditions, nets)
+        if valid_generator is None:
+            valid_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced')
+
+        self.analytic_solutions = analytic_solutions
+        if optimizer is None:
+            all_params = []
+            for n in self.nets:
+                all_params += n.parameters()
+            self.optimizer = optim.Adam(all_params, lr=0.001)
+        else:
+            self.optimizer = optimizer
+
+        if criterion is None:
+            self.criterion = lambda residual_tensor: (residual_tensor ** 2).mean()
+        else:
+            self.criterion = criterion
+
+        self.batch_size = batch_size
+
+        def make_pair_dict(train=None, valid=None):
+            return {'train': train, 'valid': valid}
+
+        self.generator = make_pair_dict(train=train_generator, valid=valid_generator)
+        self.loss = make_pair_dict(train=[], valid=[])
+        self.analytic_mse = make_pair_dict(train=[], valid=[])
+        self._batch_start = make_pair_dict(train=0, valid=0)
+        self._examples = make_pair_dict()
+        self._batch_examples = make_pair_dict()
+        self.best_nets = None
+        self.lowest_loss = None
+
+    @staticmethod
+    def _enforce(net, cond, r, theta, phi):
+        return cond.enforce(net, r, theta, phi)
+
+    def _update_history(self, value, type, key):
+        if type == 'loss':
+            self.loss[key].append(value)
+        elif type == 'analytic_mse':
+            self.analytic_mse[key].append(value)
+        else:
+            raise KeyError(f'history type = {type} not understood')
+
+    def _update_train_history(self, value, type):
+        self._update_history(value, type, key='train')
+
+    def _update_valid_history(self, value, type):
+        self._update_history(value, type, key='valid')
+
+    def _reset_batch_start(self, key):
+        self._batch_start[key] = 0
+
+    def _reset_train_batch_start(self):
+        self._reset_batch_start(key='train')
+
+    def _reset_valid_batch_start(self):
+        self._reset_batch_start(key='valid')
+
+    def _resample(self, key):
+        self._examples[key] = [var.reshape(-1, 1) for var in self.generator[key].get_examples()]
+
+    def _resample_train(self):
+        self._resample('train')
+
+    def _resample_valid(self):
+        self._resample('valid')
+
+    def _generate_batch(self, key):
+        old_start = self._batch_start[key]
+        new_start = min(old_start + self.batch_size, self.generator[key].size)
+        self._batch_start[key] = new_start
+        # the following side effect are helpful for future extension
+        # especially for additional loss term that depends on the coordinates
+        self._batch_examples[key] = [var[old_start: new_start] for var in self._examples[key]]
+        return self._batch_examples[key]
+
+    def _generate_train_batch(self):
+        return self._generate_batch('train')
+
+    def _generate_valid_batch(self):
+        return self._generate_batch('valid')
+
+    def _run_epoch(self, key):
+        # this method doesn't resample points, which shall be handled in the `fit` call
+
+        # perform forward pass for all batches
+        epoch_loss = 0
+        epoch_analytic_mse = 0
+        while self._batch_start[key] < self.generator[key].size:
+            r, theta, phi = self._generate_batch(key)
+            n_samples = len(r)
+            funcs = [
+                self._enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
             ]
 
-            if analytic_solutions:
-                vs = analytic_solutions(rs, thetas, phis)
-                with torch.no_grad():
-                    train_analytic_loss_epoch += \
-                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
+            if self.analytic_solutions is not None:
+                funcs_true = self.analytic_solutions(r, theta, phi)
+                for f_pred, f_true in zip(funcs, funcs_true):
+                    epoch_analytic_mse += ((f_pred - f_true) ** 2).sum().item()
 
-            Fs = pde_system(*us, rs, thetas, phis)
-            loss = 0.0
-            for F in Fs:
-                if F.shape[0] < train_zeros.shape[0]:
-                    print("WARNING: batch size doesn't divide training size, which could lead to unstable behaviour",
-                          file=sys.stderr)
-                    loss += criterion(F, torch.zeros_like(F)) * F.shape[0] / train_zeros.shape[0]
-                else:
-                    loss += criterion(F, train_zeros)  # type: torch.Tensor
-            train_loss_epoch += loss.item() * (batch_end - batch_start)
+            residuals = self.pdes(*funcs, r, theta, phi)
+            residuals = torch.stack(residuals)
+            loss = self.criterion(residuals)
+            epoch_loss += loss.item() * n_samples
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            # perform gradient descent when training
+            if key == 'train':
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
 
-            batch_start += batch_size
-            batch_end += batch_size
+        # calculate loss sum of all batches and register to history
+        epoch_loss /= self.generator[key].size
+        self._update_history(epoch_loss, 'loss', key)
 
-        loss_history['train'].append(train_loss_epoch / n_examples_train)
-        if analytic_solutions:
-            analytic_mse['train'].append(train_analytic_loss_epoch / n_examples_train)
+        if self.analytic_solutions is not None:
+            epoch_analytic_mse /= self.generator[key].size
+            epoch_analytic_mse /= self.n_funcs
+            self._update_history(epoch_analytic_mse, 'analytic_mse', key)
 
-        # calculate the validation loss
-        valid_analytic_loss_epoch = 0.0
-        valid_examples_r, valid_examples_theta, valid_examples_phi = valid_generator.get_examples()
-        valid_examples_r = valid_examples_r.reshape(-1, 1)
-        valid_examples_theta = valid_examples_theta.reshape(-1, 1)
-        valid_examples_phi = valid_examples_phi.reshape(-1, 1)
-        idx = np.random.permutation(n_examples_valid) if shuffle else np.arange(n_examples_valid)
-        batch_start, batch_end = 0, batch_size
+    def run_train_epoch(self):
+        self._run_epoch('train')
 
-        valid_loss_epoch = 0.0
-        while batch_start < n_examples_valid:
-            if batch_end > n_examples_valid:
-                batch_end = n_examples_valid
-            batch_idx = idx[batch_start:batch_end]
-            rs = valid_examples_r[batch_idx]
-            thetas = valid_examples_theta[batch_idx]
-            phis = valid_examples_phi[batch_idx]
-            us = [_auto_enforce(con, net, rs, thetas, phis) for con, net in zip(conditions, nets)]
-            if analytic_solutions:
-                vs = analytic_solutions(rs, thetas, phis)
-                with torch.no_grad():
-                    valid_analytic_loss_epoch += \
-                        mse_fn(torch.stack(us), torch.stack(vs)).item() * (batch_end - batch_start)
+    def run_valid_epoch(self):
+        self._run_epoch('valid')
 
-            Fs = pde_system(*us, rs, thetas, phis)
-            for F in Fs:
-                valid_loss_epoch += criterion(F, valid_zeros).item() * (batch_end - batch_start)
-            batch_start += batch_size
-            batch_end += batch_size
+    def _update_best(self):
+        current_loss = self.loss['valid'][-1]
+        if (self.lowest_loss is None) or current_loss < self.lowest_loss:
+            self.lowest_loss = current_loss
+            self.best_nets = deepcopy(self.nets)
 
-        loss_history['valid'].append(valid_loss_epoch / n_examples_valid)
-        if analytic_solutions:
-            analytic_mse['valid'].append(valid_analytic_loss_epoch / n_examples_valid)
+    def fit(self, max_epochs, monitor=None):
+        # do not return solution, which should be done in another method that can be inherited and overwritten
+        for epoch in range(max_epochs):
+            self._resample_train()
+            self._resample_valid()
+            self._reset_train_batch_start()
+            self._reset_valid_batch_start()
+            self.run_train_epoch()
+            self.run_valid_epoch()
+            self._update_best()
 
-        if monitor and (epoch % monitor.check_every == 0 or epoch == max_epochs - 1):  # update plots on finish
-            monitor.check(nets, conditions, loss_history, analytic_mse_history=analytic_mse)
+            if monitor:
+                if (epoch + 1) % monitor.check_every == 0 or epoch == max_epochs - 1:
+                    monitor.check(
+                        self.nets,
+                        self.conditions,
+                        loss_history=self.loss,
+                        analytic_mse_history=self.analytic_solutions
+                    )
 
-        if return_best and valid_loss_epoch < valid_loss_epoch_min:
-            valid_loss_epoch_min = valid_loss_epoch
-            solution_min = get_solution(nets, conditions)
+    def get_solution(self, copy=True, best=True):
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
 
-    if return_best:
-        solution = solution_min
-    else:
-        solution = get_solution(nets, conditions)
+        return SolutionSpherical(nets, conditions)
 
-    ret = (solution, loss_history)
-    if analytic_solutions is not None:
-        ret = ret + (analytic_mse,)
-    if return_internal:
-        ret = ret + (internal,)
-    return ret
+    def get_internals(self, param_names, return_type='list'):
+        # get internals according to provided param_names
+        available_params = {
+            "analytic_mse": self.analytic_mse,
+            "analytic_solutions": self.analytic_solutions,
+            "batch_size": self.batch_size,
+            "best_nets": self.best_nets,
+            "criterion": self.criterion,
+            "loss": self.loss,
+            "lowest_loss": self.lowest_loss,
+            "n_funcs": self.n_funcs,
+            "nets": self.best_nets,
+            "optimizer": self.optimizer,
+            "pdes": self.pdes,
+            "r_max": self.r_max,
+            "r_min": self.r_min,
+        }
+
+        if param_names == "all":
+            return available_params
+
+        if isinstance(param_names, str):
+            return available_params[param_names]
+
+        if return_type == 'list':
+            return [available_params[name] for name in param_names]
+        elif return_type == "dict":
+            return {name: available_params[name] for name in param_names}
+        else:
+            raise ValueError(f"unrecognized return_type = {return_type}")
 
 
 class MonitorSpherical:
@@ -945,7 +1045,8 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type shape: tuple[int]
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear', max_degree=4):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
+                 max_degree=4):
         super(MonitorSphericalHarmonics, self).__init__(
             r_min,
             r_max,
