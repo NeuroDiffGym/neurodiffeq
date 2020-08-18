@@ -621,8 +621,12 @@ class MonitorSpherical:
         self.theta_label = thetas.reshape(-1).detach().cpu().numpy()
         self.phi_label = phis.reshape(-1).detach().cpu().numpy()
 
-    def _compute_u(self, net, condition):
-        return condition.enforce(net, self.r_tensor, self.theta_tensor, self.phi_tensor)
+    def _compute_us(self, nets, conditions):
+        r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
+        return [
+            cond.enforce(net, r, theta, phi).detach().cpu().numpy()
+            for cond, net in zip(nets, conditions)
+        ]
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
         r"""Draw (3n + 2) plots:
@@ -663,11 +667,7 @@ class MonitorSpherical:
             for i in range(len(nets)):
                 self.cbs.append(None)
 
-        us = [
-            self._compute_u(net, cond).detach().cpu().numpy()
-            # cond.enforce(net, self.rs, self.thetas, self.phis).detach().cpu().numpy()
-            for net, cond in zip(nets, conditions)
-        ]
+        us = self._compute_us(nets, conditions)
 
         for i, u in enumerate(us):
             try:
@@ -923,9 +923,14 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         self.max_degree = max_degree
         self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
-    def _compute_u(self, net, condition):
-        products = condition.enforce(net, self.r_tensor) * self.harmonics_fn(self.theta_tensor, self.phi_tensor)
-        return torch.sum(products, dim=1)
+    def _compute_us(self, nets, conditions):
+        r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
+        us = []
+        for net, cond in zip(nets, conditions):
+            products = cond.enforce(net, r) * self.harmonics_fn(theta, phi)
+            u = torch.sum(products, dim=1, keepdim=True).detach().cpu().numpy()
+            us.append(u)
+        return us
 
 
 def _auto_enforce(cond, net, r, theta, phi):
