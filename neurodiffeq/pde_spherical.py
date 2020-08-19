@@ -34,7 +34,16 @@ class NoConditionSpherical(BaseConditionSpherical):
         return _nn_output_spherical_input(net, r, theta, phi)
 
 
-class ExampleGenerator3D:
+class BaseGenerator:
+    def __init__(self, *args):
+        self.size = ...
+        raise NotImplementedError(f"Abstract class {self.__class__.__name__} cannot be instantiated")
+
+    def get_examples(self):
+        raise NotImplementedError(f"method of abstract class {self.__class__.__name__} cannot be called")
+
+
+class ExampleGenerator3D(BaseGenerator):
     """An example generator for generating 3-D training points. NOT TO BE CONFUSED with `ExampleGeneratorSpherical`
         :param grid: The discretization of the 3 dimensions, if we want to generate points on a :math:`m \\times n \\times k` grid, then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
         :type grid: tuple[int, int, int], optional
@@ -84,7 +93,7 @@ class ExampleGenerator3D:
             raise ValueError(f'Unknown method: {method}')
 
 
-class ExampleGeneratorSpherical:
+class ExampleGeneratorSpherical(BaseGenerator):
     """An example generator for generating points in spherical coordinates. NOT TO BE CONFUSED with `ExampleGenerator3D`
     :param size: number of points in 3-D sphere
     :type size: int
@@ -143,7 +152,7 @@ class ExampleGeneratorSpherical:
         return r, theta, phi
 
 
-class EnsembleExampleGenerator:
+class EnsembleExampleGenerator(BaseGenerator):
     r"""
     An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
     :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
@@ -333,11 +342,11 @@ def solve_spherical(
         :param net: The neural network used to approximate the solution, defaults to None.
         :type net: `torch.nn.Module`, optional
         :param train_generator: The example generator to generate 3-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
+        :param valid_generator: The example generator to generate 3-D validation points, default to None.
+        :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
         :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
         :type shuffle: bool, optional
-        :param valid_generator: The example generator to generate 3-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
         :param analytic_solution: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to u
         :type analytic_solution: function
         :param optimizer: The optimization method to use for training, defaults to None.
@@ -395,10 +404,10 @@ def solve_spherical_system(
         :type r_max: float
         :param nets: The neural networks used to approximate the solution, defaults to None.
         :type nets: list[`torch.nn.Module`], optionalnerate 3-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde_spherical.E
-        :param train_generator: The example generator to gexampleGeneratorSpherical`, optional
+        :param train_generator: The example generator to generate 3-D training points, default to None.
+        :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
         :param valid_generator: The example generator to generate 3-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.pde_spherical.ExampleGeneratorSpherical`, optional
+        :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
         :param shuffle: deprecated and ignored; shuffling should be implemented in genrators
         :type shuffle: bool, optional
         :param analytic_solutions: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n]
