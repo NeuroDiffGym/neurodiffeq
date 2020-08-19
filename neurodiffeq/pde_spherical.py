@@ -328,7 +328,7 @@ def solve_spherical(
         optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
-    """Train a neural network to solve one PDE with spherical inputs in 3D space
+    """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve one PDE with spherical inputs in 3D space
 
         :param pde: The PDE to solve. If the PDE is :math:`F(u, r,\\theta, \\phi) = 0` where :math:`u` is the dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
@@ -369,6 +369,7 @@ def solve_spherical(
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
 
+    print("solve_spherical is deprecated, consider using SphericalSolver instead", file=sys.stderr)
     pde_sytem = lambda u, r, theta, phi: [pde(u, r, theta, phi)]
     conditions = [condition]
     nets = [net] if net is not None else None
@@ -391,9 +392,9 @@ def solve_spherical_system(
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000, monitor=None, return_internal=False, return_best=False
 ):
-    """Train a neural network to solve a PDE system with spherical inputs in 3D space
+    """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve a PDE system with spherical inputs in 3D space
 
-        :param pde_system: The PDEsystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, r,\\theta, \\phi) = 0` where :math:`u_i` is the i-th dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
+        :param pde_system: The PDEs ystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, r,\\theta, \\phi) = 0` where :math:`u_i` is the i-th dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
