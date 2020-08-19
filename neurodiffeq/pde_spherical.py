@@ -8,7 +8,6 @@ import pandas as pd
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from .spherical_harmonics import RealSphericalHarmonics
 
 from .networks import FCNN
@@ -874,14 +873,28 @@ class MonitorSpherical:
         return vparse(__version__) >= vparse('3.3.0')
 
     @staticmethod
-    def _tick_formatter_pi(value, count):
-        multiple = value / np.pi
-        if multiple == 0:
-            return '$0$'
-        elif multiple == 1:
-            return '$\pi$'
+    def _longitude_formatter(value, count):
+        value = int(value / np.pi * 180) - 180
+        if value == 0 or abs(value) == 180:
+            marker = ''
+        elif value > 0:
+            marker = 'E'
         else:
-            return f'${multiple}\pi$'
+            marker = 'W'
+
+        return f'{abs(value)} {marker}'
+
+    @staticmethod
+    def _latitude_formatter(value, count):
+        value = int(value / np.pi * 180) - 90
+        if value == 0:
+            marker = ''
+        elif value > 0:
+            marker = 'N'
+        else:
+            marker = 'S'
+
+        return f'{abs(value)} {marker}'
 
     def _compute_us(self, nets, conditions):
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
@@ -973,12 +986,12 @@ class MonitorSpherical:
                 theta = self.theta_label.reshape(*self.shape)[0, :, 0]
                 phi = self.phi_label.reshape(*self.shape)[0, 0, :]
                 cax = ax.contourf(phi, theta, u_across_r, cmap='magma')
-                ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 2))
-                ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
-                ax.xaxis.set_major_formatter(plt.FuncFormatter(self._tick_formatter_pi))
-                ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
-                ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 8))
-                ax.yaxis.set_major_formatter(plt.FuncFormatter(self._tick_formatter_pi))
+                ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
+                ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+                ax.xaxis.set_major_formatter(plt.FuncFormatter(self._longitude_formatter))
+                ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
+                ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+                ax.yaxis.set_major_formatter(plt.FuncFormatter(self._latitude_formatter))
                 ax.grid(which='major', linestyle='--', linewidth=0.5)
                 ax.grid(which='minor', linestyle=':', linewidth=0.5)
             else:
