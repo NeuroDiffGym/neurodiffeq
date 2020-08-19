@@ -463,7 +463,34 @@ def solve_spherical_system(
 
 
 class SphericalSolver:
-    def __init__(self, pde_system, conditions, r_min, r_max,
+    """A solver class for solving PDEs in spherical coordinates
+    
+    :param pde_system: the PDE system to solve; maps a tuple of three coordinates to a tuple of PDE residuals, both the coordinates and PDE residuals must have shape (-1, 1)
+    :type pde_system: callable
+    :param conditions: list of boundary conditions for each target function
+    :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
+    :param r_min: radius for inner boundary; ignored if train_generator and valid_generator are both set; r_min > 0; optional
+    :type r_min: float
+    :param r_max: radius for outer boundary; ignored if train_generator and valid_generator are both set; r_max > r_min; optional
+    :type r_max: float
+    :param nets: list of neural networks for parameterized solution; if provided, length must equal that of conditions; optional
+    :type nets: list[torch.nn.Module]
+    :param train_generator: generator for sampling training points, must provide a .get_examples() method and a .size field; optional
+    :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+    :param valid_generator: generator for sampling validation points, must provide a .get_examples() method and a .size field; optional
+    :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+    :param analytic_solutions: analytical solutions to be compared with neural net solutions; maps a tuple of three coordinates to a tuple of function values; output shape shoule match that of networks; optional
+    :type analytic_solutions: callable
+    :param optimizer: optimizer to be used for training; optional
+    :type optimizer: torch.nn.optim.Optimizer
+    :param criterion: function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss; optional
+    :type criterion: callable
+    :param batch_size: batch size to be used for training and validation; optional
+    :type batch_size: int
+    :param shuffle: deprecated; shuffling should be performed by generators
+    :type shuffle: bool
+    """
+
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, criterion=None, batch_size=16, shuffle=False):
@@ -492,6 +519,7 @@ class SphericalSolver:
             valid_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced')
 
         self.analytic_solutions = analytic_solutions
+
         if optimizer is None:
             all_params = []
             for n in self.nets:
