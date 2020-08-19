@@ -21,12 +21,12 @@ def _nn_output_spherical_input(net, rs, thetas, phis):
     return net(points)
 
 
-class BaseBVPSpherical:
+class BaseConditionSpherical:
     def enforce(self, net, r, theta, phi):
         raise NotImplementedError(f"Abstract {self.__class__.__name__} cannot be enforced")
 
 
-class NoConditionSpherical(BaseBVPSpherical):
+class NoConditionSpherical(BaseConditionSpherical):
     def __init__(self):
         pass
 
@@ -161,7 +161,7 @@ class EnsembleExampleGenerator:
         return [torch.cat(seg) for seg in segmented]
 
 
-class DirichletBVPSpherical(BaseBVPSpherical):
+class DirichletBVPSpherical(BaseConditionSpherical):
     """Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
         We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`
 
@@ -212,7 +212,7 @@ class DirichletBVPSpherical(BaseBVPSpherical):
                    (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
 
 
-class InfDirichletBVPSpherical(BaseBVPSpherical):
+class InfDirichletBVPSpherical(BaseConditionSpherical):
     """Similar to `DirichletBVPSpherical`; only difference is we are considering :math:`g(\\theta, \\phi)` as :math:`r_1 \\to \\infty`, so `r_1` doesn't need to be specified
         We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`\\lim_{r \\to \\infty} u(r, \\theta, \\phi) = g(\\theta, \\phi)`
 
@@ -263,7 +263,7 @@ class SolutionSpherical:
     :param nets: The neural networks that approximate the PDE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The conditions of the PDE (system).
-    :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`]
+    :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
     """
 
     def __init__(self, nets, conditions):
@@ -325,7 +325,7 @@ def solve_spherical(
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
         :type pde: function
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
-        :type condition: `neurodiffeq.pde_spherical.BaseBVPSpherical` or `neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`
+        :type condition: `neurodiffeq.pde_spherical.BaseConditionSpherical`
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
@@ -388,7 +388,7 @@ def solve_spherical_system(
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
-        :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`] or list[`neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`]
+        :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
         :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
         :type r_min: float
         :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
@@ -762,7 +762,7 @@ class MonitorSpherical:
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
         :param conditions: The initial/boundary condition of the PDE.
-        :type conditions: list [`neurodiffeq.pde_spherical.BaseBVPSpherical`]
+        :type conditions: list [`neurodiffeq.pde_spherical.BaseConditionSpherical`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
         :param analytic_mse_history: The history of training and validation MSE against analytic solution. The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
@@ -882,7 +882,7 @@ class MonitorSpherical:
         return self
 
 
-class BaseBVPSphericalHarmonics:
+class BaseConditionSphericalHarmonics(BaseConditionSpherical):
     """
     :param max_degree: highest degree for spherical harmonics
     :type max_degree: int
@@ -891,6 +891,7 @@ class BaseBVPSphericalHarmonics:
     def __init__(self, max_degree=4):
         self.max_degree = max_degree
 
+    # noinspection PyMethodOverriding
     def enforce(self, net, r):
         raise NotImplementedError(f'Abstract BVP {self.__class__.__name__} cannot be enforced')
 
@@ -900,12 +901,12 @@ def _coefficients_at_radius(net, r):
     return net(r)
 
 
-class NoConditionSphericalHarmonics(BaseBVPSphericalHarmonics):
+class NoConditionSphericalHarmonics(BaseConditionSphericalHarmonics):
     def enforce(self, net, r):
         return _coefficients_at_radius(net, r)
 
 
-class DirichletBVPSphericalHarmonics(BaseBVPSphericalHarmonics):
+class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
     """Similar to `DirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
         i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
         We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`R(r)\\bigg|_{r = r_1} = R_1`.
@@ -956,7 +957,7 @@ class DirichletBVPSphericalHarmonics(BaseBVPSphericalHarmonics):
         return ret
 
 
-class InfDirichletBVPSphericalHarmonics(BaseBVPSphericalHarmonics):
+class InfDirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
     """Similar to `InfDirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
         i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
         We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`\\lim_{r \\to \\infty} R(r) = R_\\infty`
@@ -1007,7 +1008,7 @@ class SolutionSphericalHarmonics(SolutionSpherical):
     :param nets: list of networks that takes in radius tensor and outputs the coefficients of spherical harmonics
     :type nets: list[`torch.nn.Module`]
     :param conditions: list of conditions to be enforced on each nets; must be of the same length as nets
-    :type conditions: list[BaseBVPSphericalHarmonics]
+    :type conditions: list[BaseConditionSphericalHarmonics]
     :param max_degree: max_degree for spherical harmonics; defaults to 4
     :type max_degree: int
     """
