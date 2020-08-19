@@ -12,7 +12,7 @@ import matplotlib.animation as animation
 from .spherical_harmonics import RealSphericalHarmonics
 
 from .networks import FCNN
-from .neurodiffeq import diff
+from inspect import signature
 from copy import deepcopy
 
 
@@ -509,8 +509,14 @@ class SphericalSolver:
         self.lowest_loss = None
 
     @staticmethod
-    def _enforce(net, cond, r, theta, phi):
-        return cond.enforce(net, r, theta, phi)
+    def _auto_enforce(net, cond, r, theta, phi):
+        n_params = len(signature(cond.enforce).parameters)
+        if n_params == 2:
+            return cond.enforce(net, r)
+        elif n_params == 4:
+            return cond.enforce(net, r, theta, phi)
+        else:
+            raise ValueError(f'unrecognized `condition.enforce` signature {signature(cond.enforce)}')
 
     def _update_history(self, value, type, key):
         if type == 'loss':
@@ -569,7 +575,7 @@ class SphericalSolver:
             r, theta, phi = self._generate_batch(key)
             n_samples = len(r)
             funcs = [
-                self._enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
+                self._auto_enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
             ]
 
             if self.analytic_solutions is not None:
