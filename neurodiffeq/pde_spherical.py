@@ -935,15 +935,13 @@ class MonitorSpherical:
         #         b) one ax for u-r curves grouped by theta
         #         c) one ax for u-theta-phi contour heat map
         #     2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
-        n_axs = len(nets) * 3 + 2
         n_row = len(nets) + 1
         n_col = 3
         if not self.fig:
-            self.fig = plt.figure(figsize=(20, 6 * n_row))
-            for i in range(n_axs):
-                self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
-            for i in range(len(nets)):
-                self.cbs.append(None)
+            self.fig = plt.figure(figsize=(24, 6 * n_row))
+            self.fig.tight_layout()
+            self.axs = self.fig.subplots(nrows=n_row, ncols=n_col, gridspec_kw={'width_ratios': [1, 1, 2]})
+            self.cbs = [None] * len(nets)
 
         us = self._compute_us(nets, conditions)
 
@@ -963,21 +961,21 @@ class MonitorSpherical:
             })
 
             # ax for u-r curve grouped by phi
-            ax = self.axs[3 * i]
+            ax = self.axs[i][0]
             ax.clear()
             sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
             ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
             ax.set_ylabel(var_name)
 
             # ax for u-r curve grouped by theta
-            ax = self.axs[3 * i + 1]
+            ax = self.axs[i][1]
             ax.clear()
             sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
             ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
             ax.set_ylabel(var_name)
 
             # u-theta-phi heatmap/contourf depending on matplotlib version
-            ax = self.axs[3 * i + 2]
+            ax = self.axs[i][2]
             ax.clear()
             ax.set_xlabel('$\\phi$')
             ax.set_ylabel('$\\theta$')
@@ -1005,24 +1003,26 @@ class MonitorSpherical:
                 self.cbs[i].remove()
             self.cbs[i] = self.fig.colorbar(cax, ax=ax)
 
-        self.axs[-2].clear()
-        self.axs[-2].set_title('MSE against analytic solution')
-        self.axs[-2].set_ylabel('MSE')
-        self.axs[-2].set_xlabel('epochs')
+        ax = self.axs[n_row - 1][0]
+        ax.clear()
+        ax.set_title('MSE against analytic solution')
+        ax.set_ylabel('MSE')
+        ax.set_xlabel('epochs')
         if analytic_mse_history:
-            self.axs[-2].plot(analytic_mse_history['train'], label='training')
-            self.axs[-2].plot(analytic_mse_history['valid'], label='validation')
-            self.axs[-2].set_yscale('log')
-            self.axs[-2].legend()
+            ax[-2].plot(analytic_mse_history['train'], label='training')
+            ax[-2].plot(analytic_mse_history['valid'], label='validation')
+            ax[-2].set_yscale('log')
+            ax[-2].legend()
 
-        self.axs[-1].clear()
-        self.axs[-1].plot(loss_history['train'], label='training loss')
-        self.axs[-1].plot(loss_history['valid'], label='validation loss')
-        self.axs[-1].set_title('loss during training')
-        self.axs[-1].set_ylabel('loss')
-        self.axs[-1].set_xlabel('epochs')
-        self.axs[-1].set_yscale('log')
-        self.axs[-1].legend()
+        ax = self.axs[n_row - 1][1]
+        ax.clear()
+        ax.plot(loss_history['train'], label='training loss')
+        ax.plot(loss_history['valid'], label='validation loss')
+        ax.set_title('loss during training')
+        ax.set_ylabel('loss')
+        ax.set_xlabel('epochs')
+        ax.set_yscale('log')
+        ax.legend()
 
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
