@@ -877,27 +877,25 @@ class MonitorSpherical:
 
     @staticmethod
     def _longitude_formatter(value, count):
-        value = int(value / np.pi * 180) - 180
+        value = int(round(value / np.pi * 180)) - 180
         if value == 0 or abs(value) == 180:
             marker = ''
         elif value > 0:
             marker = 'E'
         else:
             marker = 'W'
-
-        return f'{abs(value)} {marker}'
+        return f'{abs(value)}°{marker}'
 
     @staticmethod
     def _latitude_formatter(value, count):
-        value = int(value / np.pi * 180) - 90
+        value = int(round(value / np.pi * 180)) - 90
         if value == 0:
             marker = ''
         elif value > 0:
             marker = 'N'
         else:
             marker = 'S'
-
-        return f'{abs(value)} {marker}'
+        return f'{abs(value)}°{marker}'
 
     def _compute_us(self, nets, conditions):
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
