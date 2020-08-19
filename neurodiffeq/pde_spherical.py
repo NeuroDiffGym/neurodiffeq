@@ -582,36 +582,37 @@ class SphericalSolver:
         """
         n_params = len(signature(cond.enforce).parameters)
         if n_params == 2:
+            # noinspection PyArgumentList
             return cond.enforce(net, r)
         elif n_params == 4:
             return cond.enforce(net, r, theta, phi)
         else:
             raise ValueError(f'unrecognized `condition.enforce` signature {signature(cond.enforce)}')
 
-    def _update_history(self, value, type, key):
+    def _update_history(self, value, metric_type, key):
         """append a value to corresponding history list
 
         :param value: value to be appended
         :type value: float
-        :param type: {'loss', 'analytic_mse'}; type of history metrics
-        :type value: str
+        :param metric_type: {'loss', 'analytic_mse'}; type of history metrics
+        :type metric_type: str
         :param key: {'train', 'valid'}; dict key in self.loss / self.analytic_mse
         :type key: str
         """
-        if type == 'loss':
+        if metric_type == 'loss':
             self.loss[key].append(value)
-        elif type == 'analytic_mse':
+        elif metric_type == 'analytic_mse':
             self.analytic_mse[key].append(value)
         else:
-            raise KeyError(f'history type = {type} not understood')
+            raise KeyError(f'history type = {metric_type} not understood')
 
-    def _update_train_history(self, value, type):
+    def _update_train_history(self, value, metric_type):
         """append a value to corresponding training history list"""
-        self._update_history(value, type, key='train')
+        self._update_history(value, metric_type, key='train')
 
-    def _update_valid_history(self, value, type):
+    def _update_valid_history(self, value, metric_type):
         """append a value to corresponding validation history list"""
-        self._update_history(value, type, key='valid')
+        self._update_history(value, metric_type, key='valid')
 
     def _reset_batch_start(self, key):
         """reset starting index of current batch to 0
