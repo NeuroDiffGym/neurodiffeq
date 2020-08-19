@@ -688,7 +688,7 @@ class SphericalSolver:
             if self.analytic_solutions is not None:
                 funcs_true = self.analytic_solutions(r, theta, phi)
                 for f_pred, f_true in zip(funcs, funcs_true):
-                    epoch_analytic_mse += ((f_pred - f_true) ** 2).sum().item()
+                    epoch_analytic_mse += ((f_pred - f_true) ** 2).mean().item()
 
             residuals = self.pdes(*funcs, r, theta, phi)
             residuals = torch.stack(residuals)
