@@ -323,7 +323,7 @@ class SolutionSpherical:
 
 
 def solve_spherical(
-        pde, condition, r_min, r_max,
+        pde, condition, r_min=None, r_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solution=None,
         optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
@@ -335,9 +335,9 @@ def solve_spherical(
         :type pde: function
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
         :type condition: `neurodiffeq.pde_spherical.BaseConditionSpherical`
-        :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
+        :param r_min: radius for inner boundary; ignored if both generators are provided; optional
         :type r_min: float
-        :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
+        :param r_max: radius for outer boundary; ignored if both generators are provided; optional
         :type r_max: float
         :param net: The neural network used to approximate the solution, defaults to None.
         :type net: `torch.nn.Module`, optional
@@ -386,7 +386,7 @@ def solve_spherical(
 
 
 def solve_spherical_system(
-        pde_system, conditions, r_min, r_max,
+        pde_system, conditions, r_min=None, r_max=None,
         nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
         optimizer=None, criterion=None, batch_size=16,
         max_epochs=1000, monitor=None, return_internal=False, return_best=False
@@ -398,9 +398,9 @@ def solve_spherical_system(
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
         :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
-        :param r_min: The lower bound of radius, if we only care about :math:`r \\geq r_0` , then `r_min` is `r_0`.
+        :param r_min: radius for inner boundary; ignored if both generators are provided; optional
         :type r_min: float
-        :param r_max: The upper bound of radius, if we only care about :math:`r \\leq r_1` , then `r_max` is `r_1`.
+        :param r_max: radius for outer boundary; ignored if both generators are provided; optional
         :type r_max: float
         :param nets: The neural networks used to approximate the solution, defaults to None.
         :type nets: list[`torch.nn.Module`], optionalnerate 3-D training points, default to None.
@@ -463,6 +463,7 @@ def solve_spherical_system(
 
 class SphericalSolver:
     def __init__(self, pde_system, conditions, r_min, r_max,
+    def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, criterion=None, batch_size=16, shuffle=False):
 
