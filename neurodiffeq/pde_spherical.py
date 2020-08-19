@@ -1073,38 +1073,3 @@ class MonitorSphericalHarmonics(MonitorSpherical):
             u = torch.sum(products, dim=1, keepdim=True).detach().cpu().numpy()
             us.append(u)
         return us
-
-
-def _auto_enforce(cond, net, r, theta, phi):
-    """
-    This function automatically decides to return either of the two
-        1. cond.enforce(net, r, theta, phi) for BaseBVPSpherical
-        1. cond.enforce(net, r) for BaseBVPSphericalHarmonics
-    """
-    if isinstance(cond, BaseBVPSpherical):
-        return cond.enforce(net, r, theta, phi)
-    elif isinstance(cond, BaseBVPSphericalHarmonics):
-        return cond.enforce(net, r)
-    else:
-        return cond.enforce(net, r)
-        # raise TypeError(f'{cond} of class {cond.__class__.__name__} cannot be enforced')
-
-
-def get_solution(nets, conditions):
-    """
-    automatically choose between SolutionSpherical and SolutionSphericalHarmonics based on class of conditions
-    :param nets: list of networks that either return the output or coefficients of spherical harmonics
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: list of conditions that are compatible with the output of networks
-    :type conditions: list[`neurodiffeq.pde_spherical.BaseBVPSpherical`] or list[`neurodiffeq.pde_spherical.BaseBVPSphericalHarmonics`]
-    :return: appropriate solution class with `nets` and `conditions`
-    :rtype: `neurodiffeq.pde_spherical.SolutionSpherical`
-    """
-    if isinstance(conditions[0], BaseBVPSpherical):
-        return SolutionSpherical(nets, conditions)
-    elif isinstance(conditions[0], BaseBVPSphericalHarmonics):
-        max_degree = conditions[0].max_degree
-        return SolutionSphericalHarmonics(nets, conditions, max_degree=max_degree)
-    else:
-        max_degree = conditions[0].max_degree
-        return SolutionCylindricalFourier(nets, conditions, max_degree=max_degree)
