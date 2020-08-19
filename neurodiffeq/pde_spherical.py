@@ -545,16 +545,41 @@ class SphericalSolver:
             return {'train': train, 'valid': valid}
 
         self.generator = make_pair_dict(train=train_generator, valid=valid_generator)
+        # loss history
         self.loss = make_pair_dict(train=[], valid=[])
+        # analytic MSE history
         self.analytic_mse = make_pair_dict(train=[], valid=[])
+        # starting index of the next batch, should only be modified through self._update_batch_start()
         self._batch_start = make_pair_dict(train=0, valid=0)
+        # samples generated for the current epoch, should be resampled every epoch with self._resample()
         self._examples = make_pair_dict()
+        # current batch of samples, kept for additional loss terms in future
         self._batch_examples = make_pair_dict()
+        # current network with lowest loss
         self.best_nets = None
+        # current lowest loss
         self.lowest_loss = None
 
     @staticmethod
     def _auto_enforce(net, cond, r, theta, phi):
+        """automatically enforce condition on network with dynamic number of inputs
+        if `cond.enforce()` takes two arguments, pass `net` and `r`
+        if `cond.enforce()` takes four arguments, pass `net`, `r`, `theta`, and `phi`
+        otherwise, raise a ValueError
+
+        :param net: network for parameterized solution
+        :type net: torch.nn.Module
+        :param cond: condition (a.k.a. parameterization) for the network
+        :type cond: `neurodiffeq.pde_spherical.BaseConditionSpherical`
+        :param r: a vector of :math:`r`, shape = (-1, 1)
+        :type r: torch.Tensor
+        :param theta: a vector of :math:`\\theta`, shape = (-1, 1)
+        :type theta: torch.Tensor
+        :param phi: a vector of :math:`\\phi`, shape = (-1, 1)
+        :type phi: torch.Tensor
+        :return: function values at sampled points
+        :rtype: torch.Tensor
+        """
         n_params = len(signature(cond.enforce).parameters)
         if n_params == 2:
             return cond.enforce(net, r)
@@ -564,6 +589,15 @@ class SphericalSolver:
             raise ValueError(f'unrecognized `condition.enforce` signature {signature(cond.enforce)}')
 
     def _update_history(self, value, type, key):
+        """append a value to corresponding history list
+
+        :param value: value to be appended
+        :type value: float
+        :param type: {'loss', 'analytic_mse'}; type of history metrics
+        :type value: str
+        :param key: {'train', 'valid'}; dict key in self.loss / self.analytic_mse
+        :type key: str
+        """
         if type == 'loss':
             self.loss[key].append(value)
         elif type == 'analytic_mse':
@@ -572,52 +606,80 @@ class SphericalSolver:
             raise KeyError(f'history type = {type} not understood')
 
     def _update_train_history(self, value, type):
+        """append a value to corresponding training history list"""
         self._update_history(value, type, key='train')
 
     def _update_valid_history(self, value, type):
+        """append a value to corresponding validation history list"""
         self._update_history(value, type, key='valid')
 
     def _reset_batch_start(self, key):
+        """reset starting index of current batch to 0
+
+        :param key: {'train', 'valid'}; dict key in self._batch_start
+        :type key: str
+        """
         self._batch_start[key] = 0
 
     def _reset_train_batch_start(self):
+        """reset starting index of current training batch to 0"""
         self._reset_batch_start(key='train')
 
     def _reset_valid_batch_start(self):
+        """reset starting index of current validation batch to 0"""
         self._reset_batch_start(key='valid')
 
     def _resample(self, key):
+        """resample points for the current epoch, and register in self._examples
+
+        :param key: {'train', 'valid'}; dict key in self._examples / self.generator
+        :type key: str
+        """
         self._examples[key] = [var.reshape(-1, 1) for var in self.generator[key].get_examples()]
 
     def _resample_train(self):
+        """resample training points for the current epoch, and register in self._examples"""
         self._resample('train')
 
     def _resample_valid(self):
+        """resample validation points for the current epoch, and register in self_examples"""
         self._resample('valid')
 
     def _generate_batch(self, key):
+        """generate the next batch, register in self._batch_examples and return the batch
+
+        :param key: {'train', 'valid'}; dict key in self._examples / self._batch_examples / self._batch_start
+        :type key: str
+        """
         old_start = self._batch_start[key]
         new_start = min(old_start + self.batch_size, self.generator[key].size)
         self._batch_start[key] = new_start
-        # the following side effect are helpful for future extension
+        # the following side effects are helpful for future extension,
         # especially for additional loss term that depends on the coordinates
         self._batch_examples[key] = [var[old_start: new_start] for var in self._examples[key]]
         return self._batch_examples[key]
 
     def _generate_train_batch(self):
+        """generate the next training batch, register in self._batch_examples and return"""
         return self._generate_batch('train')
 
     def _generate_valid_batch(self):
+        """generate the next validation batch, register in self._batch_examples and return"""
         return self._generate_batch('valid')
 
     def _run_epoch(self, key):
-        # this method doesn't resample points, which shall be handled in the `fit` call
+        """run an epoch on train/valid points, update history, and perform gradient descent if key=='train'
+        this method doesn't resample points, which shall be handled in the `.fit()` call
 
+        :param key: {'train', 'valid'}; phase of the epoch
+        :type key: str
+        """
         # perform forward pass for all batches
         epoch_loss = 0
         epoch_analytic_mse = 0
         while self._batch_start[key] < self.generator[key].size:
             r, theta, phi = self._generate_batch(key)
+            # n_samples is not necessarily self.batch_size when batch size doesn't divide generator size
             n_samples = len(r)
             funcs = [
                 self._auto_enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
@@ -633,35 +695,45 @@ class SphericalSolver:
             loss = self.criterion(residuals)
             epoch_loss += loss.item() * n_samples
 
-            # perform gradient descent when training
+            # perform optimization step when training
             if key == 'train':
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-        # calculate loss sum of all batches and register to history
+        # calculate mean loss of all batches and register to history
         epoch_loss /= self.generator[key].size
         self._update_history(epoch_loss, 'loss', key)
 
+        # calculate mean analytic mse of all batches and register to history
         if self.analytic_solutions is not None:
             epoch_analytic_mse /= self.generator[key].size
             epoch_analytic_mse /= self.n_funcs
             self._update_history(epoch_analytic_mse, 'analytic_mse', key)
 
     def run_train_epoch(self):
+        """run a training epoch, update history, and perform gradient descent"""
         self._run_epoch('train')
 
     def run_valid_epoch(self):
+        """run a validation epoch and update history"""
         self._run_epoch('valid')
 
     def _update_best(self):
+        """update self.lowest_loss and self.best_nets if current validation loss is lower than self.lowest_loss"""
         current_loss = self.loss['valid'][-1]
         if (self.lowest_loss is None) or current_loss < self.lowest_loss:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
     def fit(self, max_epochs, monitor=None):
-        # do not return solution, which should be done in another method that can be inherited and overwritten
+        """run multiple epochs of training and validation, update best loss at the end of each epoch;
+        this method does not return solution, which is done in the `.get_solution` method
+        :param max_epochs: number of epochs to run
+        :type max_epochs: int
+        :param monitor: monitor for visualizing solution and metrics
+        :rtype monitor: `neurodiffeq.pde_spherical.MonitorSpherical`
+        """
         for epoch in range(max_epochs):
             self._resample_train()
             self._resample_valid()
@@ -681,6 +753,14 @@ class SphericalSolver:
                     )
 
     def get_solution(self, copy=True, best=True):
+        """return a solution class
+        :param copy: if True, use a deep copy of internal nets and conditions
+        :type copy: bool
+        :param best: if True, return the solution with lowest loss instead of the solution after the last epoch
+        :type best: bool
+        :return: trained solution
+        :rtype: `neurodiffeq.pde_spherical.SolutionSpherical`
+        """
         nets = self.best_nets if best else self.nets
         conditions = self.conditions
         if copy:
@@ -690,6 +770,19 @@ class SphericalSolver:
         return SolutionSpherical(nets, conditions)
 
     def get_internals(self, param_names, return_type='list'):
+        """return internal variable(s) of the solver
+        if param_names == 'all', return all internal variables as a dict;
+        if param_names is single str, return the corresponding variables
+        if param_names is a list and return_type == 'list', return corresponding internal variables as a list
+        if param_names is a list and return_type == 'dict', return a dict with keys in param_names
+
+        :param param_names: a parameter name or a list of parameter names
+        :type param_names: str or list[str]
+        :param return_type: {'list', 'dict'}; ignored if `param_names` is a str
+        :type return_type: str
+        :return: a single parameter, or a list/dict of parameters as indicated above
+        :rtype: list or dict or any
+        """
         # get internals according to provided param_names
         available_params = {
             "analytic_mse": self.analytic_mse,
