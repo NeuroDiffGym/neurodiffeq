@@ -499,6 +499,12 @@ class SphericalSolver:
             print("param `shuffle` is deprecated and ignored; shuffling should be performed by generators",
                   file=sys.stderr)
 
+        if train_generator is None or valid_generator is None:
+            if r_min is None or r_max is None:
+                raise ValueError(f"Either generator is not provided, r_min and r_max should be both provided: "
+                                 f"got r_min={r_min}, r_max={r_max}, train_generator={train_generator}, "
+                                 f"valid_generator={valid_generator}")
+
         self.pdes = pde_system
         self.conditions = conditions
         self.n_funcs = len(conditions)
