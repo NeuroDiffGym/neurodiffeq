@@ -15,8 +15,12 @@ def diff(x, t, order=1):
     :rtype: `torch.tensor`
     """
     ones = torch.ones_like(x)
-    der, = autograd.grad(x, t, create_graph=True, grad_outputs=ones)
+    der, = autograd.grad(x, t, create_graph=True, grad_outputs=ones, allow_unused=True)
+    if der is None:
+        return torch.zeros_like(t).requires_grad_(True)
     for i in range(1, order):
         ones = torch.ones_like(der)
-        der, = autograd.grad(der, t, create_graph=True, grad_outputs=ones)
+        der, = autograd.grad(der, t, create_graph=True, grad_outputs=ones, allow_unused=True)
+        if der is None:
+            return torch.zeros_like(t).requires_grad_(True)
     return der
