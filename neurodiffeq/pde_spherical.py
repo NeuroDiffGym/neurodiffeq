@@ -1035,14 +1035,9 @@ class BaseConditionSphericalHarmonics(BaseConditionSpherical):
         raise NotImplementedError(f'Abstract BVP {self.__class__.__name__} cannot be enforced')
 
 
-def _coefficients_at_radius(net, r):
-    # return net(torch.stack([r], dim=1))
-    return net(r)
-
-
 class NoConditionSphericalHarmonics(BaseConditionSphericalHarmonics):
     def enforce(self, net, r):
-        return _coefficients_at_radius(net, r)
+        return net(r)
 
 
 class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
@@ -1085,7 +1080,7 @@ class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
         .. note::
             `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
         """
-        R_raw = _coefficients_at_radius(net, r)
+        R_raw = net(r)
         if self.r_1 is None:
             # noinspection PyTypeChecker
             ret = (1 - torch.exp(-r + self.r_0)) * R_raw + self.R_0
@@ -1133,7 +1128,7 @@ class InfDirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
         .. note::
             `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
         """
-        R_raw = _coefficients_at_radius(net, r)
+        R_raw = net(r)
         dr = r - self.r_0
         return self.R_0 * torch.exp(-self.order * dr) + \
                self.R_inf * torch.tanh(dr) + \
