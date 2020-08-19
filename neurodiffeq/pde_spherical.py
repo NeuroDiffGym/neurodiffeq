@@ -958,50 +958,71 @@ class MonitorSpherical:
                 'u': u.reshape(-1),
             })
 
-            # ax for u-r curve grouped by phi
+            # u-r curve grouped by phi
             ax = self.axs[i][0]
-            ax.clear()
-            sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
-            ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
-            ax.set_ylabel(var_name)
+            self._update_r_plot_grouped_by_phi(var_name, ax, df)
 
-            # ax for u-r curve grouped by theta
+            # u-r curve grouped by theta
             ax = self.axs[i][1]
-            ax.clear()
-            sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
-            ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
-            ax.set_ylabel(var_name)
+            self._update_r_plot_grouped_by_theta(var_name, ax, df)
 
             # u-theta-phi heatmap/contourf depending on matplotlib version
             ax = self.axs[i][2]
-            ax.clear()
-            ax.set_xlabel('$\\phi$')
-            ax.set_ylabel('$\\theta$')
-
-            ax.set_title(f'{var_name} averaged across $r$')
-            if self.contour_plot_available:
-                # matplotlib has problems plotting repeatedly `contourf` until version 3.3
-                # see https://github.com/matplotlib/matplotlib/issues/15986
-                theta = self.theta_label.reshape(*self.shape)[0, :, 0]
-                phi = self.phi_label.reshape(*self.shape)[0, 0, :]
-                cax = ax.contourf(phi, theta, u_across_r, cmap='magma')
-                ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
-                ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
-                ax.xaxis.set_major_formatter(plt.FuncFormatter(self._longitude_formatter))
-                ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
-                ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
-                ax.yaxis.set_major_formatter(plt.FuncFormatter(self._latitude_formatter))
-                ax.grid(which='major', linestyle='--', linewidth=0.5)
-                ax.grid(which='minor', linestyle=':', linewidth=0.5)
-            else:
-                # use matshow() to plot a heatmap instead
-                cax = ax.matshow(u_across_r, cmap='magma', interpolation='nearest')
-
-            if self.cbs[i]:
-                self.cbs[i].remove()
-            self.cbs[i] = self.fig.colorbar(cax, ax=ax)
+            self._update_contourf(var_name, ax, u_across_r, colorbar_index=i)
 
         ax = self.axs[n_row - 1][0]
+        self._update_analytic_mse(ax, analytic_mse_history)
+
+        ax = self.axs[n_row - 1][1]
+        self._update_loss_history(ax, loss_history)
+
+        self.fig.canvas.draw()
+        # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
+        # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
+
+    def _update_r_plot_grouped_by_phi(self, var_name, ax, df):
+        ax.clear()
+        sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
+        ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
+        ax.set_ylabel(var_name)
+
+    def _update_r_plot_grouped_by_theta(self, var_name, ax, df):
+        ax.clear()
+        sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
+        ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
+        ax.set_ylabel(var_name)
+
+    def _update_contourf(self, var_name, ax, u, colorbar_index):
+        ax.clear()
+        ax.set_xlabel('$\\phi$')
+        ax.set_ylabel('$\\theta$')
+
+        ax.set_title(f'{var_name} averaged across $r$')
+        if self.contour_plot_available:
+            # matplotlib has problems plotting repeatedly `contourf` until version 3.3
+            # see https://github.com/matplotlib/matplotlib/issues/15986
+            theta = self.theta_label.reshape(*self.shape)[0, :, 0]
+            phi = self.phi_label.reshape(*self.shape)[0, 0, :]
+            cax = ax.contourf(phi, theta, u, cmap='magma')
+            ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
+            ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+            ax.xaxis.set_major_formatter(plt.FuncFormatter(self._longitude_formatter))
+            ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
+            ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(self._latitude_formatter))
+            ax.grid(which='major', linestyle='--', linewidth=0.5)
+            ax.grid(which='minor', linestyle=':', linewidth=0.5)
+        else:
+            # use matshow() to plot a heatmap instead
+            cax = ax.matshow(u, cmap='magma', interpolation='nearest')
+
+        if self.cbs[colorbar_index]:
+            self.cbs[colorbar_index].remove()
+        self.cbs[colorbar_index] = self.fig.colorbar(cax, ax=ax)
+
+    def _update_analytic_mse(self, ax, analytic_mse_history):
         ax.clear()
         ax.set_title('MSE against analytic solution')
         ax.set_ylabel('MSE')
@@ -1012,7 +1033,7 @@ class MonitorSpherical:
             ax[-2].set_yscale('log')
             ax[-2].legend()
 
-        ax = self.axs[n_row - 1][1]
+    def _update_loss_history(self, ax, loss_history):
         ax.clear()
         ax.plot(loss_history['train'], label='training loss')
         ax.plot(loss_history['valid'], label='validation loss')
@@ -1021,12 +1042,6 @@ class MonitorSpherical:
         ax.set_xlabel('epochs')
         ax.set_yscale('log')
         ax.legend()
-
-        self.fig.canvas.draw()
-        # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
-        # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
-        if not self.using_non_gui_backend:
-            plt.pause(0.05)
 
     def new(self):
         self.fig = None
