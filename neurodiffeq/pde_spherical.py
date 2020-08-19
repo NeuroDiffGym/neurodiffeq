@@ -842,6 +842,8 @@ class MonitorSpherical:
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
+        self.ax_analytic = None
+        self.ax_loss = None
         self.cbs = []  # color bars
         self.names = var_names
         self.shape = shape
@@ -939,7 +941,14 @@ class MonitorSpherical:
             self.fig = plt.figure(figsize=(24, 6 * n_row))
             self.fig.tight_layout()
             self.axs = self.fig.subplots(nrows=n_row, ncols=n_col, gridspec_kw={'width_ratios': [1, 1, 2]})
+            for ax in self.axs[n_row - 1]:
+                ax.remove()
             self.cbs = [None] * len(nets)
+            if analytic_mse_history is not None:
+                self.ax_analytic = self.fig.add_subplot(n_row, 2, n_row * 2 - 1)
+                self.ax_loss = self.fig.add_subplot(n_row, 2, n_row * 2)
+            else:
+                self.ax_loss = self.fig.add_subplot(n_row, 1, n_row)
 
         us = self._compute_us(nets, conditions)
 
@@ -970,11 +979,12 @@ class MonitorSpherical:
             ax = self.axs[i][2]
             self._update_contourf(var_name, ax, u_across_r, colorbar_index=i)
 
-        ax = self.axs[n_row - 1][0]
-        self._update_analytic_mse(ax, analytic_mse_history)
-
-        ax = self.axs[n_row - 1][1]
-        self._update_loss_history(ax, loss_history)
+        if analytic_mse_history is not None:
+            self._update_history(self.ax_analytic, analytic_mse_history, y_label='MSE',
+                                 title='MSE against analytic solution')
+            self._update_history(self.ax_loss, loss_history, y_label='Loss', title='Loss')
+        else:
+            self._update_history(self.ax_loss, loss_history)
 
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
@@ -982,13 +992,15 @@ class MonitorSpherical:
         if not self.using_non_gui_backend:
             plt.pause(0.05)
 
-    def _update_r_plot_grouped_by_phi(self, var_name, ax, df):
+    @staticmethod
+    def _update_r_plot_grouped_by_phi(var_name, ax, df):
         ax.clear()
         sns.lineplot(x='$r$', y='u', hue='$\\phi$', data=df, ax=ax)
         ax.set_title(f'{var_name}($r$) grouped by $\\phi$')
         ax.set_ylabel(var_name)
 
-    def _update_r_plot_grouped_by_theta(self, var_name, ax, df):
+    @staticmethod
+    def _update_r_plot_grouped_by_theta(var_name, ax, df):
         ax.clear()
         sns.lineplot(x='$r$', y='u', hue='$\\theta$', data=df, ax=ax)
         ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
@@ -1022,24 +1034,14 @@ class MonitorSpherical:
             self.cbs[colorbar_index].remove()
         self.cbs[colorbar_index] = self.fig.colorbar(cax, ax=ax)
 
-    def _update_analytic_mse(self, ax, analytic_mse_history):
+    @staticmethod
+    def _update_history(ax, history, x_label='Epochs', y_label=None, title=None):
         ax.clear()
-        ax.set_title('MSE against analytic solution')
-        ax.set_ylabel('MSE')
-        ax.set_xlabel('epochs')
-        if analytic_mse_history:
-            ax[-2].plot(analytic_mse_history['train'], label='training')
-            ax[-2].plot(analytic_mse_history['valid'], label='validation')
-            ax[-2].set_yscale('log')
-            ax[-2].legend()
-
-    def _update_loss_history(self, ax, loss_history):
-        ax.clear()
-        ax.plot(loss_history['train'], label='training loss')
-        ax.plot(loss_history['valid'], label='validation loss')
-        ax.set_title('loss during training')
-        ax.set_ylabel('loss')
-        ax.set_xlabel('epochs')
+        ax.set_title(title)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.plot(history['train'], label='train')
+        ax.plot(history['valid'], label='valid')
         ax.set_yscale('log')
         ax.legend()
 
@@ -1047,6 +1049,8 @@ class MonitorSpherical:
         self.fig = None
         self.axs = []
         self.cbs = []
+        self.ax_analytic = None
+        self.ax_loss = None
         return self
 
 
