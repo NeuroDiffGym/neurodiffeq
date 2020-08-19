@@ -835,6 +835,9 @@ class MonitorSpherical:
         """Initializer method
         """
         self.contour_plot_available = self._matplotlib_version_satisfies()
+        if not self.contour_plot_available:
+            print("Warning: contourf plot only available for matplotlib version >= v3.3.0"
+                  "switching to matshow instead", file=sys.stderr)
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = None
