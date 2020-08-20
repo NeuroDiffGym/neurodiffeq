@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from .spherical_harmonics import RealSphericalHarmonics
 
 from .networks import FCNN
+from .version_utils import warn_deprecate_class
 from inspect import signature
 from copy import deepcopy
 
@@ -42,7 +43,7 @@ class BaseGenerator:
         raise NotImplementedError(f"method of abstract class {self.__class__.__name__} cannot be called")
 
 
-class ExampleGenerator3D(BaseGenerator):
+class Generator3D(BaseGenerator):
     """An example generator for generating 3-D training points. NOT TO BE CONFUSED with `ExampleGeneratorSpherical`
         :param grid: The discretization of the 3 dimensions, if we want to generate points on a :math:`m \\times n \\times k` grid, then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
         :type grid: tuple[int, int, int], optional
@@ -55,6 +56,7 @@ class ExampleGenerator3D(BaseGenerator):
         :raises ValueError: When provided with an unknown method.
     """
 
+    # noinspection PyMissingConstructor
     def __init__(self, grid=(10, 10, 10), xyz_min=(0.0, 0.0, 0.0), xyz_max=(1.0, 1.0, 1.0),
                  method='equally-spaced-noisy'):
         r"""Initializer method
@@ -92,7 +94,11 @@ class ExampleGenerator3D(BaseGenerator):
             raise ValueError(f'Unknown method: {method}')
 
 
-class ExampleGeneratorSpherical(BaseGenerator):
+# the name ExampleGenerator3D is deprecated
+ExampleGenerator3D = warn_deprecate_class(Generator3D)
+
+
+class GeneratorSpherical(BaseGenerator):
     """An example generator for generating points in spherical coordinates. NOT TO BE CONFUSED with `ExampleGenerator3D`
     :param size: number of points in 3-D sphere
     :type size: int
@@ -104,6 +110,7 @@ class ExampleGeneratorSpherical(BaseGenerator):
     :type method: str, optional
     """
 
+    # noinspection PyMissingConstructor
     def __init__(self, size, r_min=0., r_max=1., method='equally-spaced-noisy'):
         if r_min < 0 or r_max < r_min:
             raise ValueError(f"Illegal range [f{r_min}, {r_max}]")
@@ -151,12 +158,17 @@ class ExampleGeneratorSpherical(BaseGenerator):
         return r, theta, phi
 
 
-class EnsembleExampleGenerator(BaseGenerator):
+# the name ExampleGeneratorSpherical is deprecated
+ExampleGeneratorSpherical = warn_deprecate_class(GeneratorSpherical)
+
+
+class EnsembleGenerator(BaseGenerator):
     r"""
     An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
     :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
     """
 
+    # noinspection PyMissingConstructor
     def __init__(self, *generators):
         self.generators = generators
         self.size = sum(gen.size for gen in generators)
@@ -167,6 +179,10 @@ class EnsembleExampleGenerator(BaseGenerator):
         # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
         segmented = zip(*all_examples)
         return [torch.cat(seg) for seg in segmented]
+
+
+# the name ExampleGeneratorSpherical is deprecated
+EnsembleExampleGenerator = warn_deprecate_class(EnsembleGenerator)
 
 
 class DirichletBVPSpherical(BaseConditionSpherical):
@@ -352,7 +368,7 @@ def solve_spherical(
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
         :type criterion: `torch.nn.modules.loss._Loss`, optional
-        :param batch_size: The shape of the mini-batch to use, defaults to 16.
+        :param batch_size: The size of the mini-batch to use, defaults to 16.
         :type batch_size: int, optional
         :param max_epochs: The maximum number of epochs to train, defaults to 1000.
         :type max_epochs: int, optional
@@ -416,7 +432,7 @@ def solve_spherical_system(
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
         :type criterion: `torch.nn.modules.loss._Loss`, optional
-        :param batch_size: The shape of the mini-batch to use, defaults to 16.
+        :param batch_size: The size of the mini-batch to use, defaults to 16.
         :type batch_size: int, optional
         :param max_epochs: The maximum number of epochs to train, defaults to 1000.
         :type max_epochs: int, optional
@@ -431,7 +447,6 @@ def solve_spherical_system(
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
-    # default values
     print("solve_spherical_system is deprecated, consider using SphericalSolver instead", file=sys.stderr)
 
     solver = SphericalSolver(
@@ -518,10 +533,10 @@ class SphericalSolver:
             self.nets = nets
 
         if train_generator is None:
-            train_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
+            train_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
 
         if valid_generator is None:
-            valid_generator = ExampleGeneratorSpherical(512, r_min, r_max, method='equally-spaced')
+            valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced')
 
         self.analytic_solutions = analytic_solutions
 
@@ -875,7 +890,7 @@ class MonitorSpherical:
         if r_scale == 'log':
             r_min, r_max = np.log(r_min), np.log(r_max)
 
-        gen = ExampleGenerator3D(
+        gen = Generator3D(
             grid=shape,
             xyz_min=(r_min, 0., 0.),
             xyz_max=(r_max, np.pi, 2 * np.pi),
