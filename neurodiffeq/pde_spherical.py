@@ -573,6 +573,8 @@ class SphericalSolver:
         self.best_nets = None
         # current lowest loss
         self.lowest_loss = None
+        # local epoch in a `.fit` call, should only be modified inside self.fit()
+        self.local_epoch = 0
 
     @property
     def global_epoch(self):
@@ -751,15 +753,20 @@ class SphericalSolver:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, monitor=None):
-        """run multiple epochs of training and validation, update best loss at the end of each epoch;
-        this method does not return solution, which is done in the `.get_solution` method
+    def fit(self, max_epochs, monitor=None, callbacks=None):
+        """Run multiple epochs of training and validation, update best loss at the end of each epoch.
+        This method does not return solution, which is done in the `.get_solution` method.
+        If `callbacks` is passed, callbacks are run one at a time, after training, validating, updaing best model and before monitor checking
         :param max_epochs: number of epochs to run
         :type max_epochs: int
         :param monitor: monitor for visualizing solution and metrics
         :rtype monitor: `neurodiffeq.pde_spherical.MonitorSpherical`
+        :param callbacks: a list of callback functions, each accepting the solver instance itself as its only argument
+        :rtype callbacks: list[callable]
         """
-        for epoch in range(max_epochs):
+        for local_epoch in range(max_epochs):
+            # register local epoch so it can be accessed by callbacks
+            self.local_epoch = local_epoch
             self._resample_train()
             self._resample_valid()
             self._reset_train_batch_start()
@@ -768,8 +775,12 @@ class SphericalSolver:
             self.run_valid_epoch()
             self._update_best()
 
+            if callbacks:
+                for cb in callbacks:
+                    cb(self)
+
             if monitor:
-                if (epoch + 1) % monitor.check_every == 0 or epoch == max_epochs - 1:
+                if (local_epoch + 1) % monitor.check_every == 0 or local_epoch == max_epochs - 1:
                     monitor.check(
                         self.nets,
                         self.conditions,
