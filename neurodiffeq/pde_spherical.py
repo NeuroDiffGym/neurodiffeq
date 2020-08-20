@@ -693,6 +693,8 @@ class SphericalSolver:
             residuals = self.pdes(*funcs, r, theta, phi)
             residuals = torch.stack(residuals)
             loss = self.criterion(residuals)
+            # add additional loss term to total loss
+            loss += self.additional_loss(funcs, key)
             epoch_loss += loss.item() * n_samples
 
             # perform optimization step when training
@@ -812,6 +814,18 @@ class SphericalSolver:
             return {name: available_params[name] for name in param_names}
         else:
             raise ValueError(f"unrecognized return_type = {return_type}")
+
+    def additional_loss(self, funcs, key):
+        """return additional loss; this method is to be overridden by subclasses
+        This method can use any of the internal variables: the current batch, the nets, the conditions, etc.
+        :param funcs: outputs of the networks after enforced by conditions
+        :type funcs: list[torch.Tensor]
+        :param key: {'train', 'valid'}; phase of the epoch; used to access the sample batch, etc.
+        :type key: str
+        :return: additional scalar loss
+        :rtype: torch.Tensor
+        """
+        return 0.0
 
 
 class MonitorSpherical:
