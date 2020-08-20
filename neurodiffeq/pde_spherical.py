@@ -559,6 +559,14 @@ class SphericalSolver:
         # current lowest loss
         self.lowest_loss = None
 
+    @property
+    def global_epoch(self):
+        """global epoch count, always equal to the length of train loss history
+        :return: number of training epochs that have been run
+        :rtype: int
+        """
+        return len(self.loss['train'])
+
     @staticmethod
     def _auto_enforce(net, cond, r, theta, phi):
         """automatically enforce condition on network with dynamic number of inputs
@@ -792,6 +800,7 @@ class SphericalSolver:
             "batch_size": self.batch_size,
             "best_nets": self.best_nets,
             "criterion": self.criterion,
+            "global_epoch": self.global_epoch,
             "loss": self.loss,
             "lowest_loss": self.lowest_loss,
             "n_funcs": self.n_funcs,
