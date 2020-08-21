@@ -430,7 +430,7 @@ def test_spherical_harmonics_nn():
 
 def test_spherical_laplcian():
     n_samples = 10
-    r_value = np.ones((n_samples, 1))
+    r_value = np.random.rand(n_samples, 1)
     theta_value = np.random.rand(n_samples, 1)
     phi_value = np.random.rand(n_samples, 1)
     r_net = FCNN(n_input_units=1, n_output_units=25)
@@ -453,8 +453,7 @@ def test_spherical_laplcian():
     u = torch.sum(R2 * harmonics, dim=1, keepdim=True)
     lap2 = laplacian_spherical(u, r2, theta2, phi2)
 
-    assert (lap1 - lap2 < 1e-3).all(), \
+    lap1 = lap1.detach().cpu().numpy()
+    lap2 = lap2.detach().cpu().numpy()
+    assert np.isclose(lap2, lap1).all(), \
         f'Laplcians computed using spherical harmonics trick differ from brute force solution, {lap1} != {lap2}'
-
-
-# TODO test neurodiffeq.networks.SolidHarmonicsNN; although I know it works
