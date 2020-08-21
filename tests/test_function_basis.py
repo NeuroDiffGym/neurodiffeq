@@ -1,0 +1,114 @@
+import torch
+import numpy as np
+import torch.nn as nn
+from numpy import isclose
+from neurodiffeq.function_basis import LegendrePolynomial
+from neurodiffeq.function_basis import LegendreBasis
+from neurodiffeq.function_basis import ZeroOrderSphericalHarmonics
+from neurodiffeq.function_basis import ZeroOrderSphericalHarmonicsLaplacian
+from neurodiffeq.neurodiffeq import diff
+from scipy.special import legendre  # legendre polynomials
+from scipy.special import sph_harm  # spherical harmonics
+
+torch.set_default_dtype(torch.float64)
+
+n_samples = 50
+shape = (n_samples, 1)
+max_degree = 20
+
+
+def test_legendre_polynomials():
+    x1 = np.random.rand(*shape)
+    x2 = torch.tensor(x1, requires_grad=True)
+
+    for d in range(max_degree):
+        p1 = legendre(d)(x1)
+        p2 = LegendrePolynomial(d)(x2)
+        assert p2.requires_grad, f"output seems detached from the graph"
+        p2 = p2.detach().cpu().numpy()
+        assert isclose(p2, p1).all(), f"p1 = {p1}, p2 = {p2}, delta = {p1 - p2}, max_delta = {abs(np.max(p1 - p2))}"
+
+
+def test_legendre_basis():
+    x1 = np.random.rand(*shape)
+    x2 = torch.tensor(x1, requires_grad=True)
+
+    y1 = np.concatenate(
+        [legendre(d)(x1) for d in range(max_degree + 1)],
+        axis=1,
+    )
+    net = LegendreBasis(max_degree=max_degree)
+    y2 = net(x2)
+    assert y2.requires_grad, f"output seems detached from the graph"
+
+    y2 = y2.detach().cpu().numpy()
+    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {abs(np.max(y1 - y2))}"
+
+
+def test_zero_order_spherical_harmonics():
+    # note that in scipy, theta in azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
+    thetas1 = np.random.rand(*shape) * np.pi * 2
+    phis1 = np.random.rand(*shape) * np.pi
+    # in neurodiffeq, theta and phi should be exchanged
+    thetas2 = torch.tensor(phis1, requires_grad=True)
+    phis2 = torch.tensor(thetas1, requires_grad=True)
+    order = 0
+
+    y1 = np.concatenate(
+        [sph_harm(order, degree, thetas1, phis1) for degree in range(max_degree + 1)],
+        axis=1,
+    )
+    assert (np.imag(y1) == 0).all(), f"y1 has non-zero imaginary part: {y1}"
+    y1 = np.real(y1)
+
+    net = ZeroOrderSphericalHarmonics(max_degree)
+    y2 = net(thetas2, phis2)
+    assert y2.requires_grad, f"output seems detached from the graph"
+
+    y2 = y2.detach().cpu().numpy()
+    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {abs(np.max(y1 - y2))}"
+
+
+def test_zero_order_spherical_harmonics_laplacian():
+    eps = 0.1
+    r_values = np.random.rand(*shape) + 0.1
+    theta_values = np.random.uniform(eps, np.pi - eps, size=shape)
+    phi_values = np.random.rand(*shape) * np.pi * 2
+
+    net = nn.Sequential(
+        nn.Linear(1, 10),
+        nn.Tanh(),
+        nn.Linear(10, max_degree + 1),
+    )
+
+    harmonics = ZeroOrderSphericalHarmonics(max_degree=max_degree)
+
+    r1 = torch.tensor(r_values, requires_grad=True)
+    theta1 = torch.tensor(theta_values, requires_grad=True)
+    phi1 = torch.tensor(phi_values, requires_grad=True)
+    coeffs1 = net(r1)
+
+    us = torch.sum(coeffs1 * harmonics(theta1, phi1), dim=1, keepdim=True)
+
+    def laplacian1(u, r, theta, phi):
+        r_lap = diff(u * r, r, order=2) / r
+        theta_lap = diff(diff(u, theta) * torch.sin(theta), theta) / (r ** 2) / torch.sin(theta)
+        phi_lap = diff(u, phi, order=2) / (r ** 2) / torch.sin(theta) ** 2
+        return r_lap + theta_lap + phi_lap
+
+    lap1 = laplacian1(us, r1, theta1, phi1)
+    assert lap1.requires_grad, "lap1 seems detached from graph"
+
+    r2 = torch.tensor(r_values, requires_grad=True)
+    theta2 = torch.tensor(theta_values, requires_grad=True)
+    phi2 = torch.tensor(phi_values, requires_grad=True)
+    coeffs2 = net(r2)
+
+    laplacian2 = ZeroOrderSphericalHarmonicsLaplacian(max_degree=max_degree)
+    lap2 = laplacian2(coeffs2, r2, theta2, phi2)
+    assert lap2.requires_grad, "lap2 seems detached from graph"
+
+    lap1 = lap1.detach().cpu().numpy()
+    lap2 = lap2.detach().cpu().numpy()
+    assert isclose(lap2, lap1).all(), \
+        f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {abs(np.max(lap1 - lap2))}"
