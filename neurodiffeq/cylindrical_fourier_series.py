@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import sin, cos
-from neurodiffeq.neurodiffeq import diff
+from .neurodiffeq import diff
 
 
 def get_fourier_series(degree, sine=True):

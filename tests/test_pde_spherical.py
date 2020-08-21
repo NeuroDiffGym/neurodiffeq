@@ -7,7 +7,7 @@ matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during te
 from math import erf, sqrt
 from pytest import raises
 from neurodiffeq import diff
-from neurodiffeq.pde_spherical import ExampleGeneratorSpherical, ExampleGenerator3D
+from neurodiffeq.pde_spherical import GeneratorSpherical, Generator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
 from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
@@ -100,13 +100,13 @@ def test_inf_dirichlet_bvp_spherical():
 def test_train_generator_spherical():
     pde = laplacian_spherical
     condition = NoConditionSpherical()
-    train_generator = ExampleGeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
+    train_generator = GeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
     r, th, ph = train_generator.get_examples()
     assert (0. < r.min()) and (r.max() < 1.)
     assert (0. <= th.min()) and (th.max() <= np.pi)
     assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
 
-    valid_generator = ExampleGeneratorSpherical(size=64, r_min=1., r_max=1., method='equally-radius-noisy')
+    valid_generator = GeneratorSpherical(size=64, r_min=1., r_max=1., method='equally-radius-noisy')
     r, th, ph = valid_generator.get_examples()
     assert (r == 1).all()
     assert (0. <= th.min()) and (th.max() <= np.pi)
@@ -117,20 +117,20 @@ def test_train_generator_spherical():
                     valid_generator=valid_generator,
                     max_epochs=5)
     with raises(ValueError):
-        _ = ExampleGeneratorSpherical(64, method='bad_generator')
+        _ = GeneratorSpherical(64, method='bad_generator')
 
     with raises(ValueError):
-        _ = ExampleGeneratorSpherical(64, r_min=-1.0)
+        _ = GeneratorSpherical(64, r_min=-1.0)
 
     with raises(ValueError):
-        _ = ExampleGeneratorSpherical(64, r_min=1.0, r_max=0.0)
+        _ = GeneratorSpherical(64, r_min=1.0, r_max=0.0)
 
     print("GeneratorSpherical tests passed")
 
 
 def test_solve_spherical():
     pde = laplacian_spherical
-    generator = ExampleGeneratorSpherical(512)
+    generator = GeneratorSpherical(512)
 
     # 0-boundary condition; solution should be u(r, theta, phi) = 0 identically
     f = lambda th, ph: 0.
@@ -179,7 +179,7 @@ def test_solve_spherical_system():
     ]
 
     solution, loss_history = solve_spherical_system(pde_system, conditions, 0.0, 1.0, max_epochs=500, return_best=True)
-    generator = ExampleGeneratorSpherical(512, r_min=0., r_max=1.)
+    generator = GeneratorSpherical(512, r_min=0., r_max=1.)
     rs, thetas, phis = generator.get_examples()
     us, vs = solution(rs, thetas, phis, as_type='np')
 
@@ -217,7 +217,7 @@ def test_electric_potential_uniformly_charged_ball():
 
     solution, loss_history, analytic_mse = solve_spherical(pde, condition, 0., R, max_epochs=500, return_best=True,
                                                            analytic_solution=analytic_solution, monitor=monitor)
-    generator = ExampleGeneratorSpherical(512)
+    generator = GeneratorSpherical(512)
     rs, thetas, phis = generator.get_examples()
     us = solution(rs, thetas, phis, as_type="np")
     vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
@@ -252,7 +252,7 @@ def test_electric_potential_gaussian_charged_density():
     v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
 
     def validate(solution, loss_history, analytical_mse):
-        generator = ExampleGeneratorSpherical(512, r_min=r_0, r_max=r_1)
+        generator = GeneratorSpherical(512, r_min=r_0, r_max=r_1)
         rs, thetas, phis = generator.get_examples()
         us = solution(rs, thetas, phis, as_type="np")
         vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
@@ -430,7 +430,7 @@ def test_spherical_harmonics_nn():
 
 def test_spherical_laplcian():
     n_samples = 10
-    r_value = np.ones((n_samples, 1))
+    r_value = np.random.rand(n_samples, 1)
     theta_value = np.random.rand(n_samples, 1)
     phi_value = np.random.rand(n_samples, 1)
     r_net = FCNN(n_input_units=1, n_output_units=25)
@@ -453,8 +453,7 @@ def test_spherical_laplcian():
     u = torch.sum(R2 * harmonics, dim=1, keepdim=True)
     lap2 = laplacian_spherical(u, r2, theta2, phi2)
 
-    assert (lap1 - lap2 < 1e-3).all(), \
+    lap1 = lap1.detach().cpu().numpy()
+    lap2 = lap2.detach().cpu().numpy()
+    assert np.isclose(lap2, lap1).all(), \
         f'Laplcians computed using spherical harmonics trick differ from brute force solution, {lap1} != {lap2}'
-
-
-# TODO test neurodiffeq.networks.SolidHarmonicsNN; although I know it works
