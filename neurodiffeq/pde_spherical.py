@@ -707,14 +707,15 @@ class SphericalSolver:
         return self._generate_batch('valid')
 
     def _run_epoch(self, key):
-        """run an epoch on train/valid points, update history, and perform gradient descent if key=='train'
-        this method doesn't resample points, which shall be handled in the `.fit()` call
+        """run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
+        Note that the optimization step is only performed after all batches are run
+        This method doesn't resample points, which shall be handled in the `.fit()` call.
 
         :param key: {'train', 'valid'}; phase of the epoch
         :type key: str
         """
         # perform forward pass for all batches
-        epoch_loss = 0
+        epoch_loss = 0.0  # type: torch.Tensor
         epoch_analytic_mse = 0
         while self._batch_start[key] < self.generator[key].size:
             r, theta, phi = self._generate_batch(key)
@@ -731,20 +732,19 @@ class SphericalSolver:
 
             residuals = self.pdes(*funcs, r, theta, phi)
             residuals = torch.stack(residuals)
-            loss = self.criterion(residuals)
+            epoch_loss += self.criterion(residuals) * n_samples
             # add additional loss term to total loss
-            loss += self.additional_loss(funcs, key)
-            epoch_loss += loss.item() * n_samples
-
-            # perform optimization step when training
-            if key == 'train':
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+            epoch_loss += self.additional_loss(funcs, key) * n_samples
 
         # calculate mean loss of all batches and register to history
         epoch_loss /= self.generator[key].size
-        self._update_history(epoch_loss, 'loss', key)
+        self._update_history(epoch_loss.item(), 'loss', key)
+
+        # perform optimization step when training
+        if key == 'train':
+            self.optimizer.zero_grad()
+            epoch_loss.backward()
+            self.optimizer.step()
 
         # calculate mean analytic mse of all batches and register to history
         if self.analytic_solutions is not None:
