@@ -575,6 +575,8 @@ class SphericalSolver:
         self.lowest_loss = None
         # local epoch in a `.fit` call, should only be modified inside self.fit()
         self.local_epoch = 0
+        # maximum local epochs to run in a `.fit()` call, should only set by inside self.fit()
+        self._max_local_epoch = 0
         # controls early stopping, should be set to False at the beginning of a `.fit()` call
         # and optionally set to False by `callbacks` in `.fit()` to support early stopping
         self._stop_training = False
@@ -769,6 +771,7 @@ class SphericalSolver:
         :rtype callbacks: list[callable]
         """
         self._stop_training = False
+        self._max_local_epoch = max_epochs
 
         for local_epoch in range(max_epochs):
             # stops training if self._stop_training is set to True by a callback
