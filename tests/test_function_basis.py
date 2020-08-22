@@ -46,7 +46,7 @@ def test_legendre_basis():
 
 
 def test_zero_order_spherical_harmonics():
-    # note that in scipy, theta in azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
+    # note that in scipy, theta is azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
     thetas1 = np.random.rand(*shape) * np.pi * 2
     phis1 = np.random.rand(*shape) * np.pi
     # in neurodiffeq, theta and phi should be exchanged

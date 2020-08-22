@@ -610,6 +610,15 @@ class SphericalSolver:
         :rtype: torch.Tensor
         """
         n_params = len(signature(cond.enforce).parameters)
+        if len(r.shape) != 2 or len(theta.shape) != 2 or len(phi.shape) != 2:
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
+
+        if r.shape[1] != 1 or theta.shape[1] != 1 or phi.shape[1] != 1:
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
+
+        if len(r) != len(theta) or len(r) != len(phi) or len(theta) != len(phi):
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} differ in dim 0")
+
         if n_params == 2:
             # noinspection PyArgumentList
             return cond.enforce(net, r)
