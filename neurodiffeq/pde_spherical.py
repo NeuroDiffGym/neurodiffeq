@@ -404,7 +404,7 @@ def solve_spherical(
 def solve_spherical_system(
         pde_system, conditions, r_min=None, r_max=None,
         nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
-        optimizer=None, criterion=None, batch_size=16,
+        optimizer=None, criterion=None, batch_size=None,
         max_epochs=1000, monitor=None, return_internal=False, return_best=False
 ):
     """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve a PDE system with spherical inputs in 3D space
@@ -460,6 +460,9 @@ def solve_spherical_system(
         analytic_solutions=analytic_solutions,
         optimizer=optimizer,
         criterion=criterion,
+        n_batches_train=1,
+        n_batches_valid=1,
+        # deprecated arguments
         batch_size=batch_size,
         shuffle=shuffle,
     )
@@ -499,7 +502,11 @@ class SphericalSolver:
     :type optimizer: torch.nn.optim.Optimizer
     :param criterion: function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss; optional
     :type criterion: callable
-    :param batch_size: batch size to be used for training and validation; optional
+    :param n_batches_train: number of batches to train in every epoch; where batch-size equals train_generator.size
+    :type n_batches_train: int
+    :param n_batches_valid: number of batches to valid in every epoch; where batch-size equals valid_generator.size
+    :type n_batches_valid: int
+    :param batch_size: DEPRECATED and IGNORED; each batch will use all samples generated, specify n_batches_train and n_batches_valid instead
     :type batch_size: int
     :param shuffle: deprecated; shuffling should be performed by generators
     :type shuffle: bool
@@ -507,10 +514,16 @@ class SphericalSolver:
 
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, batch_size=16, shuffle=False):
+                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+                 # deprecated arguments are listed below
+                 shuffle=False, batch_size=None):
 
         if shuffle:
             print("param `shuffle` is deprecated and ignored; shuffling should be performed by generators",
+                  file=sys.stderr)
+
+        if batch_size is not None:
+            print("param `batch_size` is deprecated and ignored; specify n_batches_train and n_batches_valid instead",
                   file=sys.stderr)
 
         if train_generator is None or valid_generator is None:
@@ -553,8 +566,6 @@ class SphericalSolver:
         else:
             self.criterion = criterion
 
-        self.batch_size = batch_size
-
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
 
@@ -563,11 +574,9 @@ class SphericalSolver:
         self.loss = make_pair_dict(train=[], valid=[])
         # analytic MSE history
         self.analytic_mse = make_pair_dict(train=[], valid=[])
-        # starting index of the next batch, should only be modified through self._update_batch_start()
-        self._batch_start = make_pair_dict(train=0, valid=0)
-        # samples generated for the current epoch, should be resampled every epoch with self._resample()
-        self._examples = make_pair_dict()
-        # current batch of samples, kept for additional loss terms in future
+        # number of batches for training / validation;
+        self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
+        # current batch of samples, kept for additional_loss term to use
         self._batch_examples = make_pair_dict()
         # current network with lowest loss
         self.best_nets = None
@@ -652,50 +661,15 @@ class SphericalSolver:
         """append a value to corresponding validation history list"""
         self._update_history(value, metric_type, key='valid')
 
-    def _reset_batch_start(self, key):
-        """reset starting index of current batch to 0
-
-        :param key: {'train', 'valid'}; dict key in self._batch_start
-        :type key: str
-        """
-        self._batch_start[key] = 0
-
-    def _reset_train_batch_start(self):
-        """reset starting index of current training batch to 0"""
-        self._reset_batch_start(key='train')
-
-    def _reset_valid_batch_start(self):
-        """reset starting index of current validation batch to 0"""
-        self._reset_batch_start(key='valid')
-
-    def _resample(self, key):
-        """resample points for the current epoch, and register in self._examples
-
-        :param key: {'train', 'valid'}; dict key in self._examples / self.generator
-        :type key: str
-        """
-        self._examples[key] = [var.reshape(-1, 1) for var in self.generator[key].get_examples()]
-
-    def _resample_train(self):
-        """resample training points for the current epoch, and register in self._examples"""
-        self._resample('train')
-
-    def _resample_valid(self):
-        """resample validation points for the current epoch, and register in self_examples"""
-        self._resample('valid')
-
     def _generate_batch(self, key):
         """generate the next batch, register in self._batch_examples and return the batch
 
         :param key: {'train', 'valid'}; dict key in self._examples / self._batch_examples / self._batch_start
         :type key: str
         """
-        old_start = self._batch_start[key]
-        new_start = min(old_start + self.batch_size, self.generator[key].size)
-        self._batch_start[key] = new_start
         # the following side effects are helpful for future extension,
         # especially for additional loss term that depends on the coordinates
-        self._batch_examples[key] = [var[old_start: new_start] for var in self._examples[key]]
+        self._batch_examples[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
         return self._batch_examples[key]
 
     def _generate_train_batch(self):
@@ -707,19 +681,20 @@ class SphericalSolver:
         return self._generate_batch('valid')
 
     def _run_epoch(self, key):
-        """run an epoch on train/valid points, update history, and perform gradient descent if key=='train'
-        this method doesn't resample points, which shall be handled in the `.fit()` call
+        """run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
+        Note that the optimization step is only performed after all batches are run
+        This method doesn't resample points, which shall be handled in the `.fit()` call.
 
         :param key: {'train', 'valid'}; phase of the epoch
         :type key: str
         """
-        # perform forward pass for all batches
-        epoch_loss = 0
+        epoch_loss = 0.0
         epoch_analytic_mse = 0
-        while self._batch_start[key] < self.generator[key].size:
+
+        # perform forward pass for all batches: a single graph is created and release in every iteration
+        # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
+        for batch_id in range(self.n_batches[key]):
             r, theta, phi = self._generate_batch(key)
-            # n_samples is not necessarily self.batch_size when batch size doesn't divide generator size
-            n_samples = len(r)
             funcs = [
                 self._auto_enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
             ]
@@ -731,24 +706,27 @@ class SphericalSolver:
 
             residuals = self.pdes(*funcs, r, theta, phi)
             residuals = torch.stack(residuals)
-            loss = self.criterion(residuals)
-            # add additional loss term to total loss
-            loss += self.additional_loss(funcs, key)
-            epoch_loss += loss.item() * n_samples
+            loss = self.criterion(residuals) + self.additional_loss(funcs, key)
 
-            # perform optimization step when training
+            # normalize loss across batches
+            loss /= self.n_batches[key]
+
+            # accumulate gradients before the current graph is collected as garbage
             if key == 'train':
-                self.optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+            epoch_loss += loss.item()
 
         # calculate mean loss of all batches and register to history
-        epoch_loss /= self.generator[key].size
         self._update_history(epoch_loss, 'loss', key)
+
+        # perform optimization step when training
+        if key == 'train':
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
         # calculate mean analytic mse of all batches and register to history
         if self.analytic_solutions is not None:
-            epoch_analytic_mse /= self.generator[key].size
+            epoch_analytic_mse /= self.n_batches[key]
             epoch_analytic_mse /= self.n_funcs
             self._update_history(epoch_analytic_mse, 'analytic_mse', key)
 
@@ -789,10 +767,6 @@ class SphericalSolver:
 
             # register local epoch so it can be accessed by callbacks
             self.local_epoch = local_epoch
-            self._resample_train()
-            self._resample_valid()
-            self._reset_train_batch_start()
-            self._reset_valid_batch_start()
             self.run_train_epoch()
             self.run_valid_epoch()
             self._update_best()
@@ -845,7 +819,7 @@ class SphericalSolver:
         available_params = {
             "analytic_mse": self.analytic_mse,
             "analytic_solutions": self.analytic_solutions,
-            "batch_size": self.batch_size,
+            "n_batches": self.n_batches,
             "best_nets": self.best_nets,
             "criterion": self.criterion,
             "global_epoch": self.global_epoch,
