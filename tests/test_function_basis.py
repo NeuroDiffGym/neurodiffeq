@@ -66,7 +66,8 @@ def test_zero_order_spherical_harmonics():
     assert y2.requires_grad, f"output seems detached from the graph"
 
     y2 = y2.detach().cpu().numpy()
-    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
+    assert isclose(y2, y1, atol=1e-5, rtol=1e-3).all(), \
+        f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
 
 
 def test_zero_order_spherical_harmonics_laplacian():
