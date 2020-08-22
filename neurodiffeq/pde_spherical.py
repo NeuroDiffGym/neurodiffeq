@@ -575,6 +575,11 @@ class SphericalSolver:
         self.lowest_loss = None
         # local epoch in a `.fit` call, should only be modified inside self.fit()
         self.local_epoch = 0
+        # maximum local epochs to run in a `.fit()` call, should only set by inside self.fit()
+        self._max_local_epoch = 0
+        # controls early stopping, should be set to False at the beginning of a `.fit()` call
+        # and optionally set to False by `callbacks` in `.fit()` to support early stopping
+        self._stop_training = False
 
     @property
     def global_epoch(self):
@@ -605,6 +610,15 @@ class SphericalSolver:
         :rtype: torch.Tensor
         """
         n_params = len(signature(cond.enforce).parameters)
+        if len(r.shape) != 2 or len(theta.shape) != 2 or len(phi.shape) != 2:
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
+
+        if r.shape[1] != 1 or theta.shape[1] != 1 or phi.shape[1] != 1:
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
+
+        if len(r) != len(theta) or len(r) != len(phi) or len(theta) != len(phi):
+            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} differ in dim 0")
+
         if n_params == 2:
             # noinspection PyArgumentList
             return cond.enforce(net, r)
@@ -757,6 +771,7 @@ class SphericalSolver:
         """Run multiple epochs of training and validation, update best loss at the end of each epoch.
         This method does not return solution, which is done in the `.get_solution` method.
         If `callbacks` is passed, callbacks are run one at a time, after training, validating, updaing best model and before monitor checking
+        A callback function `cb(solver)` can set `solver._stop_training` to True to perform early stopping,
         :param max_epochs: number of epochs to run
         :type max_epochs: int
         :param monitor: monitor for visualizing solution and metrics
@@ -764,7 +779,14 @@ class SphericalSolver:
         :param callbacks: a list of callback functions, each accepting the solver instance itself as its only argument
         :rtype callbacks: list[callable]
         """
+        self._stop_training = False
+        self._max_local_epoch = max_epochs
+
         for local_epoch in range(max_epochs):
+            # stops training if self._stop_training is set to True by a callback
+            if self._stop_training:
+                break
+
             # register local epoch so it can be accessed by callbacks
             self.local_epoch = local_epoch
             self._resample_train()
