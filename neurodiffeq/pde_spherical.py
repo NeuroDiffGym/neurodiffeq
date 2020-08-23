@@ -1258,14 +1258,20 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type check_every: int, optional
     :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
     :type var_names: list[str]
-    :param max_degree: highest degree for spherical harmonics; defaults to None
-    :type var_names: list[str]
     :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
     :type shape: tuple[int]
+    :param r_scale: 'linear' or 'log'; controls the grid point in the :math:`r` direction; defaults to 'linear'
+    :type r_scale: str
+    :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
+    :type harmonics_fn: callable
+    :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis
+    :type max_degree: int
     """
 
     def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
-                 max_degree=4):
+                 harmonics_fn=None,
+                 # DEPRECATED
+                 max_degree=None):
         super(MonitorSphericalHarmonics, self).__init__(
             r_min,
             r_max,
@@ -1275,8 +1281,15 @@ class MonitorSphericalHarmonics(MonitorSpherical):
             r_scale=r_scale,
         )
 
-        self.max_degree = max_degree
-        self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+        if (harmonics_fn is None) and (max_degree is None):
+            raise ValueError("harmonics_fn should be specified")
+
+        if max_degree is not None:
+            print("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence", file=sys.stderr)
+            self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+
+        if harmonics_fn is not None:
+            self.harmonics_fn = harmonics_fn
 
     def _compute_us(self, nets, conditions):
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
@@ -1286,3 +1299,12 @@ class MonitorSphericalHarmonics(MonitorSpherical):
             u = torch.sum(products, dim=1, keepdim=True).detach().cpu().numpy()
             us.append(u)
         return us
+
+    @property
+    def max_degree(self):
+        try:
+            ret = self.harmonics_fn.max_degree
+        except AttributeError as e:
+            print(f"Error caught when accessing {self.__class__.__name__}, returning None:\n{e}", file=sys.stderr)
+            ret = None
+        return ret
