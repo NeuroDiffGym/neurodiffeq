@@ -826,7 +826,7 @@ class SphericalSolver:
             "loss": self.loss,
             "lowest_loss": self.lowest_loss,
             "n_funcs": self.n_funcs,
-            "nets": self.best_nets,
+            "nets": self.nets,
             "optimizer": self.optimizer,
             "pdes": self.pdes,
             "r_max": self.r_max,
