@@ -40,7 +40,7 @@ Y4p3 = lambda th, ph: sin(th) ** 3 * cos(th) * (cos(ph) ** 3 - 3 * cos(ph) * sin
 Y4p4 = lambda th, ph: sin(th) ** 4 * (cos(ph) ** 4 - 6 * cos(ph) ** 2 * sin(ph) ** 2 + sin(ph) ** 4) * 1.109264959
 
 
-class RealSphericalHarmonics(nn.Module):
+class RealSphericalHarmonics:
     """an array of (unnormalized) spherical harmonics_fn of degree from -l to +l
     There is no trainable parameters in this module
     :param max_degree: highest degree (currently only supports l<=4) for the spherical harmonics_fn
@@ -64,7 +64,7 @@ class RealSphericalHarmonics(nn.Module):
         if max_degree >= 5:
             raise NotImplementedError(f'max_degree = {max_degree} not implemented for {self.__class__.__name__} yet')
 
-    def forward(self, theta, phi):
+    def __call__(self, theta, phi):
         """ compute the value of each spherical harmonic component evaluated at each point
         :param theta: theta in spherical coordinates, must have shape (-1, 1)
         :type theta: `torch.Tensor`
