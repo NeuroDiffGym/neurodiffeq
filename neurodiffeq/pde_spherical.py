@@ -506,6 +506,8 @@ class SphericalSolver:
     :type n_batches_train: int
     :param n_batches_valid: number of batches to valid in every epoch; where batch-size equals valid_generator.size
     :type n_batches_valid: int
+    :param enforcer: a function mapping a network, a condition, and a batch (returned by a generator) to the function values evaluated on the batch
+    :type enforcer: callable
     :param batch_size: DEPRECATED and IGNORED; each batch will use all samples generated, specify n_batches_train and n_batches_valid instead
     :type batch_size: int
     :param shuffle: deprecated; shuffling should be performed by generators
@@ -514,7 +516,7 @@ class SphericalSolver:
 
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
                  # deprecated arguments are listed below
                  shuffle=False, batch_size=None):
 
@@ -552,6 +554,7 @@ class SphericalSolver:
             valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced')
 
         self.analytic_solutions = analytic_solutions
+        self.enforcer = enforcer
 
         if optimizer is None:
             all_params = []
@@ -598,9 +601,10 @@ class SphericalSolver:
         """
         return len(self.loss['train'])
 
-    @staticmethod
-    def _auto_enforce(net, cond, *points):
+    def _auto_enforce(self, net, cond, *points):
         """enforce condition on network with inputs
+        if self.enforcer is set, use it;
+        otherwise, fill cond.enforce() with as many arguments as needed
 
         :param net: network for parameterized solution
         :type net: torch.nn.Module
@@ -611,6 +615,9 @@ class SphericalSolver:
         :return: function values at sampled points
         :rtype: torch.Tensor
         """
+        if self.enforcer:
+            return self.enforcer(net, cond, points)
+
         n_params = len(signature(cond.enforce).parameters)
         points = points[:n_params - 1]
         return cond.enforce(net, *points)
