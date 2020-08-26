@@ -599,42 +599,21 @@ class SphericalSolver:
         return len(self.loss['train'])
 
     @staticmethod
-    def _auto_enforce(net, cond, r, theta, phi):
-        """automatically enforce condition on network with dynamic number of inputs
-        if `cond.enforce()` takes two arguments, pass `net` and `r`
-        if `cond.enforce()` takes four arguments, pass `net`, `r`, `theta`, and `phi`
-        otherwise, raise a ValueError
+    def _auto_enforce(net, cond, *points):
+        """enforce condition on network with inputs
 
         :param net: network for parameterized solution
         :type net: torch.nn.Module
         :param cond: condition (a.k.a. parameterization) for the network
         :type cond: `neurodiffeq.pde_spherical.BaseConditionSpherical`
-        :param r: a vector of :math:`r`, shape = (-1, 1)
-        :type r: torch.Tensor
-        :param theta: a vector of :math:`\\theta`, shape = (-1, 1)
-        :type theta: torch.Tensor
-        :param phi: a vector of :math:`\\phi`, shape = (-1, 1)
-        :type phi: torch.Tensor
+        :param points: a tuple of vectors, each with shape = (-1, 1)
+        :type points: tuple[torch.Tensor]
         :return: function values at sampled points
         :rtype: torch.Tensor
         """
         n_params = len(signature(cond.enforce).parameters)
-        if len(r.shape) != 2 or len(theta.shape) != 2 or len(phi.shape) != 2:
-            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
-
-        if r.shape[1] != 1 or theta.shape[1] != 1 or phi.shape[1] != 1:
-            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} are not (-1, 1)")
-
-        if len(r) != len(theta) or len(r) != len(phi) or len(theta) != len(phi):
-            raise ValueError(f"{r.shape}, {theta.shape}, or {phi.shape} differ in dim 0")
-
-        if n_params == 2:
-            # noinspection PyArgumentList
-            return cond.enforce(net, r)
-        elif n_params == 4:
-            return cond.enforce(net, r, theta, phi)
-        else:
-            raise ValueError(f'unrecognized `condition.enforce` signature {signature(cond.enforce)}')
+        points = points[:n_params - 1]
+        return cond.enforce(net, *points)
 
     def _update_history(self, value, metric_type, key):
         """append a value to corresponding history list
@@ -694,17 +673,17 @@ class SphericalSolver:
         # perform forward pass for all batches: a single graph is created and release in every iteration
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
-            r, theta, phi = self._generate_batch(key)
+            batch = self._generate_batch(key)
             funcs = [
-                self._auto_enforce(n, c, r, theta, phi) for n, c in zip(self.nets, self.conditions)
+                self._auto_enforce(n, c, *batch) for n, c in zip(self.nets, self.conditions)
             ]
 
             if self.analytic_solutions is not None:
-                funcs_true = self.analytic_solutions(r, theta, phi)
+                funcs_true = self.analytic_solutions(*batch)
                 for f_pred, f_true in zip(funcs, funcs_true):
                     epoch_analytic_mse += ((f_pred - f_true) ** 2).mean().item()
 
-            residuals = self.pdes(*funcs, r, theta, phi)
+            residuals = self.pdes(*funcs, *batch)
             residuals = torch.stack(residuals)
             loss = self.criterion(residuals) + self.additional_loss(funcs, key)
 
