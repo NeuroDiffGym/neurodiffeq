@@ -45,6 +45,7 @@ class LegendreBasis(FunctionBasis):
 
 class ZeroOrderSphericalHarmonics(FunctionBasis):
     def __init__(self, max_degree):
+        self.max_degree = max_degree
         coefficients = [np.sqrt((2 * l + 1) / (4 * np.pi)) for l in range(max_degree + 1)]
         polynomials = [LegendrePolynomial(d) for d in range(max_degree + 1)]
 

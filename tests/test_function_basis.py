@@ -26,7 +26,7 @@ def test_legendre_polynomials():
         p2 = LegendrePolynomial(d)(x2)
         assert p2.requires_grad, f"output seems detached from the graph"
         p2 = p2.detach().cpu().numpy()
-        assert isclose(p2, p1).all(), f"p1 = {p1}, p2 = {p2}, delta = {p1 - p2}, max_delta = {abs(np.max(p1 - p2))}"
+        assert isclose(p2, p1).all(), f"p1 = {p1}, p2 = {p2}, delta = {p1 - p2}, max_delta = {np.max(abs(p1 - p2))}"
 
 
 def test_legendre_basis():
@@ -42,11 +42,11 @@ def test_legendre_basis():
     assert y2.requires_grad, f"output seems detached from the graph"
 
     y2 = y2.detach().cpu().numpy()
-    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {abs(np.max(y1 - y2))}"
+    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
 
 
 def test_zero_order_spherical_harmonics():
-    # note that in scipy, theta in azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
+    # note that in scipy, theta is azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
     thetas1 = np.random.rand(*shape) * np.pi * 2
     phis1 = np.random.rand(*shape) * np.pi
     # in neurodiffeq, theta and phi should be exchanged
@@ -66,7 +66,8 @@ def test_zero_order_spherical_harmonics():
     assert y2.requires_grad, f"output seems detached from the graph"
 
     y2 = y2.detach().cpu().numpy()
-    assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {abs(np.max(y1 - y2))}"
+    assert isclose(y2, y1, atol=1e-5, rtol=1e-3).all(), \
+        f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
 
 
 def test_zero_order_spherical_harmonics_laplacian():
@@ -111,4 +112,4 @@ def test_zero_order_spherical_harmonics_laplacian():
     lap1 = lap1.detach().cpu().numpy()
     lap2 = lap2.detach().cpu().numpy()
     assert isclose(lap2, lap1).all(), \
-        f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {abs(np.max(lap1 - lap2))}"
+        f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {np.max(abs(lap1 - lap2))}"
