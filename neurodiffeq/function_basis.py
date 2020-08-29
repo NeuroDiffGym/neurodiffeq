@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .neurodiffeq import diff
+from .version_utils import warn_deprecate_class
 from scipy.special import legendre
 from abc import ABC, abstractmethod
 
@@ -43,7 +44,7 @@ class LegendreBasis(FunctionBasis):
         return self.basis_module(x)
 
 
-class ZeroOrderSphericalHarmonics(FunctionBasis):
+class ZonalSphericalHarmonics(FunctionBasis):
     def __init__(self, max_degree):
         self.max_degree = max_degree
         coefficients = [np.sqrt((2 * l + 1) / (4 * np.pi)) for l in range(max_degree + 1)]
@@ -61,13 +62,18 @@ class ZeroOrderSphericalHarmonics(FunctionBasis):
         return self.basis_module(theta)
 
 
+ZeroOrderSphericalHarmonics = warn_deprecate_class(ZonalSphericalHarmonics)
+
+
 class BasisOperator(ABC):
-    pass
+    @abstractmethod
+    def __call__(self, *args, **kwargs):
+        pass
 
 
-class ZeroOrderSphericalHarmonicsLaplacian(BasisOperator):
+class ZonalSphericalHarmonicsLaplacian(BasisOperator):
     def __init__(self, max_degree):
-        self.harmonics_fn = ZeroOrderSphericalHarmonics(max_degree)
+        self.harmonics_fn = ZonalSphericalHarmonics(max_degree)
         laplacian_coefficients = [-l * (l + 1) for l in range(max_degree + 1)]
         self.laplacian_coefficients = torch.tensor(laplacian_coefficients, dtype=torch.float)
 
@@ -81,3 +87,6 @@ class ZeroOrderSphericalHarmonicsLaplacian(BasisOperator):
         angular_components = self.laplacian_coefficients * base_coeffs / r ** 2
         products = (radial_components + angular_components) * self.harmonics_fn(theta, phi)
         return torch.sum(products, dim=1, keepdim=True)
+
+
+ZeroOrderSphericalHarmonicsLaplacian = warn_deprecate_class(ZonalSphericalHarmonicsLaplacian)
