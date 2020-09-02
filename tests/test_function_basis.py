@@ -4,8 +4,8 @@ import torch.nn as nn
 from numpy import isclose
 from neurodiffeq.function_basis import LegendrePolynomial
 from neurodiffeq.function_basis import LegendreBasis
-from neurodiffeq.function_basis import ZeroOrderSphericalHarmonics
-from neurodiffeq.function_basis import ZeroOrderSphericalHarmonicsLaplacian
+from neurodiffeq.function_basis import ZonalSphericalHarmonics
+from neurodiffeq.function_basis import ZonalSphericalHarmonicsLaplacian
 from neurodiffeq.neurodiffeq import diff
 from scipy.special import legendre  # legendre polynomials
 from scipy.special import sph_harm  # spherical harmonics
@@ -61,7 +61,7 @@ def test_zero_order_spherical_harmonics():
     assert (np.imag(y1) == 0).all(), f"y1 has non-zero imaginary part: {y1}"
     y1 = np.real(y1)
 
-    net = ZeroOrderSphericalHarmonics(max_degree)
+    net = ZonalSphericalHarmonics(max_degree)
     y2 = net(thetas2, phis2)
     assert y2.requires_grad, f"output seems detached from the graph"
 
@@ -82,7 +82,7 @@ def test_zero_order_spherical_harmonics_laplacian():
         nn.Linear(10, max_degree + 1),
     )
 
-    harmonics = ZeroOrderSphericalHarmonics(max_degree=max_degree)
+    harmonics = ZonalSphericalHarmonics(max_degree=max_degree)
 
     r1 = torch.tensor(r_values, requires_grad=True)
     theta1 = torch.tensor(theta_values, requires_grad=True)
@@ -105,7 +105,7 @@ def test_zero_order_spherical_harmonics_laplacian():
     phi2 = torch.tensor(phi_values, requires_grad=True)
     coeffs2 = net(r2)
 
-    laplacian2 = ZeroOrderSphericalHarmonicsLaplacian(max_degree=max_degree)
+    laplacian2 = ZonalSphericalHarmonicsLaplacian(max_degree=max_degree)
     lap2 = laplacian2(coeffs2, r2, theta2, phi2)
     assert lap2.requires_grad, "lap2 seems detached from graph"
 

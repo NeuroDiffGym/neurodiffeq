@@ -7,6 +7,11 @@ install:
   - pip install --upgrade pytest-cov pytest
   - pip install codecov
 script:
-  - pytest --cov-report term --cov=neurodiffeq/
-after_success:
-  - codecov
+  - ls -R
+  - pytest tests/test_function_basis.py
+  - pytest tests/test_ode.py
+  - pytest tests/test_pde.py
+  - pytest tests/test_pde_spherical.py
+  - pytest tests/test_temporal.py
+# after_success:
+  # - codecov
