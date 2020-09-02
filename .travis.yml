@@ -7,6 +7,6 @@ install:
   - pip install --upgrade pytest-cov pytest
   - pip install codecov
 script:
-  - for file in neurodiffeq/tests/test*py; do pytest --cov-report term --cov=$file; done
-after_success:
-  - codecov
+  - for file in neurodiffeq/tests/test*py; do pytest $file || exit 1; done
+# after_success:
+  # - codecov
