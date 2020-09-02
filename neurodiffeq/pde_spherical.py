@@ -934,7 +934,7 @@ class MonitorSpherical:
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
         return [
             cond.enforce(net, r, theta, phi).detach().cpu().numpy()
-            for cond, net in zip(nets, conditions)
+            for net, cond in zip(nets, conditions)
         ]
 
     def check(self, nets, conditions, loss_history, analytic_mse_history=None):
