@@ -191,46 +191,6 @@ def test_solve_spherical_system():
     print("solve_spherical_system tests passed")
 
 
-def test_electric_potential_uniformly_charged_ball():
-    """
-    electric potential on uniformly charged solid sphere
-    refer to http://www.phys.uri.edu/~gerhard/PHY204/tsl94.pdf
-    """
-    # free charge volume density
-    rho = 1.
-    # medium permittivity
-    epsilon = 1.
-    # Coulomb constant
-    k = 1. / (4 * np.pi * epsilon)
-    # radius of the ball
-    R = 1.
-    # total electric charge on solid sphere
-    Q = (4 / 3) * np.pi * (R ** 3) * rho
-    # electric potential at sphere center
-    v_0 = 1.5 * k * Q / R
-    # electric potential on sphere boundary
-    v_R = k * Q / R
-    # analytic solution of electric potential
-    analytic_solution = lambda r, th, ph: k * Q / (2 * R) * (3 - (r / R) ** 2)
-
-    pde = lambda u, r, theta, phi: laplacian_spherical(u, r, theta, phi) + rho / epsilon
-    condition = DirichletBVPSpherical(r_0=0., f=lambda th, ph: v_0, r_1=R, g=lambda th, ph: v_R)
-    monitor = MonitorSpherical(0.0, R, check_every=50)
-
-    solution, loss_history, analytic_mse = solve_spherical(pde, condition, 0., R, max_epochs=500, return_best=True,
-                                                           analytic_solution=analytic_solution, monitor=monitor)
-    generator = GeneratorSpherical(512)
-    rs, thetas, phis = generator.get_examples()
-    us = solution(rs, thetas, phis, as_type="np")
-    vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
-    abs_diff = abs(us - vs)
-
-    assert np.isclose(us, vs, atol=0.008).all(), \
-        f"Solution doesn't match analytic expectation {us} != {vs}, abs_diff={abs_diff}"
-
-    print("electric-potential-on-uniformly-charged-solid-sphere passed")
-
-
 def test_electric_potential_gaussian_charged_density():
     # total charge
     Q = 1.
