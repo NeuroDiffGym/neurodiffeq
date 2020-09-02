@@ -767,7 +767,7 @@ class SphericalSolver:
                         self.nets,
                         self.conditions,
                         loss_history=self.loss,
-                        analytic_mse_history=self.analytic_solutions
+                        analytic_mse_history=self.analytic_mse,
                     )
 
     def get_solution(self, copy=True, best=True):
