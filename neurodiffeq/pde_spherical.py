@@ -363,7 +363,7 @@ def solve_spherical(
         :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
         :type shuffle: bool, optional
         :param analytic_solution: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to u
-        :type analytic_solution: function
+        :type analytic_solution: callable
         :param optimizer: The optimization method to use for training, defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
@@ -430,7 +430,7 @@ def solve_spherical_system(
         :param shuffle: deprecated and ignored; shuffling should be implemented in genrators
         :type shuffle: bool, optional
         :param analytic_solutions: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n]
-        :type analytic_solutions: function
+        :type analytic_solutions: callable
         :param optimizer: The optimization method to use for training, defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
