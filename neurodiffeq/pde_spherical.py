@@ -192,11 +192,11 @@ class DirichletBVPSpherical(BaseConditionSpherical):
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
     :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
-    :type f: function
+    :type f: callable
     :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None
     :type r_1: float or None
     :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`. If set to None, `r_1` must also be set to None
-    :type g: function or None
+    :type g: callable or None
     """
 
     def __init__(self, r_0, f, r_1=None, g=None):
@@ -243,9 +243,9 @@ class InfDirichletBVPSpherical(BaseConditionSpherical):
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
     :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
-    :type f: function
+    :type f: callable
     :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`.
-    :type g: function
+    :type g: callable
     :param order: The smallest :math:k that guarantees :math:`\\lim_{r \\to +\\infty} u(r, \\theta, \\phi) e^{-k r} = 0`, defaults to 1
     :type order: int or float, optional
     """
