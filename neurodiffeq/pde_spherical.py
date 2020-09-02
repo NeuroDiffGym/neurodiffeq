@@ -551,7 +551,7 @@ class SphericalSolver:
             train_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
 
         if valid_generator is None:
-            valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced')
+            valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
 
         self.analytic_solutions = analytic_solutions
         self.enforcer = enforcer
