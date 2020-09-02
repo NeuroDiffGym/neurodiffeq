@@ -15,7 +15,6 @@ from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
 from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
-from neurodiffeq.networks import SphericalHarmonicsNN
 from neurodiffeq.networks import FCNN
 
 import torch
@@ -412,20 +411,6 @@ def test_spherical_harmonics():
 
     # test the correctness of spherical harmonics written in terms of theta and phi
     assert torch.max(abs_diff) <= 1e-5, f"difference too large, check again:\n {abs_diff.max()}"
-
-
-def test_spherical_harmonics_nn():
-    # number of training points
-    N_SAMPLES = 100
-    # highest degree for spherical harmonics
-    MAX_DEGREE = 4
-    # expected output shape
-    OUTPUT_SHAPE = (N_SAMPLES, 1)
-
-    nn = SphericalHarmonicsNN(max_degree=MAX_DEGREE)
-    inp = torch.rand(N_SAMPLES, 3)
-    outp = nn(inp)
-    assert outp.shape == OUTPUT_SHAPE, f"got shape={outp.shape}; expected shape={OUTPUT_SHAPE}"
 
 
 def test_spherical_laplcian():
