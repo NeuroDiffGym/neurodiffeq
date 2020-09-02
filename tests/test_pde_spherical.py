@@ -11,14 +11,10 @@ from neurodiffeq.pde_spherical import GeneratorSpherical, Generator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
 from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
-from neurodiffeq.pde_spherical import SolutionSpherical
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
 from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import FCNN
-
-import torch
-import torch.nn as nn
 
 torch.manual_seed(43)
 np.random.seed(43)
@@ -65,8 +61,6 @@ def test_dirichlet_bvp_spherical():
     u2 = bvp_half.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v2, u2, atol=1.e-5).all(), f"Unmatched boundary {v2} != {u2}"
 
-    print("DirichletBVPSpherical test passed")
-
 
 def test_inf_dirichlet_bvp_spherical():
     # B.C. for the interior boundary (r_min)
@@ -92,8 +86,6 @@ def test_inf_dirichlet_bvp_spherical():
     v_inf = g(theta, phi).detach().cpu().numpy()
     u_inf = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
     assert np.isclose(v_inf, u_inf, atol=1.e-5).all(), f"Unmatched boundary {v_inf} != {u_inf}"
-
-    print("InfDirichletBVPSpherical test passed")
 
 
 def test_train_generator_spherical():
@@ -124,8 +116,6 @@ def test_train_generator_spherical():
     with raises(ValueError):
         _ = GeneratorSpherical(64, r_min=1.0, r_max=0.0)
 
-    print("GeneratorSpherical tests passed")
-
 
 def test_solve_spherical():
     pde = laplacian_spherical
@@ -138,9 +128,6 @@ def test_solve_spherical():
     solution, loss_history = solve_spherical(pde, condition, 0.0, 1.0, max_epochs=2, return_best=True)
     rs, thetas, phis = generator.get_examples()
     us = solution(rs, thetas, phis, as_type='np')
-
-
-    print("solve_spherical tests passed")
 
 
 def test_monitor_spherical():
@@ -164,8 +151,6 @@ def test_monitor_spherical():
         analytic_mse_history=analytic_mse_history,
     )
 
-    print("MonitorSpherical test passed")
-
 
 def test_solve_spherical_system():
     # a PDE system that can be decoupled into 2 Laplacian equations :math:`\\nabla^2 u = 0` and :math:`\\nabla^2 v = 0`
@@ -187,8 +172,6 @@ def test_solve_spherical_system():
 
     # assert np.isclose(us, np.zeros(512), atol=0.005).all(), f"Solution u is not straight 0s: {us}"
     # assert np.isclose(vs, np.ones(512), atol=0.005).all(), f"Solution v is not straight 1s: {vs}"
-
-    print("solve_spherical_system tests passed")
 
 
 def test_electric_potential_gaussian_charged_density():
@@ -263,8 +246,6 @@ def test_electric_potential_gaussian_charged_density():
     )
 
     validate(solution2, loss_history2, analytic_mse2)
-
-    print("electric-potential-on-gaussian-charged-density passed")
 
 
 def test_spherical_harmonics():
