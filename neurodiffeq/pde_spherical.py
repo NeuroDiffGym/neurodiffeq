@@ -341,13 +341,13 @@ def solve_spherical(
         pde, condition, r_min=None, r_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solution=None,
         optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False
+        monitor=None, return_internal=False, return_best=False, harmonics_fn=None,
 ):
     """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve one PDE with spherical inputs in 3D space
 
         :param pde: The PDE to solve. If the PDE is :math:`F(u, r,\\theta, \\phi) = 0` where :math:`u` is the dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
-        :type pde: function
+        :type pde: callable
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
         :type condition: `neurodiffeq.pde_spherical.BaseConditionSpherical`
         :param r_min: radius for inner boundary; ignored if both generators are provided; optional
@@ -378,6 +378,8 @@ def solve_spherical(
         :type return_internal: bool, optional
         :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
         :type return_best: bool, optional
+        :param harmonics_fn: function basis (spherical harmonics for example) if solving coefficients of a function basis; used when returning solution
+        :type harmonics_fn: callable
         :return: The solution of the PDE. The history of training loss and validation loss.
             Optionally, MSE against analytic solution, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
@@ -398,6 +400,7 @@ def solve_spherical(
         nets=nets, train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
         analytic_solutions=analytic_solutions, optimizer=optimizer, criterion=criterion, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal, return_best=return_best,
+        harmonics_fn=harmonics_fn,
     )
 
 
@@ -405,13 +408,13 @@ def solve_spherical_system(
         pde_system, conditions, r_min=None, r_max=None,
         nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
         optimizer=None, criterion=None, batch_size=None,
-        max_epochs=1000, monitor=None, return_internal=False, return_best=False
+        max_epochs=1000, monitor=None, return_internal=False, return_best=False, harmonics_fn=None
 ):
     """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve a PDE system with spherical inputs in 3D space
 
         :param pde_system: The PDEs ystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, r,\\theta, \\phi) = 0` where :math:`u_i` is the i-th dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
-        :type pde_system: function
+        :type pde_system: callable
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
         :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
         :param r_min: radius for inner boundary; ignored if both generators are provided; optional
@@ -442,6 +445,8 @@ def solve_spherical_system(
         :type return_internal: bool, optional
         :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
         :type return_best: bool, optional
+        :param harmonics_fn: function basis (spherical harmonics for example) if solving coefficients of a function basis; used when returning solution
+        :type harmonics_fn: callable
         :return: The solution of the PDE. The history of training loss and validation loss.
             Optionally, MSE against analytic solutions, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
@@ -468,7 +473,7 @@ def solve_spherical_system(
     )
 
     solver.fit(max_epochs=max_epochs, monitor=monitor)
-    solution = solver.get_solution(copy=True, best=return_best)
+    solution = solver.get_solution(copy=True, best=return_best, harmonics_fn=harmonics_fn)
     ret = (solution, solver.loss)
     if analytic_solutions is not None:
         ret = ret + (solver.analytic_mse,)
@@ -770,12 +775,14 @@ class SphericalSolver:
                         analytic_mse_history=self.analytic_mse,
                     )
 
-    def get_solution(self, copy=True, best=True):
+    def get_solution(self, copy=True, best=True, harmonics_fn=None):
         """return a solution class
         :param copy: if True, use a deep copy of internal nets and conditions
         :type copy: bool
         :param best: if True, return the solution with lowest loss instead of the solution after the last epoch
         :type best: bool
+        :param harmonics_fn: if set, use it as function basis for returned solution
+        :type harmonics_fn: callable
         :return: trained solution
         :rtype: `neurodiffeq.pde_spherical.SolutionSpherical`
         """
@@ -785,7 +792,10 @@ class SphericalSolver:
             nets = deepcopy(nets)
             conditions = deepcopy(conditions)
 
-        return SolutionSpherical(nets, conditions)
+        if harmonics_fn:
+            return SolutionSphericalHarmonics(nets, conditions, harmonics_fn=harmonics_fn)
+        else:
+            return SolutionSpherical(nets, conditions)
 
     def get_internals(self, param_names, return_type='list'):
         """return internal variable(s) of the solver
@@ -1207,14 +1217,23 @@ class SolutionSphericalHarmonics(SolutionSpherical):
     :type nets: list[`torch.nn.Module`]
     :param conditions: list of conditions to be enforced on each nets; must be of the same length as nets
     :type conditions: list[BaseConditionSphericalHarmonics]
-    :param max_degree: max_degree for spherical harmonics; defaults to 4
+    :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
+    :type harmonics_fn: callable
+    :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis
     :type max_degree: int
     """
 
-    def __init__(self, nets, conditions, max_degree=4):
+    def __init__(self, nets, conditions, max_degree=None, harmonics_fn=None):
         super(SolutionSphericalHarmonics, self).__init__(nets, conditions)
-        self.max_degree = max_degree
-        self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+        if (harmonics_fn is None) and (max_degree is None):
+            raise ValueError("harmonics_fn should be specified")
+
+        if max_degree is not None:
+            print("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence", file=sys.stderr)
+            self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+
+        if harmonics_fn is not None:
+            self.harmonics_fn = harmonics_fn
 
     def _compute_u(self, net, condition, rs, thetas, phis):
         products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
