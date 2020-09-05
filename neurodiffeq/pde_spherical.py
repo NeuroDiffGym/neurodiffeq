@@ -1240,18 +1240,6 @@ class SolutionSphericalHarmonics(SolutionSpherical):
         return torch.sum(products, dim=1)
 
 
-class SolutionCylindricalFourier(SolutionSpherical):
-    def __init__(self, nets, conditions, max_degree=4):
-        from .cylindrical_fourier_series import RealFourierSeries
-        super(SolutionCylindricalFourier, self).__init__(nets, conditions)
-        self.max_degree = max_degree
-        self.harmonics_fn = RealFourierSeries(max_degree=max_degree)
-
-    def _compute_u(self, net, condition, rs, thetas, phis):
-        products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
-        return torch.sum(products, dim=1)
-
-
 class MonitorSphericalHarmonics(MonitorSpherical):
     """A monitor for checking the status of the neural network during training.
 
