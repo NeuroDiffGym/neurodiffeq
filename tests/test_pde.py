@@ -6,8 +6,9 @@ matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during tes
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
 from neurodiffeq.pde import DirichletBVP2D, IBVP1D, Condition,_network_output_2input
-from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition, PredefinedExampleGenerator2D
-from neurodiffeq.pde import solve2D, solve2D_system, ExampleGenerator2D, Monitor2D, make_animation, set_default_dtype
+from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
+from neurodiffeq.generator import PredefinedGenerator, Generator2D
+from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation, set_default_dtype
 
 from pytest import raises
 
@@ -32,7 +33,7 @@ def test_monitor():
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
         batch_size=64,
         monitor=Monitor2D(check_every=1, xy_min=(0, 0), xy_max=(1, 1))
     )
@@ -52,28 +53,28 @@ def test_train_generator():
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
         batch_size=64,
         monitor=Monitor2D(check_every=1, xy_min=(0, 0), xy_max=(1, 1))
     )
 
-    train_gen = ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
+    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3, train_generator=train_gen, batch_size=64
     )
-    train_gen = ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
+    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3, train_generator=train_gen, batch_size=64
     )
 
     with raises(ValueError):
-        train_gen = ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='magic')
-    print('ExampleGenerator test passed.')
+        train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='magic')
+    print('Generator test passed.')
 
-    valid_gen = ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
-    train_gen = ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
+    valid_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
+    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc,
         net=net, max_epochs=3, train_generator=train_gen, valid_generator=valid_gen, batch_size=64
@@ -116,7 +117,7 @@ def test_laplace():
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy', xy_noise_std=(0.01, 0.01)),
+        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy', xy_noise_std=(0.01, 0.01)),
         batch_size=64
     )
     solution_analytical_laplace = lambda x, y: np.sin(np.pi * y) * np.sinh(np.pi * (1 - x)) / np.sinh(np.pi)
@@ -148,7 +149,7 @@ def test_heat():
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
         batch_size=64, metrics={'mse': mse}
     )
     solution_analytical_heat = lambda x, t: np.sin(np.pi * x / L) * np.exp(-k * np.pi ** 2 * t / L ** 2)
@@ -181,7 +182,7 @@ def test_neumann_boundaries_1():
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
         batch_size=64
     )
 
@@ -212,7 +213,7 @@ def test_neumann_boundaries_2():
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
         batch_size=64
     )
 
@@ -242,7 +243,7 @@ def test_neumann_boundaries_3():
     solution_neural_net_heat, _ = solve2D(
         pde=heat, condition=ibvp, xy_min=(0, 0), xy_max=(L, T),
         net=net, max_epochs=300,
-        train_generator=ExampleGenerator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
+        train_generator=Generator2D((32, 32), (0, 0), (L, T), method='equally-spaced-noisy'),
         batch_size=64
     )
 
@@ -351,7 +352,7 @@ def test_neumann_boundaries_3():
 #     # use one neural network for each dependent variable
 #     solution_neural_net_poiseuille, _ = solve2D_system(
 #         pde_system=poiseuille, conditions=conditions, xy_min=(0, -1), xy_max=(L, 1),
-#         train_generator=ExampleGenerator2D((32, 32), (0, -1), (L, 1), method='equally-spaced-noisy'),
+#         train_generator=Generator2D((32, 32), (0, -1), (L, 1), method='equally-spaced-noisy'),
 #         max_epochs=300, batch_size=64, nets=nets, additional_loss_term=zero_divergence,
 #         monitor=Monitor2D(check_every=10, xy_min=(0, -1), xy_max=(L, 1))
 #     )
@@ -518,7 +519,7 @@ def test_arbitrary_boundary():
     is_in_domain_train = cbc_problem_c.in_domain(xx_train, yy_train)
     xx_train, yy_train = to_np(xx_train), to_np(yy_train)
     xx_train, yy_train = xx_train[is_in_domain_train], yy_train[is_in_domain_train]
-    train_gen = PredefinedExampleGenerator2D(xx_train, yy_train)
+    train_gen = PredefinedGenerator(xx_train, yy_train)
 
     xx_valid, yy_valid = get_grid(
         x_from_to=(-1, 1), y_from_to=(-1, 1),
@@ -528,7 +529,7 @@ def test_arbitrary_boundary():
     is_in_domain_valid = cbc_problem_c.in_domain(xx_valid, yy_valid)
     xx_valid, yy_valid = to_np(xx_valid), to_np(yy_valid)
     xx_valid, yy_valid = xx_valid[is_in_domain_valid], yy_valid[is_in_domain_valid]
-    valid_gen = PredefinedExampleGenerator2D(xx_valid, yy_valid)
+    valid_gen = PredefinedGenerator(xx_valid, yy_valid)
 
     def rmse(u, x, y):
         true_u = torch.log(1 + x ** 2 + y ** 2)

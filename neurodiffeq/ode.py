@@ -7,8 +7,11 @@ import torch.nn as nn
 import torch.optim as optim
 
 from .networks import FCNN
+from .generator import Generator1D
+from .version_utils import warn_deprecate_class
 from copy import deepcopy
 
+ExampleGenerator = warn_deprecate_class(Generator1D)
 
 def _network_output(net, ts, ith_unit):
     nn_output = net(ts)
@@ -133,59 +136,6 @@ class DirichletBVP(Condition):
         return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
 
 
-class ExampleGenerator:
-    """An example generator for generating 1-D training points.
-
-    :param size: The number of points to generate each time `get_examples` is called.
-    :type size: int
-    :param t_min: The lower bound of the 1-D points generated, defaults to 0.0.
-    :type t_min: float, optional
-    :param t_max: The upper boound of the 1-D points generated, defaults to 1.0.
-    :type t_max: float, optional
-    :param method: The distribution of the 1-D points generated.
-        If set to 'uniform', the points will be drew from a uniform distribution Unif(t_min, t_max).
-        If set to 'equally-spaced', the points will be fixed to a set of linearly-spaced points that go from t_min to t_max.
-        If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
-        If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
-        If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'uniform'.
-    :type method: str, optional
-    :raises ValueError: When provided with an unknown method.
-    """
-    def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform', noise_std=None):
-        r"""Initializer method
-
-        .. note::
-            A instance method `get_examples` is dynamically created to generate 1-D training points. It will be called by the function `solve` and `solve_system`.
-        """
-        self.size = size
-        self.t_min, self.t_max = t_min, t_max
-        if method == 'uniform':
-            self.examples = torch.zeros(self.size, requires_grad=True)
-            self.get_examples = lambda: self.examples + torch.rand(self.size)*(self.t_max-self.t_min) + self.t_min
-        elif method == 'equally-spaced':
-            self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            self.get_examples = lambda: self.examples
-        elif method == 'equally-spaced-noisy':
-            self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            if noise_std:
-                self.noise_std = noise_std
-            else:
-                self.noise_std  = ( (t_max-t_min)/size ) / 4.0
-            self.get_examples = lambda: torch.normal(mean=self.examples, std=self.noise_std)
-        elif method == 'log-spaced':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            self.get_examples = lambda: self.examples
-        elif method == 'log-spaced-noisy':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            if noise_std:
-                self.noise_std = noise_std
-            else:
-                self.noise_std = ((t_max - t_min) / size) / 4.0
-            self.get_examples = lambda: torch.normal(mean=self.examples, std=self.noise_std)
-        else:
-            raise ValueError(f'Unknown method: {method}')
-
-
 class Monitor:
     """A monitor for checking the status of the neural network during training.
 
@@ -281,11 +231,11 @@ def solve(
     :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_max: float
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
+    :type train_generator: `neurodiffeq.generator.Generator1D`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.ode.ExampleGenerator`, optional
+    :type valid_generator: `neurodiffeq.generator.Generator1D`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
@@ -344,11 +294,11 @@ def solve_system(
     :param nets: The neural networks used to approximate the solution, defaults to None.
     :type nets: list[`torch.nn.Module`], optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.ode.ExampleGenerator`, optional
+    :type train_generator: `neurodiffeq.generator.Generator1D`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.ode.ExampleGenerator`, optional
+    :type valid_generator: `neurodiffeq.generator.Generator1D`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None and sum of square of the output of `ode_system` will be used.
@@ -398,7 +348,7 @@ def solve_system(
 
         train_loss_epoch = calculate_loss(train_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
         train_loss_epoch = train_loss_epoch.item()
-        
+
         train_metrics_epoch = calculate_metrics(train_examples_t, net, nets, conditions, metrics)
         return train_loss_epoch, train_metrics_epoch
 
@@ -421,7 +371,7 @@ def solve_system(
         if additional_loss_term is not None:
             loss += additional_loss_term(*us, ts)
         return loss
-    
+
     def calculate_metrics(ts, net, nets, conditions, metrics):
         us = _trial_solution(net, nets, ts, conditions)
         metrics_ = {
@@ -444,11 +394,11 @@ def solve_system(
     if not train_generator:
         if (t_min is None) or (t_max is None):
             raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
-        train_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced-noisy')
+        train_generator = Generator1D(32, t_min, t_max, method='equally-spaced-noisy')
     if not valid_generator:
         if (t_min is None) or (t_max is None):
             raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
-        valid_generator = ExampleGenerator(32, t_min, t_max, method='equally-spaced')
+        valid_generator = Generator1D(32, t_min, t_max, method='equally-spaced')
     if (not optimizer) and single_net:  # using a single net
         optimizer = optim.Adam(single_net.parameters(), lr=0.001)
     if (not optimizer) and nets:  # using multiple nets
