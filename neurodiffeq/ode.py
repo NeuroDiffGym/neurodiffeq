@@ -149,7 +149,7 @@ class Monitor:
     def __init__(self, t_min, t_max, check_every=100):
         """Initializer method
         """
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = plt.figure(figsize=(30, 8))
         self.ax1 = self.fig.add_subplot(131)

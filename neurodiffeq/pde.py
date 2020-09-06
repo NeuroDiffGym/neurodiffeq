@@ -297,7 +297,7 @@ class Monitor2D:
     def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
         """Initializer method
         """
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
