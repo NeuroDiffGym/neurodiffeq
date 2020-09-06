@@ -202,13 +202,16 @@ class IBVP1D(Condition):
 
         t_ones = torch.ones_like(t, requires_grad=True)
         t_ones_min = self.t_min * t_ones
+        x_ones = torch.ones_like(x, requires_grad=True)
+        x_ones_min = self.x_min * x_ones
+        x_ones_max = self.x_max * x_ones
 
         x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
         t_tilde = t - self.t_min
 
         Axt = self.t_min_val(x) + \
-            x_tilde     * (self.x_max_val(t) - self.x_max_val(t_ones_min)) + \
-            (1-x_tilde) * (self.x_min_val(t) - self.x_min_val(t_ones_min))
+            x_tilde     * (self.x_max_val(t) - self.t_min_val(x_ones_max)) + \
+            (1-x_tilde) * (self.x_min_val(t) - self.t_min_val(x_ones_min))
         return Axt + x_tilde * (1 - x_tilde) * (1 - torch.exp(-t_tilde)) * uxt
 
     # When we have Dirichlet boundary condition on the left end of the domain
