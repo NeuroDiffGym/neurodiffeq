@@ -200,8 +200,6 @@ class IBVP1D(Condition):
     def _enforce_dd(self, net, x, t):
         uxt = _network_output_2input(net, x, t, self.ith_unit)
 
-        t_ones = torch.ones_like(t, requires_grad=True)
-        t_ones_min = self.t_min * t_ones
         x_ones = torch.ones_like(x, requires_grad=True)
         x_ones_min = self.x_min * x_ones
         x_ones_max = self.x_max * x_ones
