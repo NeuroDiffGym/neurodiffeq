@@ -8,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
-from .spherical_harmonics import RealSphericalHarmonics
+from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
 from .version_utils import warn_deprecate_class

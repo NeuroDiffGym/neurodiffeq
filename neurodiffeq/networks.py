@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .spherical_harmonics import RealSphericalHarmonics
+from .function_basis import RealSphericalHarmonics
 
 
 class FCNN(nn.Module):

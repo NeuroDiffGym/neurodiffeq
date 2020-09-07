@@ -13,7 +13,7 @@ from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichl
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
-from neurodiffeq.spherical_harmonics import RealSphericalHarmonics, HarmonicsLaplacian
+from neurodiffeq.function_basis import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import FCNN
 
 torch.manual_seed(43)
