@@ -8,13 +8,19 @@ import pandas as pd
 import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
-from .spherical_harmonics import RealSphericalHarmonics
+from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
 from .version_utils import warn_deprecate_class
+from .generator import Generator3D, GeneratorSpherical
 from inspect import signature
 from copy import deepcopy
 
+# the name ExampleGenerator3D is deprecated
+ExampleGenerator3D = warn_deprecate_class(Generator3D)
+
+# the name ExampleGeneratorSpherical is deprecated
+ExampleGeneratorSpherical = warn_deprecate_class(GeneratorSpherical)
 
 def _nn_output_spherical_input(net, rs, thetas, phis):
     points = torch.cat((rs, thetas, phis), 1)
@@ -32,157 +38,6 @@ class NoConditionSpherical(BaseConditionSpherical):
 
     def enforce(self, net, r, theta, phi):
         return _nn_output_spherical_input(net, r, theta, phi)
-
-
-class BaseGenerator:
-    def __init__(self, *args):
-        self.size = ...
-        raise NotImplementedError(f"Abstract class {self.__class__.__name__} cannot be instantiated")
-
-    def get_examples(self):
-        raise NotImplementedError(f"method of abstract class {self.__class__.__name__} cannot be called")
-
-
-class Generator3D(BaseGenerator):
-    """An example generator for generating 3-D training points. NOT TO BE CONFUSED with `ExampleGeneratorSpherical`
-        :param grid: The discretization of the 3 dimensions, if we want to generate points on a :math:`m \\times n \\times k` grid, then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
-        :type grid: tuple[int, int, int], optional
-        :param xyz_min: The lower bound of 3 dimensions, if we only care about :math:`x \\geq x_0`, :math:`y \\geq y_0`, and :math:`z \\geq z_0` then `xyz_min` is `(x_0, y_0, z_0)`, defaults to `(0.0, 0.0, 0.0)`.
-        :type xyz_min: tuple[float, float, float], optional
-        :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is `(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
-        :type xyz_max: tuple[float, float, float], optional
-        :param method: The distribution of the 3-D points generated. If set to 'equally-spaced', the points will be fixed to the grid specified. If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
-        :type method: str, optional
-        :raises ValueError: When provided with an unknown method.
-    """
-
-    # noinspection PyMissingConstructor
-    def __init__(self, grid=(10, 10, 10), xyz_min=(0.0, 0.0, 0.0), xyz_max=(1.0, 1.0, 1.0),
-                 method='equally-spaced-noisy'):
-        r"""Initializer method
-
-        .. note::
-            A instance method `get_examples` is dynamically created to generate 2-D training points. It will be called by the function `solve2D`.
-        """
-        self.size = grid[0] * grid[1] * grid[2]
-
-        x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
-        y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
-        z = torch.linspace(xyz_min[2], xyz_max[2], grid[2], requires_grad=True)
-        grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
-        self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
-
-        def trunc(tensor, min, max):
-            tensor[tensor < min] = min
-            tensor[tensor > max] = max
-
-        if method == 'equally-spaced':
-            self.get_examples = lambda: (self.grid_x, self.grid_y, self.grid_z)
-        elif method == 'equally-spaced-noisy':
-            self.noise_xmean = torch.zeros(self.size)
-            self.noise_ymean = torch.zeros(self.size)
-            self.noise_zmean = torch.zeros(self.size)
-            self.noise_xstd = torch.ones(self.size) * ((xyz_max[0] - xyz_min[0]) / grid[0]) / 4.0
-            self.noise_ystd = torch.ones(self.size) * ((xyz_max[1] - xyz_min[1]) / grid[1]) / 4.0
-            self.noise_zstd = torch.ones(self.size) * ((xyz_max[2] - xyz_min[2]) / grid[2]) / 4.0
-            self.get_examples = lambda: (
-                trunc(self.grid_x + torch.normal(mean=self.noise_xmean, std=self.noise_xstd), xyz_min[0], xyz_max[0]),
-                trunc(self.grid_y + torch.normal(mean=self.noise_ymean, std=self.noise_ystd), xyz_min[1], xyz_max[1]),
-                trunc(self.grid_z + torch.normal(mean=self.noise_zmean, std=self.noise_zstd), xyz_min[2], xyz_max[2]),
-            )
-        else:
-            raise ValueError(f'Unknown method: {method}')
-
-
-# the name ExampleGenerator3D is deprecated
-ExampleGenerator3D = warn_deprecate_class(Generator3D)
-
-
-class GeneratorSpherical(BaseGenerator):
-    """An example generator for generating points in spherical coordinates. NOT TO BE CONFUSED with `ExampleGenerator3D`
-    :param size: number of points in 3-D sphere
-    :type size: int
-    :param r_min: radius of the interior boundary
-    :type r_min: float, optional
-    :param r_max: radius of the exterior boundary
-    :type r_max: float, optional
-    :param method: The distribution of the 3-D points generated. If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`. If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
-    :type method: str, optional
-    """
-
-    # noinspection PyMissingConstructor
-    def __init__(self, size, r_min=0., r_max=1., method='equally-spaced-noisy'):
-        if r_min < 0 or r_max < r_min:
-            raise ValueError(f"Illegal range [f{r_min}, {r_max}]")
-
-        if method == 'equally-spaced-noisy':
-            lower = r_min ** 2
-            upper = r_max ** 2
-            rng = upper - lower
-            self.get_r = lambda: torch.sqrt(rng * torch.rand(self.shape) + lower)
-        elif method == "equally-radius-noisy":
-            lower = r_min
-            upper = r_max
-            rng = upper - lower
-            self.get_r = lambda: rng * torch.rand(self.shape) + lower
-        else:
-            raise ValueError(f'Unknown method: {method}')
-
-        self.size = size  # stored for `solve_spherical_system` to access
-        self.shape = (size,)  # used for `self.get_example()`
-
-    def get_examples(self):
-        a = torch.rand(self.shape)
-        b = torch.rand(self.shape)
-        c = torch.rand(self.shape)
-        denom = a + b + c
-        # `x`, `y`, `z` here are just for computation of `theta` and `phi`
-        epsilon = 1e-6
-        x = torch.sqrt(a / denom) + epsilon
-        y = torch.sqrt(b / denom) + epsilon
-        z = torch.sqrt(c / denom) + epsilon
-        # `sign_x`, `sign_y`, `sign_z` are either -1 or +1
-        sign_x = torch.randint(0, 2, self.shape, dtype=x.dtype) * 2 - 1
-        sign_y = torch.randint(0, 2, self.shape, dtype=y.dtype) * 2 - 1
-        sign_z = torch.randint(0, 2, self.shape, dtype=z.dtype) * 2 - 1
-
-        x = x * sign_x
-        y = y * sign_y
-        z = z * sign_z
-
-        theta = torch.acos(z).requires_grad_(True)
-        phi = -torch.atan2(y, x) + np.pi  # atan2 ranges (-pi, pi] instead of [0, 2pi)
-        phi.requires_grad_(True)
-        r = self.get_r().requires_grad_(True)
-
-        return r, theta, phi
-
-
-# the name ExampleGeneratorSpherical is deprecated
-ExampleGeneratorSpherical = warn_deprecate_class(GeneratorSpherical)
-
-
-class EnsembleGenerator(BaseGenerator):
-    r"""
-    An ensemble generator for sampling points, whose `get_example` returns all the samples of its sub-generators
-    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    """
-
-    # noinspection PyMissingConstructor
-    def __init__(self, *generators):
-        self.generators = generators
-        self.size = sum(gen.size for gen in generators)
-
-    def get_examples(self):
-        all_examples = [gen.get_examples() for gen in self.generators]
-        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
-        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
-        segmented = zip(*all_examples)
-        return [torch.cat(seg) for seg in segmented]
-
-
-# the name ExampleGeneratorSpherical is deprecated
-EnsembleExampleGenerator = warn_deprecate_class(EnsembleGenerator)
 
 
 class DirichletBVPSpherical(BaseConditionSpherical):
@@ -1234,18 +1089,6 @@ class SolutionSphericalHarmonics(SolutionSpherical):
 
         if harmonics_fn is not None:
             self.harmonics_fn = harmonics_fn
-
-    def _compute_u(self, net, condition, rs, thetas, phis):
-        products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
-        return torch.sum(products, dim=1)
-
-
-class SolutionCylindricalFourier(SolutionSpherical):
-    def __init__(self, nets, conditions, max_degree=4):
-        from .cylindrical_fourier_series import RealFourierSeries
-        super(SolutionCylindricalFourier, self).__init__(nets, conditions)
-        self.max_degree = max_degree
-        self.harmonics_fn = RealFourierSeries(max_degree=max_degree)
 
     def _compute_u(self, net, condition, rs, thetas, phis):
         products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)

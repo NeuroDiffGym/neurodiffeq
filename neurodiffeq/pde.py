@@ -10,7 +10,12 @@ import matplotlib.tri as tri
 
 from .networks import FCNN
 from .neurodiffeq import diff
+from .generator import Generator2D, PredefinedGenerator
+from .version_utils import warn_deprecate_class
 from copy import deepcopy
+
+ExampleGenerator2D = warn_deprecate_class(Generator2D)
+PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 
 # make a function to set global state
 FLOAT_DTYPE=torch.float32
@@ -278,85 +283,6 @@ class IBVP1D(Condition):
                 ))
 
 
-class ExampleGenerator2D:
-    """An example generator for generating 2-D training points.
-
-        :param grid: The discretization of the 2 dimensions, if we want to generate points on a :math:`m \\times n` grid, then `grid` is `(m, n)`, defaults to `(10, 10)`.
-        :type grid: tuple[int, int], optional
-        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, defaults to `(0.0, 0.0)`.
-        :type xy_min: tuple[float, float], optional
-        :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, defaults to `(1.0, 1.0)`.
-        :type xy_max: tuple[float, float], optional
-        :param method: The distribution of the 2-D points generated.
-            If set to 'equally-spaced', the points will be fixed to the grid specified.
-            If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
-        :type method: str, optional
-        :param xy_noise_std: the standard deviation of the noise on the x and y dimension, if not specified, the default value will be (grid step size on x dimension / 4, grid step size on y dimension / 4)
-        :type xy_noise_std: tuple[int, int], optional, defaults to None
-        :raises ValueError: When provided with an unknown method.
-    """
-
-    def __init__(self, grid=(10, 10), xy_min=(0.0, 0.0), xy_max=(1.0, 1.0), method='equally-spaced-noisy', xy_noise_std=None):
-        r"""Initializer method
-
-        .. note::
-            A instance method `get_examples` is dynamically created to generate 2-D training points. It will be called by the function `solve2D`.
-        """
-        self.size = grid[0] * grid[1]
-
-        if method == 'equally-spaced':
-            x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
-            y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            grid_x, grid_y = torch.meshgrid(x, y)
-            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
-            self.get_examples = lambda: (self.grid_x, self.grid_y)
-
-        elif method == 'equally-spaced-noisy':
-            x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
-            y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            grid_x, grid_y = torch.meshgrid(x, y)
-            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
-            if xy_noise_std:
-                self.noise_xstd, self.noise_ystd = xy_noise_std
-            else:
-                self.noise_xstd = ((xy_max[0] - xy_min[0]) / grid[0]) / 4.0
-                self.noise_ystd = ((xy_max[1] - xy_min[1]) / grid[1]) / 4.0
-            self.get_examples = lambda: (
-                torch.normal(mean=self.grid_x, std=self.noise_xstd),
-                torch.normal(mean=self.grid_y, std=self.noise_ystd)
-            )
-        else:
-            raise ValueError(f'Unknown method: {method}')
-
-
-class PredefinedExampleGenerator2D:
-    """An example generator for generating 2-D training points. Here the training
-        points are fixed and predifined.
-
-        :param xs: The x-dimension of the trianing points
-        :type xs: `torch.tensor`
-        :param ys: The y-dimension of the training points
-        :type ys: `torch.tensor`
-    """
-
-    def __init__(self, xs, ys):
-        self.size = len(xs)
-        x = torch.tensor(xs, requires_grad=True, dtype=FLOAT_DTYPE)
-        y = torch.tensor(ys, requires_grad=True, dtype=FLOAT_DTYPE)
-        self.x, self.y = x.flatten(), y.flatten()
-
-    def get_examples(self):
-        """Returns the training points
-            points are fixed and predifined.
-
-            :returns: The x and y dimension of the training points
-            :rtype: tuple[`torch.tensor`, `torch.tensor`]
-        """
-        return self.x, self.y
-
-
 class Monitor2D:
     """A monitor for checking the status of the neural network during training.
 
@@ -371,7 +297,7 @@ class Monitor2D:
     def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
         """Initializer method
         """
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
@@ -379,7 +305,7 @@ class Monitor2D:
         self.cbs = []  # color bars
         # input for neural network
         if valid_generator is None:
-            valid_generator = ExampleGenerator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+            valid_generator = Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = valid_generator.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
         self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
@@ -491,11 +417,11 @@ def solve2D(
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+    :type train_generator: `neurodiffeq.generator.Generator2D`, optional
     :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
     :type shuffle: bool, optional
     :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+    :type valid_generator: `neurodiffeq.generator.Generator2D`, optional
     :param optimizer: The optimization method to use for training, defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
     :param criterion: The loss function to use for training, defaults to None.
@@ -553,11 +479,11 @@ def solve2D_system(
         :param nets: The neural networks used to approximate the solution, defaults to None.
         :type nets: list[`torch.nn.Module`], optional
         :param train_generator: The example generator to generate 1-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+        :type train_generator: `neurodiffeq.generator.Generator2D`, optional
         :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
         :type shuffle: bool, optional
         :param valid_generator: The example generator to generate 1-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.pde.ExampleGenerator2D`, optional
+        :type valid_generator: `neurodiffeq.generator.Generator2D`, optional
         :param optimizer: The optimization method to use for training, defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
         :param criterion: The loss function to use for training, defaults to None.
@@ -657,11 +583,11 @@ def solve2D_system(
     if not train_generator:
         if (xy_min is None) or (xy_max is None):
             raise RuntimeError('Please specify xy_min and xy_max when train_generator is not specified')
-        train_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
+        train_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
     if not valid_generator:
         if (xy_min is None) or (xy_max is None):
             raise RuntimeError('Please specify xy_min and xy_max when valid_generator is not specified')
-        valid_generator = ExampleGenerator2D((32, 32), xy_min, xy_max, method='equally-spaced')
+        valid_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced')
     if (not optimizer) and single_net:  # using a single net
         optimizer = optim.Adam(single_net.parameters(), lr=0.001)
     if (not optimizer) and nets:  # using multiple nets

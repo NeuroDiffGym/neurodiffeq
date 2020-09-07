@@ -111,5 +111,5 @@ def test_zero_order_spherical_harmonics_laplacian():
 
     lap1 = lap1.detach().cpu().numpy()
     lap2 = lap2.detach().cpu().numpy()
-    assert isclose(lap2, lap1).all(), \
+    assert isclose(lap2, lap1, rtol=1e-3).all(), \
         f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {np.max(abs(lap1 - lap2))}"
