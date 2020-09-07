@@ -12,6 +12,7 @@ from neurodiffeq.generator import ConcatGenerator
 from neurodiffeq.generator import StaticGenerator
 from neurodiffeq.generator import PredefinedGenerator
 from neurodiffeq.generator import TransformGenerator
+from neurodiffeq.generator import EnsembleGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -238,3 +239,35 @@ def test_transform_generator():
     assert _check_iterable_equal(x, x_expected)
     assert _check_iterable_equal(y, y_expected)
     assert _check_iterable_equal(z, z_expected)
+
+
+def test_ensemble_generator():
+    size = 100
+
+    generator1 = Generator1D(size)
+    ensemble_generator = EnsembleGenerator(generator1)
+    x = ensemble_generator.get_examples()
+    assert _check_shape_and_grad(ensemble_generator, size, x)
+
+    old_x = torch.rand(size)
+    old_y = torch.rand(size)
+    old_z = torch.rand(size)
+    generator1 = PredefinedGenerator(old_x)
+    generator2 = PredefinedGenerator(old_y)
+    generator3 = PredefinedGenerator(old_z)
+    ensemble_generator = EnsembleGenerator(generator1, generator2, generator3)
+    x, y, z = ensemble_generator.get_examples()
+    assert _check_shape_and_grad(ensemble_generator, size, x, y, z)
+    assert _check_iterable_equal(old_x, x)
+    assert _check_iterable_equal(old_y, y)
+    assert _check_iterable_equal(old_z, z)
+
+    old_x = torch.rand(size)
+    old_y = torch.rand(size)
+    generator1 = PredefinedGenerator(old_x)
+    generator2 = PredefinedGenerator(old_y)
+    product_generator = generator1 * generator2
+    x, y = product_generator.get_examples()
+    assert _check_shape_and_grad(product_generator, size, x, y)
+    assert _check_iterable_equal(old_x, x)
+    assert _check_iterable_equal(old_y, y)
