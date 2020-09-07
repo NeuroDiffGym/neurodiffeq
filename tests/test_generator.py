@@ -2,10 +2,13 @@ import sys
 import torch
 import numpy as np
 from pytest import raises
+# atomic-ish generator classes
 from neurodiffeq.generator import Generator1D
 from neurodiffeq.generator import Generator2D
 from neurodiffeq.generator import Generator3D
 from neurodiffeq.generator import GeneratorSpherical
+# complex generator classes
+from neurodiffeq.generator import ConcatGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -132,3 +135,26 @@ def test_generator_spherical():
     r, theta, phi = generator.get_examples()
     assert _check_shape_and_grad(generator, size, r, theta, phi)
     assert _check_boundary((r, theta, phi), (r_min, 0.0, 0.0), (r_max, np.pi, np.pi * 2))
+
+
+def test_concat_generator():
+    size1, size2 = 10, 20
+    t_min, t_max = 0.5, 1.5
+    generator1 = Generator1D(size1, t_min=t_min, t_max=t_max)
+    generator2 = Generator1D(size2, t_min=t_min, t_max=t_max)
+    concat_generator = ConcatGenerator(generator1, generator2)
+    x = concat_generator.get_examples()
+    assert _check_shape_and_grad(concat_generator, size1 + size2, x)
+
+    grid1 = (4, 4, 4)
+    size1, size2, size3 = grid1[0] * grid1[1] * grid1[2], 100, 200
+    generator1 = Generator3D(grid=grid1)
+    generator2 = GeneratorSpherical(size2)
+    generator3 = GeneratorSpherical(size3)
+    concat_generator = ConcatGenerator(generator1, generator2, generator3)
+    r, theta, phi = concat_generator.get_examples()
+    assert _check_shape_and_grad(concat_generator, size1 + size2 + size3, r, theta, phi)
+
+    added_generator = generator1 + generator2 + generator3
+    r, theta, phi = added_generator.get_examples()
+    assert _check_shape_and_grad(added_generator, size1 + size2 + size3, r, theta, phi)
