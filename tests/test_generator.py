@@ -11,6 +11,7 @@ from neurodiffeq.generator import GeneratorSpherical
 from neurodiffeq.generator import ConcatGenerator
 from neurodiffeq.generator import StaticGenerator
 from neurodiffeq.generator import PredefinedGenerator
+from neurodiffeq.generator import TransformGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -212,3 +213,28 @@ def test_predefined_generator():
     assert _check_iterable_equal(y_tuple, y)
     assert _check_iterable_equal(z_array, z)
     assert _check_iterable_equal(w_tensor, w)
+
+
+def test_transform_generator():
+    size = 100
+    x = np.arange(0, size, dtype=np.float32)
+    x_expected = np.sin(x)
+    generator = PredefinedGenerator(x)
+    transform_generator = TransformGenerator(generator, [torch.sin])
+    x = transform_generator.get_examples()
+    assert _check_shape_and_grad(transform_generator, size, x)
+    assert _check_iterable_equal(x, x_expected)
+
+    x = np.arange(0, size, dtype=np.float32)
+    y = np.arange(0, size, dtype=np.float32)
+    z = np.arange(0, size, dtype=np.float32)
+    x_expected = np.sin(x)
+    y_expected = y
+    z_expected = -z
+    generator = PredefinedGenerator(x, y, z)
+    transform_generator = TransformGenerator(generator, [torch.sin, None, lambda a: -a])
+    x, y, z = transform_generator.get_examples()
+    assert _check_shape_and_grad(transform_generator, size, x, y, z)
+    assert _check_iterable_equal(x, x_expected)
+    assert _check_iterable_equal(y, y_expected)
+    assert _check_iterable_equal(z, z_expected)
