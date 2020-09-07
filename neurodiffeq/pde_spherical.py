@@ -22,6 +22,7 @@ ExampleGenerator3D = warn_deprecate_class(Generator3D)
 # the name ExampleGeneratorSpherical is deprecated
 ExampleGeneratorSpherical = warn_deprecate_class(GeneratorSpherical)
 
+
 def _nn_output_spherical_input(net, rs, thetas, phis):
     points = torch.cat((rs, thetas, phis), 1)
     return net(points)
@@ -569,6 +570,9 @@ class SphericalSolver:
         if key == 'train':
             self.optimizer.step()
             self.optimizer.zero_grad()
+        # update lowest_loss and best_net when validating
+        else:
+            self._update_best()
 
         # calculate mean analytic mse of all batches and register to history
         if self.analytic_solutions is not None:
@@ -615,7 +619,6 @@ class SphericalSolver:
             self.local_epoch = local_epoch
             self.run_train_epoch()
             self.run_valid_epoch()
-            self._update_best()
 
             if callbacks:
                 for cb in callbacks:
