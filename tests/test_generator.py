@@ -9,6 +9,7 @@ from neurodiffeq.generator import Generator3D
 from neurodiffeq.generator import GeneratorSpherical
 # complex generator classes
 from neurodiffeq.generator import ConcatGenerator
+from neurodiffeq.generator import StaticGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -158,3 +159,23 @@ def test_concat_generator():
     added_generator = generator1 + generator2 + generator3
     r, theta, phi = added_generator.get_examples()
     assert _check_shape_and_grad(added_generator, size1 + size2 + size3, r, theta, phi)
+
+
+def test_static_generator():
+    size = 100
+    generator = Generator1D(size)
+    static_generator = StaticGenerator(generator)
+    x1 = static_generator.get_examples()
+    x2 = static_generator.get_examples()
+    assert _check_shape_and_grad(generator, size)
+    assert _check_shape_and_grad(static_generator, size, x1, x2)
+    assert (x1 == x2).all()
+
+    size = 100
+    generator = GeneratorSpherical(size)
+    static_generator = StaticGenerator(generator)
+    r1, theta1, phi1 = static_generator.get_examples()
+    r2, theta2, phi2 = static_generator.get_examples()
+    assert _check_shape_and_grad(generator, size)
+    assert _check_shape_and_grad(static_generator, size, r1, theta1, phi1, r2, theta2, phi2)
+    assert (r1 == r2).all() and (theta1 == theta2).all() and (phi1 == phi2).all()
