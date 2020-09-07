@@ -21,7 +21,11 @@ Currently `neurodiffeq` is not in PyPI, so it needs to be installed manually. To
 
 3. Install the dependencies by `pip install -r requirements.txt` and install `neurodiffeq` by `pip install .`
 
-4. (optional) Run tests by `pytest`
+4. (optional) Run tests by 
+```bash
+for file in tests/test*py; do pytest $file; done
+```
+(Note, you cannot simply run `pytest` or `pytest tests/test*py` due to [this issue](https://github.com/odegym/neurodiffeq/issues/58)
 
 5. (optional) Deactivate the environment. With `conda`: `conda deactivate`; With `venv`: `deactivate`
 
