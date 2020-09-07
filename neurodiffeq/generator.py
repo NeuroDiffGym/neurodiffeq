@@ -322,5 +322,27 @@ class PredefinedGenerator(BaseGenerator):
         return self.xs
 
 
+class TransformGenerator(BaseGenerator):
+    """A generator which applies certain transformations on the sample vectors
+    :param generator: a generator used to generate samples on which transformations will be applied
+    :type generator: BaseGenerator
+    :param transforms: a list of transformations to be applied on the sample vectors; identity transformation can be replaced with None
+    :type transforms: list[callable]
+    """
+
+    def __init__(self, generator, transforms):
+        super(TransformGenerator, self).__init__()
+        self.generator = generator
+        self.size = generator.size
+        self.transforms = [
+            (lambda x: x) if t is None else t
+            for t in transforms
+        ]
+
+    def get_examples(self):
+        xs = self.generator.get_examples()
+        if isinstance(xs, torch.Tensor):
+            return self.transforms[0](xs)
+        return tuple(t(x) for t, x in zip(self.transforms, xs))
 
 
