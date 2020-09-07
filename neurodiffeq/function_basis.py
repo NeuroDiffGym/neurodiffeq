@@ -162,6 +162,7 @@ class FourierLaplacian(BasisOperator):
         return torch.sum(products, dim=1, keepdim=True)
 
 
+# TODO: change hard coding to dynamic computation
 # List of real spherical harmonics (normalized) with degree l<=4; see following link
 # https://en.wikipedia.org/wiki/Table_of_spherical_harmonics
 # Note that the normalization term doesn't include the factor :math:`\\sqrt{\\frac{1}{\\pi}}`
