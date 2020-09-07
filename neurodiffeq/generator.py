@@ -24,6 +24,11 @@ class BaseGenerator:
         self.check_generator(other)
         return ConcatGenerator(self, other)
 
+    def __mul__(self, other):
+        self.check_generator(other)
+        return EnsembleGenerator(self, other)
+
+
 class Generator1D(BaseGenerator):
     """An example generator for generating 1-D training points.
 
@@ -346,3 +351,33 @@ class TransformGenerator(BaseGenerator):
         return tuple(t(x) for t, x in zip(self.transforms, xs))
 
 
+class EnsembleGenerator(BaseGenerator):
+    r"""An ensemble generator for sampling points, whose `get_examples` method returns all the samples of its sub-generators;
+    Not to be confused with ConcatGenerator which returns the concatenated vector of samples returned by its sub-generators.
+    All sub-generator must return vectors of the same shape; yet the number of vectors for each sub-generator can be different
+    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    """
+
+    def __init__(self, *generators):
+        super(EnsembleGenerator, self).__init__()
+        self.size = generators[0].size
+        for i, gen in enumerate(generators):
+            if gen.size != self.size:
+                raise ValueError(f"gens[{i}].size ({gen.size}) != gens[0].size ({self.size})")
+        self.gens = generators
+
+    def get_examples(self):
+        ret = tuple()
+        for g in self.gens:
+            ex = g.get_examples()
+            if isinstance(ex, list):
+                ex = tuple(ex)
+            elif isinstance(ex, torch.Tensor):
+                ex = (ex,)
+            ret += ex
+
+        if len(ret) == 1:
+            return ret[0]
+        else:
+            return ret
