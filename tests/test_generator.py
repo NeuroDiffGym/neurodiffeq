@@ -14,6 +14,7 @@ from neurodiffeq.generator import PredefinedGenerator
 from neurodiffeq.generator import TransformGenerator
 from neurodiffeq.generator import EnsembleGenerator
 from neurodiffeq.generator import FilterGenerator
+from neurodiffeq.generator import ResampleGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -312,3 +313,48 @@ def test_filter_generator():
     for _ in range(5):
         assert _check_shape_and_grad(filter_generator, fixed_size)
         filter_generator.get_examples()
+
+
+def test_resample_generator():
+    size = 100
+
+    sample_size = size
+    x_expected = np.arange(size, dtype=np.float32)
+    generator = PredefinedGenerator(x_expected)
+    resample_generator = ResampleGenerator(generator, size=sample_size, replacement=False)
+    x = resample_generator.get_examples()
+    assert _check_shape_and_grad(resample_generator, sample_size, x)
+    # noinspection PyTypeChecker
+    assert _check_iterable_equal(torch.sort(x)[0], x_expected)
+
+    sample_size = size // 2
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, size * 2, dtype=np.float32)
+    generator = PredefinedGenerator(x, y)
+    resample_generator = ResampleGenerator(generator, size=sample_size, replacement=False)
+    x, y = resample_generator.get_examples()
+    assert _check_shape_and_grad(resample_generator, sample_size, x, y)
+    assert _check_iterable_equal(x + 100, y)
+    assert len(torch.unique(x.detach())) == len(x)
+
+    sample_size = size * 3 // 4
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, size * 2, dtype=np.float32)
+    generator = PredefinedGenerator(x, y)
+    resample_generator = ResampleGenerator(generator, size=sample_size, replacement=True)
+    x, y = resample_generator.get_examples()
+    assert _check_shape_and_grad(resample_generator, sample_size, x, y)
+    assert _check_iterable_equal(x + 100, y)
+    assert len(torch.unique(x.detach())) < len(x)
+
+    sample_size = size * 2
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, size * 2, dtype=np.float32)
+    z = np.arange(size * 2, size * 3, dtype=np.float32)
+    generator = PredefinedGenerator(x, y, z)
+    resample_generator = ResampleGenerator(generator, size=sample_size, replacement=True)
+    x, y, z = resample_generator.get_examples()
+    assert _check_shape_and_grad(resample_generator, sample_size, x, y, z)
+    assert _check_iterable_equal(x + 100, y)
+    assert _check_iterable_equal(y + 100, z)
+    assert len(torch.unique(x.detach())) < len(x)
