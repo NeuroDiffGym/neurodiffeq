@@ -10,6 +10,7 @@ from neurodiffeq.generator import GeneratorSpherical
 # complex generator classes
 from neurodiffeq.generator import ConcatGenerator
 from neurodiffeq.generator import StaticGenerator
+from neurodiffeq.generator import PredefinedGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -179,3 +180,35 @@ def test_static_generator():
     assert _check_shape_and_grad(generator, size)
     assert _check_shape_and_grad(static_generator, size, r1, theta1, phi1, r2, theta2, phi2)
     assert (r1 == r2).all() and (theta1 == theta2).all() and (phi1 == phi2).all()
+
+
+def test_predefined_generator():
+    size = 100
+
+    old_x = torch.arange(size, dtype=torch.float, requires_grad=False)
+    predefined_generator = PredefinedGenerator(old_x)
+    x = predefined_generator.get_examples()
+    assert _check_shape_and_grad(predefined_generator, size, x)
+    assert _check_iterable_equal(old_x, x)
+
+    old_x = torch.arange(size, dtype=torch.float, requires_grad=False)
+    old_y = torch.arange(size, dtype=torch.float, requires_grad=True)
+    old_z = torch.arange(size, dtype=torch.float, requires_grad=False)
+    predefined_generator = PredefinedGenerator(old_x, old_y, old_z)
+    x, y, z = predefined_generator.get_examples()
+    assert _check_shape_and_grad(predefined_generator, size, x, y, z)
+    assert _check_iterable_equal(old_x, x)
+    assert _check_iterable_equal(old_y, y)
+    assert _check_iterable_equal(old_z, z)
+
+    x_list = [i * 2.0 for i in range(size)]
+    y_tuple = tuple([i * 3.0 for i in range(size)])
+    z_array = np.array([i * 4.0 for i in range(size)]).reshape(-1, 1)
+    w_tensor = torch.arange(size, dtype=torch.float)
+    predefined_generator = PredefinedGenerator(x_list, y_tuple, z_array, w_tensor)
+    x, y, z, w = predefined_generator.get_examples()
+    assert _check_shape_and_grad(predefined_generator, size, x, y, z, w)
+    assert _check_iterable_equal(x_list, x)
+    assert _check_iterable_equal(y_tuple, y)
+    assert _check_iterable_equal(z_array, z)
+    assert _check_iterable_equal(w_tensor, w)
