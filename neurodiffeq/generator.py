@@ -15,6 +15,14 @@ class BaseGenerator:
     def get_examples(self) -> List[torch.Tensor]:
         pass
 
+    @staticmethod
+    def check_generator(obj):
+        if not isinstance(obj, BaseGenerator):
+            raise ValueError(f"{obj} is not a generator")
+
+    def __add__(self, other):
+        self.check_generator(other)
+        return ConcatGenerator(self, other)
 
 class Generator1D(BaseGenerator):
     """An example generator for generating 1-D training points.
@@ -245,6 +253,28 @@ class GeneratorSpherical(BaseGenerator):
 
         return r, theta, phi
 
+
+class ConcatGenerator(BaseGenerator):
+    r"""An concatenated generator for sampling points, whose `get_examples` method returns the concatenated vector of
+    the samples returned by its sub-generators.
+    Not to be confused with EnsembleGenerator which returns all the samples of its sub-generators
+    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    """
+
+    def __init__(self, *generators):
+        super(ConcatGenerator, self).__init__()
+        self.generators = generators
+        self.size = sum(gen.size for gen in generators)
+
+    def get_examples(self):
+        all_examples = [gen.get_examples() for gen in self.generators]
+        if isinstance(all_examples[0], torch.Tensor):
+            return torch.cat(all_examples)
+        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
+        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
+        segmented = zip(*all_examples)
+        return [torch.cat(seg) for seg in segmented]
 
 class PredefinedGenerator(BaseGenerator):
     """A generator for generating training points. Here the training points are fixed and predefined.
