@@ -276,6 +276,22 @@ class ConcatGenerator(BaseGenerator):
         segmented = zip(*all_examples)
         return [torch.cat(seg) for seg in segmented]
 
+
+class StaticGenerator(BaseGenerator):
+    """A generator that returns the same samples every time
+    :param generator: a generator used to generate the static samples
+    :type generator: BaseGenerator
+    """
+
+    def __init__(self, generator):
+        super(StaticGenerator, self).__init__()
+        self.size = generator.size
+        self.examples = generator.get_examples()
+
+    def get_examples(self):
+        return self.examples
+
+
 class PredefinedGenerator(BaseGenerator):
     """A generator for generating training points. Here the training points are fixed and predefined.
     :param xs: The x-dimension of the trianing points
