@@ -15,6 +15,7 @@ from neurodiffeq.generator import TransformGenerator
 from neurodiffeq.generator import EnsembleGenerator
 from neurodiffeq.generator import FilterGenerator
 from neurodiffeq.generator import ResampleGenerator
+from neurodiffeq.generator import BatchGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -358,3 +359,37 @@ def test_resample_generator():
     assert _check_iterable_equal(x + 100, y)
     assert _check_iterable_equal(y + 100, z)
     assert len(torch.unique(x.detach())) < len(x)
+
+
+def test_batch_generator():
+    size = 10
+    batch_size = 3
+    x = np.arange(size, dtype=np.float32)
+    answer_x = np.arange(batch_size) % size
+    generator = PredefinedGenerator(x)
+    batch_generator = BatchGenerator(generator, batch_size)
+    for _ in range(50):
+        x = batch_generator.get_examples()
+        assert _check_shape_and_grad(batch_generator, batch_size, x)
+        assert _check_iterable_equal(answer_x, x)
+        assert len(batch_generator.cached_xs) <= size + max(size, batch_size)
+        # update answer for next iteration
+        answer_x = (answer_x + batch_size) % size
+
+    size = 3
+    batch_size = 10
+    x = np.arange(size, dtype=np.float32)
+    y = np.arange(size, dtype=np.float32)
+    answer_x = np.arange(batch_size) % size
+    answer_y = np.arange(batch_size) % size
+    generator = PredefinedGenerator(x, y)
+    batch_generator = BatchGenerator(generator, batch_size)
+    for _ in range(50):
+        x, y = batch_generator.get_examples()
+        assert _check_shape_and_grad(batch_generator, batch_size, x, y)
+        assert _check_iterable_equal(answer_x, x)
+        assert _check_iterable_equal(answer_y, y)
+        assert len(batch_generator.cached_xs) <= size + max(size, batch_size)
+        # update answer for next iteration
+        answer_x = (answer_x + batch_size) % size
+        answer_y = (answer_y + batch_size) % size
