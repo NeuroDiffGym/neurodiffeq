@@ -449,3 +449,42 @@ class ResampleGenerator(BaseGenerator):
             return xs[indices]
         else:
             return [x[indices] for x in xs]
+
+
+class BatchGenerator(BaseGenerator):
+    """A generator which caches samples and returns a single batch of the samples at a time
+    :param generator: a generator used for getting (cached) examples
+    :type generator: BaseGenerator
+    :param batch_size: number of batches to be returned; can be larger than size of  `generator`, but inefficient if so
+    :type batch_size: int
+    """
+
+    def __init__(self, generator, batch_size):
+        super(BatchGenerator, self).__init__()
+
+        if generator.size <= 0:
+            raise ValueError(f"generator has size {generator.size} <= 0")
+        self.generator = generator
+        self.size = batch_size
+        self.cached_xs = self.generator.get_examples()
+        if isinstance(self.cached_xs, torch.Tensor):
+            self.cached_xs = [self.cached_xs]
+        if isinstance(self.cached_xs, tuple):
+            self.cached_xs = list(self.cached_xs)
+
+    def get_examples(self):
+        # update cache so that we have enough samples in a batch
+        while len(self.cached_xs[0]) < self.size:
+            new = self.generator.get_examples()
+            if isinstance(new, torch.Tensor):
+                new = [new]
+            self.cached_xs = [torch.cat([x, n]) for x, n in zip(self.cached_xs, new)]
+
+        batch = [x[:self.size] for x in self.cached_xs]
+        # drop the returned samples
+        self.cached_xs = [x[self.size:] for x in self.cached_xs]
+
+        if len(batch) == 1:
+            return batch[0]
+        else:
+            return batch
