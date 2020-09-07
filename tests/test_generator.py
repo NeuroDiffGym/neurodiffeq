@@ -13,6 +13,7 @@ from neurodiffeq.generator import StaticGenerator
 from neurodiffeq.generator import PredefinedGenerator
 from neurodiffeq.generator import TransformGenerator
 from neurodiffeq.generator import EnsembleGenerator
+from neurodiffeq.generator import FilterGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -271,3 +272,43 @@ def test_ensemble_generator():
     assert _check_shape_and_grad(product_generator, size, x, y)
     assert _check_iterable_equal(old_x, x)
     assert _check_iterable_equal(old_y, y)
+
+
+def test_filter_generator():
+    grid = (10, 10)
+    size = 100
+
+    x = [i * 1.0 for i in range(size)]
+    filter_fn = lambda a: (a[0] % 2 == 0)
+    filter_fn_2 = lambda a: (a % 2 == 0)
+    x_expected = filter(filter_fn_2, x)
+
+    generator = PredefinedGenerator(x)
+    filter_generator = FilterGenerator(generator, filter_fn=filter_fn, update_size=True)
+    x = filter_generator.get_examples()
+    assert _check_shape_and_grad(filter_generator, size // 2, x)
+    assert _check_iterable_equal(x_expected, x)
+
+    x = [i * 1.0 for i in range(size)]
+    y = [-i * 1.0 for i in range(size)]
+    filter_fn = lambda ab: (ab[0] % 2 == 0) & (ab[1] > -size / 2)
+    x_expected, y_expected = list(zip(*filter(filter_fn, zip(x, y))))
+    generator = PredefinedGenerator(x, y)
+    filter_generator = FilterGenerator(generator, filter_fn)
+    x, y = filter_generator.get_examples()
+    assert _check_shape_and_grad(filter_generator, size // 4, x, y)
+    assert _check_iterable_equal(x_expected, x)
+    assert _check_iterable_equal(y_expected, y)
+
+    generator = Generator2D(grid)
+    filter_fn = lambda ab: (ab[0] > 0.5) & (ab[1] < 0.5)
+    filter_generator = FilterGenerator(generator, filter_fn)
+    for _ in range(5):
+        x, y = filter_generator.get_examples()
+        assert _check_shape_and_grad(filter_generator, None, x, y)
+
+    fixed_size = 42
+    filter_generator = FilterGenerator(generator, filter_fn, size=fixed_size, update_size=False)
+    for _ in range(5):
+        assert _check_shape_and_grad(filter_generator, fixed_size)
+        filter_generator.get_examples()
