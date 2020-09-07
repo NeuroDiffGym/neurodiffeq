@@ -381,3 +381,39 @@ class EnsembleGenerator(BaseGenerator):
             return ret[0]
         else:
             return ret
+
+
+class FilterGenerator(BaseGenerator):
+    """A generator which applies some filtering before samples are returned
+    :param generator: a generator used to generate samples to be filtered
+    :type generator: BaseGenerator
+    :param filter_fn: a filter to be applied on the sample vectors; maps a list of tensors to a mask tensor
+    :type filter_fn: callable
+    :param size: size to be used for `self.size`; if not given, this attribute is initialized to the size of `generator`
+    :type size: int
+    :param update_size: whether or not to update `.size` after each call of `self.get_examples`; defaults to True
+    :type update_size: bool
+    """
+
+    def __init__(self, generator, filter_fn, size=None, update_size=True):
+        super(FilterGenerator, self).__init__()
+        self.generator = generator
+        self.filter_fn = filter_fn
+        if size is None:
+            self.size = generator.size
+        else:
+            self.size = size
+        self.update_size = update_size
+
+    def get_examples(self):
+        xs = self.generator.get_examples()
+        if isinstance(xs, torch.Tensor):
+            xs = [xs]
+        mask = self.filter_fn(xs)
+        xs = [x[mask] for x in xs]
+        if self.update_size:
+            self.size = len(xs[0])
+        if len(xs) == 1:
+            return xs[0]
+        else:
+            return xs
