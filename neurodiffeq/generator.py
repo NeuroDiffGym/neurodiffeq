@@ -417,3 +417,35 @@ class FilterGenerator(BaseGenerator):
             return xs[0]
         else:
             return xs
+
+
+class ResampleGenerator(BaseGenerator):
+    """A generator whose output is shuffled and resampled every time
+    :param generator: a generator used to generate samples to be shuffled and resampled
+    :type generator: BaseGenerator
+    :param size: size of the shuffled output, defaults to the size of `generator`
+    :type size: int
+    :param replacement: whether to sample with replacement or not; defaults to False
+    :type replacement: bool
+    """
+
+    def __init__(self, generator, size=None, replacement=False):
+        super(ResampleGenerator, self).__init__()
+        self.generator = generator
+        if size is None:
+            self.size = generator.size
+        else:
+            self.size = size
+        self.replacement = replacement
+
+    def get_examples(self):
+        if self.replacement:
+            indices = torch.randint(self.generator.size, (self.size,))
+        else:
+            indices = torch.randperm(self.generator.size)[:self.size]
+
+        xs = self.generator.get_examples()
+        if isinstance(xs, torch.Tensor):
+            return xs[indices]
+        else:
+            return [x[indices] for x in xs]
