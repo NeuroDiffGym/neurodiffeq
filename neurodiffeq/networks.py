@@ -38,6 +38,24 @@ class FCNN(nn.Module):
         return x
 
 
+class Resnet(nn.Module):
+    def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh):
+        super(Resnet, self).__init__()
+
+        self.residual = FCNN(
+            n_input_units=n_input_units,
+            n_output_units=n_output_units,
+            n_hidden_units=n_hidden_units,
+            n_hidden_layers=n_hidden_layers,
+            actv=actv,
+        )
+        self.skip_connection = nn.Linear(n_input_units, n_output_units, bias=False)
+
+    def forward(self, t):
+        x = self.skip_connection(t) + self.residual(t)
+        return x
+
+
 class MonomialNN(nn.Module):
     def __init__(self, n_input_units, degrees=1):
         super(MonomialNN, self).__init__()
