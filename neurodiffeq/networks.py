@@ -14,8 +14,8 @@ class FCNN(nn.Module):
     :type n_hidden_units: int
     :param n_hidden_layers: number of hidden layers, defaults to 1.
     :type n_hidden_layers: int
-    :param actv: the activation layer used in each hidden layer, defaults to `torch.nn.Tanh`.
-    :type actv: `torch.nn.Module`
+    :param actv: the activation layer constructor after each hidden layer, defaults to `torch.nn.Tanh`.
+    :type actv: class
     """
 
     def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=32, n_hidden_layers=1,
