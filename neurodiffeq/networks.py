@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .function_basis import RealSphericalHarmonics
+from warnings import warn
 
 
 class FCNN(nn.Module):
@@ -36,6 +36,56 @@ class FCNN(nn.Module):
     def forward(self, t):
         x = self.NN(t)
         return x
+
+
+class Resnet(nn.Module):
+    def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh):
+        super(Resnet, self).__init__()
+
+        self.residual = FCNN(
+            n_input_units=n_input_units,
+            n_output_units=n_output_units,
+            n_hidden_units=n_hidden_units,
+            n_hidden_layers=n_hidden_layers,
+            actv=actv,
+        )
+        self.skip_connection = nn.Linear(n_input_units, n_output_units, bias=False)
+
+    def forward(self, t):
+        x = self.skip_connection(t) + self.residual(t)
+        return x
+
+
+class MonomialNN(nn.Module):
+    def __init__(self, n_input_units, degrees=1):
+        super(MonomialNN, self).__init__()
+
+        self.n_input_units = n_input_units
+        if isinstance(degrees, int):
+            degrees = [d for d in range(1, degrees + 1)]
+        self.degrees = tuple(degrees)
+
+        if len(self.degrees) == 0:
+            raise ValueError(f"No degrees used, check `degrees` argument again")
+        if 0 in degrees:
+            warn("One of the degrees is 0 which might introduce redundant features")
+        if len(set(self.degrees)) < len(self.degrees):
+            warn(f"Duplicate degrees found: {self.degrees}")
+
+    def forward(self, x):
+        if len(x.shape) != 2 or x.shape[1] != self.n_input_units:
+            raise ValueError(f"Expected input shape (-1, {self.n_input_units}), got {x.shape} instead")
+        return torch.cat([x ** d for d in self.degrees], dim=1)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(" \
+               f"n_input_units={self.n_input_units}" \
+               f", " \
+               f"degrees={self.degrees}" \
+               f")"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 class SinActv(nn.Module):
