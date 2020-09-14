@@ -1,4 +1,5 @@
 import torch
+import warnings
 import numpy as np
 from torch import sin, cos
 from .neurodiffeq import diff
@@ -51,10 +52,25 @@ class LegendreBasis(FunctionBasis):
 
 
 class ZonalSphericalHarmonics(FunctionBasis):
-    def __init__(self, max_degree):
+    """Zonal harmonics (spherical harmonics with order=0)
+    :param max_degree: highest degrees to be included; degrees will contain {0, 1, ..., max_degree}; ignored if `degrees` is passed
+    :type max_degree: int
+    :param degrees: a list of degrees to be used, must be nonnegative and unique; if passed, `max_degrees` will be ignored
+    :type degrees: list[int]
+    """
+
+    def __init__(self, max_degree=None, degrees=None):
+        if max_degree is None and degrees is None:
+            raise ValueError("Either `max_degree` or `degrees` must be specified")
+        if max_degree is not None and degrees is not None:
+            warnings.warn(f"degrees={degrees} specified, ignoring max_degree={max_degree}")
+
         self.max_degree = max_degree
-        coefficients = [np.sqrt((2 * l + 1) / (4 * np.pi)) for l in range(max_degree + 1)]
-        polynomials = [LegendrePolynomial(d) for d in range(max_degree + 1)]
+        if degrees is None:
+            self.degrees = list(range(max_degree + 1))
+
+        coefficients = [np.sqrt((2 * l + 1) / (4 * np.pi)) for l in self.degrees]
+        polynomials = [LegendrePolynomial(d) for d in self.degrees]
 
         # The `c=c` and `fn=fn` in the lambda is needed due this issue:
         # https://stackoverflow.com/questions/28268439/python-list-comprehension-with-lambdas
@@ -72,9 +88,16 @@ ZeroOrderSphericalHarmonics = warn_deprecate_class(ZonalSphericalHarmonics)
 
 
 class ZonalSphericalHarmonicsLaplacian(BasisOperator):
-    def __init__(self, max_degree):
-        self.harmonics_fn = ZonalSphericalHarmonics(max_degree)
-        laplacian_coefficients = [-l * (l + 1) for l in range(max_degree + 1)]
+    """Laplacian operator acting on coefficients of zonal harmonics (spherical harmonics with order=0)
+    :param max_degree: highest degrees to be included; degrees will contain {0, 1, ..., max_degree}; ignored if `degrees` is passed
+    :type max_degree: int
+    :param degrees: a list of degrees to be used, must be nonnegative and unique; if passed, `max_degrees` will be ignored
+    :type degrees: list[int]
+    """
+
+    def __init__(self, max_degree=None, degrees=None):
+        self.harmonics_fn = ZonalSphericalHarmonics(max_degree=max_degree, degrees=degrees)
+        laplacian_coefficients = [-l * (l + 1) for l in self.harmonics_fn.degrees]
         self.laplacian_coefficients = torch.tensor(laplacian_coefficients, dtype=torch.float)
 
     def __call__(self, base_coeffs, r, theta, phi):
