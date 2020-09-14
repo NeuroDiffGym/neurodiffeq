@@ -67,7 +67,8 @@ class ZonalSphericalHarmonics(FunctionBasis):
 
         self.max_degree = max_degree
         if degrees is None:
-            self.degrees = list(range(max_degree + 1))
+            degrees = list(range(max_degree + 1))
+        self.degrees = degrees
 
         coefficients = [np.sqrt((2 * l + 1) / (4 * np.pi)) for l in self.degrees]
         polynomials = [LegendrePolynomial(d) for d in self.degrees]
