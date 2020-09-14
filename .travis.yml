@@ -14,5 +14,6 @@ script:
   - pytest tests/test_pde_spherical.py
   - pytest tests/test_temporal.py
   - pytest tests/test_generator.py
+  - pytest tests/test_networks.py
 # after_success:
   # - codecov
