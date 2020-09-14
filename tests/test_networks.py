@@ -50,3 +50,19 @@ def test_resnet():
             n_hidden_units=n_hidden_units,
             n_hidden_layers=n_hidden_layers,
         )
+
+
+def test_monomial_nn():
+    ALL_DEGREES = list(range(1, N_TESTS + 1))
+    ALL_DEGREES += [-d for d in ALL_DEGREES]
+
+    for test_id in range(N_TESTS):
+        degrees = np.random.choice(ALL_DEGREES, size=test_id + 1, replace=False)
+        n_samples = np.random.randint(30, 100)
+        n_features_in = np.random.randint(1, 5)
+        net = MonomialNN(degrees)
+        x = torch.rand(n_samples, n_features_in) + 0.5
+        y = net(x)
+        for i, d in enumerate(degrees):
+            x_d = y[:, i * n_features_in: (i + 1) * n_features_in]
+            assert (x_d - x ** d).abs().max() < 1e-3
