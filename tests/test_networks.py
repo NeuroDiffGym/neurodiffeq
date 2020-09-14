@@ -35,5 +35,18 @@ def test_fcnn():
             n_hidden_layers=n_hidden_layers,
         )
 
+
+def test_resnet():
+    for _ in range(N_TESTS):
+        n_samples = np.random.randint(30, 100)
+        n_features_in = np.random.randint(1, 5)
+        n_features_out = np.random.randint(1, 5)
+        n_hidden_units = np.random.randint(30, 60)
+        n_hidden_layers = np.random.randint(0, 4)
+        _test_shape(
+            n_samples, n_features_in, n_features_out, Resnet,
+            n_input_units=n_features_in,
+            n_output_units=n_features_out,
+            n_hidden_units=n_hidden_units,
             n_hidden_layers=n_hidden_layers,
         )
