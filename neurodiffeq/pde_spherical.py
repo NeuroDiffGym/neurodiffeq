@@ -453,6 +453,8 @@ class SphericalSolver:
         # controls early stopping, should be set to False at the beginning of a `.fit()` call
         # and optionally set to False by `callbacks` in `.fit()` to support early stopping
         self._stop_training = False
+        # the _phase variable is registered for callback functions to access
+        self._phase = None
 
     @property
     def global_epoch(self):
@@ -493,6 +495,7 @@ class SphericalSolver:
         :param key: {'train', 'valid'}; dict key in self.loss / self.analytic_mse
         :type key: str
         """
+        self._phase = key
         if metric_type == 'loss':
             self.loss[key].append(value)
         elif metric_type == 'analytic_mse':
@@ -516,6 +519,7 @@ class SphericalSolver:
         """
         # the following side effects are helpful for future extension,
         # especially for additional loss term that depends on the coordinates
+        self._phase = key
         self._batch_examples[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
         return self._batch_examples[key]
 
@@ -535,6 +539,7 @@ class SphericalSolver:
         :param key: {'train', 'valid'}; phase of the epoch
         :type key: str
         """
+        self._phase = key
         epoch_loss = 0.0
         epoch_analytic_mse = 0
 
