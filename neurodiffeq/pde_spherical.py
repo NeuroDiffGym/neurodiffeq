@@ -681,6 +681,7 @@ class SphericalSolver:
             "n_batches": self.n_batches,
             "best_nets": self.best_nets,
             "criterion": self.criterion,
+            "conditions": self.conditions,
             "global_epoch": self.global_epoch,
             "loss": self.loss,
             "lowest_loss": self.lowest_loss,
