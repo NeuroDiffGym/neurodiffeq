@@ -15,6 +15,7 @@ from .version_utils import warn_deprecate_class
 from .generator import Generator3D, GeneratorSpherical
 from inspect import signature
 from copy import deepcopy
+import warnings
 
 # the name ExampleGenerator3D is deprecated
 ExampleGenerator3D = warn_deprecate_class(Generator3D)
@@ -242,7 +243,7 @@ def solve_spherical(
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
 
-    print("solve_spherical is deprecated, consider using SphericalSolver instead", file=sys.stderr)
+    warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
     pde_sytem = lambda u, r, theta, phi: [pde(u, r, theta, phi)]
     conditions = [condition]
     nets = [net] if net is not None else None
@@ -308,7 +309,7 @@ def solve_spherical_system(
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
         """
-    print("solve_spherical_system is deprecated, consider using SphericalSolver instead", file=sys.stderr)
+    warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
     solver = SphericalSolver(
         pde_system=pde_system,
@@ -382,12 +383,11 @@ class SphericalSolver:
                  shuffle=False, batch_size=None):
 
         if shuffle:
-            print("param `shuffle` is deprecated and ignored; shuffling should be performed by generators",
-                  file=sys.stderr)
+            warnings.warn("param `shuffle` is deprecated and ignored; shuffling should be performed by generators")
 
         if batch_size is not None:
-            print("param `batch_size` is deprecated and ignored; specify n_batches_train and n_batches_valid instead",
-                  file=sys.stderr)
+            warnings.warn("param `batch_size` is deprecated and ignored; "
+                          "specify n_batches_train and n_batches_valid instead")
 
         if train_generator is None or valid_generator is None:
             if r_min is None or r_max is None:
@@ -741,8 +741,8 @@ class MonitorSpherical:
         """
         self.contour_plot_available = self._matplotlib_version_satisfies()
         if not self.contour_plot_available:
-            print("Warning: contourf plot only available for matplotlib version >= v3.3.0"
-                  "switching to matshow instead", file=sys.stderr)
+            warnings.warn("Warning: contourf plot only available for matplotlib version >= v3.3.0 "
+                          "switching to matshow instead")
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.check_every = check_every
         self.fig = None
@@ -1093,7 +1093,7 @@ class SolutionSphericalHarmonics(SolutionSpherical):
             raise ValueError("harmonics_fn should be specified")
 
         if max_degree is not None:
-            print("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence", file=sys.stderr)
+            warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
             self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
@@ -1142,7 +1142,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
             raise ValueError("harmonics_fn should be specified")
 
         if max_degree is not None:
-            print("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence", file=sys.stderr)
+            warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
             self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
@@ -1162,6 +1162,6 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         try:
             ret = self.harmonics_fn.max_degree
         except AttributeError as e:
-            print(f"Error caught when accessing {self.__class__.__name__}, returning None:\n{e}", file=sys.stderr)
+            warnings.warn(f"Error caught when accessing {self.__class__.__name__}, returning None:\n{e}")
             ret = None
         return ret
