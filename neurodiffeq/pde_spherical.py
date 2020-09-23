@@ -557,7 +557,7 @@ class SphericalSolver:
                     epoch_analytic_mse += ((f_pred - f_true) ** 2).mean().item()
 
             residuals = self.pdes(*funcs, *batch)
-            residuals = torch.stack(residuals, dim=1)
+            residuals = torch.cat(residuals, dim=1)
             loss = self.criterion(residuals) + self.additional_loss(funcs, key)
 
             # normalize loss across batches
