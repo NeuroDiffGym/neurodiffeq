@@ -546,7 +546,6 @@ class SphericalSolver:
         """
         self.optimizer.step()
 
-
     def _run_epoch(self, key):
         """run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
         Note that the optimization step is only performed after all batches are run
@@ -710,6 +709,7 @@ class SphericalSolver:
             "pdes": self.pdes,
             "r_max": self.r_max,
             "r_min": self.r_min,
+            "generator": self.generator,
         }
 
         if param_names == "all":
