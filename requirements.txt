@@ -6,3 +6,4 @@ scipy
 pytest
 pandas
 seaborn
+dill
