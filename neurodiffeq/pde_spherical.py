@@ -531,6 +531,18 @@ class SphericalSolver:
         """generate the next validation batch, register in self._batch_examples and return"""
         return self._generate_batch('valid')
 
+    def _do_optimizer_step(self):
+        """Optimization procedures after gradients have been computed. Usually, self.optimizer.step() is sufficient.
+        At times, user can overwrite this method to perform gradient clipping, etc. Here is an example:
+        >>> import itertools
+        >>> class MySolver(SphericalSolver)
+        >>>     def _do_optimizer_step(self):
+        >>>         nn.utils.clip_grad_norm_(itertools.chain([net.parameters() for net in self.nets]), 1.0, 'inf')
+        >>>         self.optimizer.step()
+        """
+        self.optimizer.step()
+
+
     def _run_epoch(self, key):
         """run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
         Note that the optimization step is only performed after all batches are run
@@ -573,7 +585,7 @@ class SphericalSolver:
 
         # perform optimization step when training
         if key == 'train':
-            self.optimizer.step()
+            self._do_optimizer_step()
             self.optimizer.zero_grad()
         # update lowest_loss and best_net when validating
         else:
