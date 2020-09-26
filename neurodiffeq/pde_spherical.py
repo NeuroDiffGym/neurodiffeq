@@ -1190,6 +1190,16 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
 
 class MonitorCallback:
+    """A callback for updating the monitor plots (and optionally saving the fig to disk)
+    :param monitor: the underlying monitor responsible for plotting solutions
+    :type monitor: MonitorSpherical
+    :param fig_dir: directory for saving monitor figs; if not specified, figs will not be saved
+    :type fig_dir: str
+    :param check_against: which epoch count to check against; either 'local' (default) or 'global'
+    :type check_against: str
+    :param repaint_last: whether to update the plot on the last local epoch, defaults to True
+    :type repaint_last: bool
+    """
     def __init__(self, monitor, fig_dir=None, check_against='local', repaint_last=True):
         self.monitor = monitor
         self.fig_dir = fig_dir
