@@ -616,20 +616,23 @@ class SphericalSolver:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, monitor=None, callbacks=None):
+    def fit(self, max_epochs, callbacks=None, monitor=None):
         """Run multiple epochs of training and validation, update best loss at the end of each epoch.
         This method does not return solution, which is done in the `.get_solution` method.
         If `callbacks` is passed, callbacks are run one at a time, after training, validating, updaing best model and before monitor checking
         A callback function `cb(solver)` can set `solver._stop_training` to True to perform early stopping,
         :param max_epochs: number of epochs to run
         :type max_epochs: int
-        :param monitor: monitor for visualizing solution and metrics
+        :param monitor: DEPRECATED; use a MonitorCallback instance instead; Monitor for visualizing solution and metrics
         :rtype monitor: `neurodiffeq.pde_spherical.MonitorSpherical`
         :param callbacks: a list of callback functions, each accepting the solver instance itself as its only argument
         :rtype callbacks: list[callable]
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
+
+        if monitor:
+            warnings.warn("Monitor is deprecated, use a MonitorCallback instead")
 
         for local_epoch in range(max_epochs):
             # stops training if self._stop_training is set to True by a callback
