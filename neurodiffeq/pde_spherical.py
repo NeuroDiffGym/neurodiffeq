@@ -753,9 +753,18 @@ class MonitorSpherical:
     :type shape: tuple[int]
     :param r_scale: 'linear' or 'log'; controls the grid point in the :math:`r` direction; defaults to 'linear'
     :type r_scale: str
+    :param theta_min: The lower bound of polar angle, defaults to :math:`0`
+    :type theta_min: float
+    :param theta_max: The upper bound of polar angle, defaults to :math:`\\pi`
+    :type theta_max: float
+    :param phi_min: The lower bound of azimuthal angle, defaults to :math:`0`
+    :type phi_min: float
+    :param phi_max: The upper bound of azimuthal angle, defaults to :math:`2\\pi`
+    :type phi_max: float
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear'):
+    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
+                 theta_min=0.0, theta_max=np.pi, phi_min=0.0, phi_max=np.pi * 2):
         """Initializer method
         """
         self.contour_plot_available = self._matplotlib_version_satisfies()
@@ -778,8 +787,8 @@ class MonitorSpherical:
 
         gen = Generator3D(
             grid=shape,
-            xyz_min=(r_min, 0., 0.),
-            xyz_max=(r_max, np.pi, 2 * np.pi),
+            xyz_min=(r_min, theta_min, phi_min),
+            xyz_max=(r_max, theta_max, phi_max),
             method='equally-spaced'
         )
         rs, thetas, phis = gen.get_examples()  # type: torch.Tensor, torch.Tensor, torch.Tensor
@@ -1161,12 +1170,20 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type r_scale: str
     :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
     :type harmonics_fn: callable
+    :param theta_min: The lower bound of polar angle, defaults to :math:`0`
+    :type theta_min: float
+    :param theta_max: The upper bound of polar angle, defaults to :math:`\\pi`
+    :type theta_max: float
+    :param phi_min: The lower bound of azimuthal angle, defaults to :math:`0`
+    :type phi_min: float
+    :param phi_max: The upper bound of azimuthal angle, defaults to :math:`2\\pi`
+    :type phi_max: float
     :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis
     :type max_degree: int
     """
 
     def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
-                 harmonics_fn=None,
+                 harmonics_fn=None, theta_min=0.0, theta_max=np.pi, phi_min=0.0, phi_max=np.pi * 2,
                  # DEPRECATED
                  max_degree=None):
         super(MonitorSphericalHarmonics, self).__init__(
@@ -1176,6 +1193,10 @@ class MonitorSphericalHarmonics(MonitorSpherical):
             var_names=var_names,
             shape=shape,
             r_scale=r_scale,
+            theta_min=theta_min,
+            theta_max=theta_max,
+            phi_min=phi_min,
+            phi_max=phi_max,
         )
 
         if (harmonics_fn is None) and (max_degree is None):
