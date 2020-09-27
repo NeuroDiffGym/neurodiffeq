@@ -7,7 +7,7 @@ matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during te
 from math import erf, sqrt
 from pytest import raises
 from neurodiffeq import diff
-from neurodiffeq.pde_spherical import GeneratorSpherical, Generator3D
+from neurodiffeq.generator import GeneratorSpherical, Generator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
 from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
