@@ -942,6 +942,7 @@ class MonitorSpherical:
         ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
         ax.set_ylabel(var_name)
 
+    # _update_contourf cannot be defined as a static method since it depends on self.contourf_plot_available
     def _update_contourf(self, var_name, ax, u, colorbar_index):
         ax.clear()
         ax.set_xlabel('$\\phi$')
@@ -1279,3 +1280,32 @@ class MonitorCallback:
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.png")
             self.monitor.fig.savefig(pic_path)
+
+
+class CheckpointCallback:
+    def __init__(self, ckpt_dir):
+        self.ckpt_dir = ckpt_dir
+
+    def __call__(self, solver):
+        if solver.local_epoch == solver._max_local_epoch - 1:
+            now = datetime.now()
+            timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
+            fname = os.path.join(self.ckpt_dir, timestr + ".internals")
+            with open(fname, 'wb') as f:
+                dill.dump(solver.get_internals("all"), f)
+                logging.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
+                             f"(global epoch = {solver.global_epoch})")
+
+
+class ReportOnFitCallback:
+    def __call__(self, solver):
+        if solver.local_epoch == 0:
+            logging.info(
+                f"Starting from global epoch {solver.global_epoch - 1}, training on {(solver.r_min, solver.r_max)}")
+            tb = solver.generator['train'].size
+            ntb = solver.n_batches['train']
+            t = tb * ntb
+            vb = solver.generator['valid'].size
+            nvb = solver.n_batches['valid']
+            v = vb * nvb
+            logging.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
