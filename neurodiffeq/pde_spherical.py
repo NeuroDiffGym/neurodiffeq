@@ -795,6 +795,8 @@ class MonitorSpherical:
         self.theta_label = thetas.reshape(-1).detach().cpu().numpy()
         self.phi_label = phis.reshape(-1).detach().cpu().numpy()
 
+        self.n_vars = None
+
     @staticmethod
     def _matplotlib_version_satisfies():
         from packaging.version import parse as vparse
@@ -859,7 +861,8 @@ class MonitorSpherical:
         #         b) one ax for u-r curves grouped by theta
         #         c) one ax for u-theta-phi contour heat map
         #     2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
-        n_row = len(nets) + 1
+        n_vars = len(nets) if self.n_vars is None else self.n_vars
+        n_row = n_vars + 1
         n_col = 3
         if not self.fig:
             self.fig = plt.figure(figsize=(24, 6 * n_row))
@@ -867,7 +870,7 @@ class MonitorSpherical:
             self.axs = self.fig.subplots(nrows=n_row, ncols=n_col, gridspec_kw={'width_ratios': [1, 1, 2]})
             for ax in self.axs[n_row - 1]:
                 ax.remove()
-            self.cbs = [None] * len(nets)
+            self.cbs = [None] * n_vars
             if analytic_mse_history is not None:
                 self.ax_analytic = self.fig.add_subplot(n_row, 2, n_row * 2 - 1)
                 self.ax_loss = self.fig.add_subplot(n_row, 2, n_row * 2)
@@ -975,6 +978,24 @@ class MonitorSpherical:
         self.cbs = []
         self.ax_analytic = None
         self.ax_loss = None
+        return self
+
+    def set_variable_count(self, n):
+        """manually set the number of scalar fields to be visualized;
+        if not set, defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        :param n: number of scalar fields to overwrite default
+        :type n: int
+        :return: self
+        """
+        self.n_vars = n
+        return self
+
+    def unset_variable_count(self):
+        """manually unset the number of scalar fields to be visualized;
+        Once unset, the number defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        :return: self
+        """
+        self.n_vars = None
         return self
 
 
@@ -1200,6 +1221,7 @@ class MonitorCallback:
     :param repaint_last: whether to update the plot on the last local epoch, defaults to True
     :type repaint_last: bool
     """
+
     def __init__(self, monitor, fig_dir=None, check_against='local', repaint_last=True):
         self.monitor = monitor
         self.fig_dir = fig_dir
