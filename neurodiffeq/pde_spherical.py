@@ -922,11 +922,17 @@ class MonitorSpherical:
         else:
             self._update_history(self.ax_loss, loss_history)
 
+        self.customization()
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
         # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
         if not self.using_non_gui_backend:
             plt.pause(0.05)
+
+    def customization(self):
+        """customized tweaks can be implemented by overwriting this method
+        """
+        pass
 
     @staticmethod
     def _update_r_plot_grouped_by_phi(var_name, ax, df):
