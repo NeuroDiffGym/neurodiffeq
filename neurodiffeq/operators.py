@@ -20,3 +20,10 @@ def spherical_grad(u, r, theta, phi):
     grad_theta = diff(u, theta) / r
     grad_phi = diff(u, phi) / (r * sin(theta))
     return grad_r, grad_theta, grad_phi
+
+
+def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
+    div_r = diff(u_r * r ** 2, r) / r ** 2
+    div_theta = diff(u_theta * sin(theta), theta) / (r * sin(theta))
+    div_phi = diff(u_phi, phi) / (r * sin(theta))
+    return div_r + div_theta + div_phi
