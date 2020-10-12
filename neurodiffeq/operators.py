@@ -27,3 +27,14 @@ def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
     div_theta = diff(u_theta * sin(theta), theta) / (r * sin(theta))
     div_phi = diff(u_phi, phi) / (r * sin(theta))
     return div_r + div_theta + div_phi
+
+
+def spherical_laplacian(u, r, theta, phi):
+    d_r = lambda u: diff(u, r)
+    d_theta = lambda u: diff(u, theta)
+    d_phi = lambda u: diff(u, phi)
+
+    lap_r = d_r(d_r(u) * r ** 2) / r ** 2
+    lap_theta = d_theta(d_theta(u) * sin(theta)) / (r ** 2 * sin(theta))
+    lap_phi = d_phi(d_phi(u)) / (r ** 2 * sin(theta) ** 2)
+    return lap_r + lap_theta + lap_phi
