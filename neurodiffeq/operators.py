@@ -38,3 +38,29 @@ def spherical_laplacian(u, r, theta, phi):
     lap_theta = d_theta(d_theta(u) * sin(theta)) / (r ** 2 * sin(theta))
     lap_phi = d_phi(d_phi(u)) / (r ** 2 * sin(theta) ** 2)
     return lap_r + lap_theta + lap_phi
+
+
+def spherical_vector_laplacian(u_r, u_theta, u_phi, r, theta, phi):
+    d_theta = lambda u: diff(u, theta)
+    d_phi = lambda u: diff(u, phi)
+    scalar_lap = lambda u: spherical_laplacian(u, r, theta, phi)
+
+    lap_r = \
+        scalar_lap(u_r) \
+        - 2 * u_r / r ** 2 \
+        - 2 * d_theta(u_theta * sin(theta)) / (r ** 2 * sin(theta)) \
+        - 2 * d_phi(u_phi) / (r ** 2 * sin(theta))
+
+    lap_theta = \
+        scalar_lap(u_theta) \
+        - u_theta / (r ** 2 * sin(theta) ** 2) \
+        + 2 * d_theta(u_r) / r ** 2 \
+        - 2 * cos(theta) * d_phi(u_phi) / (r ** 2 * sin(theta) ** 2)
+
+    lap_phi = \
+        scalar_lap(u_phi) \
+        - u_phi / (r ** 2 * sin(theta) ** 2) \
+        + 2 * d_phi(u_r) / (r ** 2 * sin(theta)) \
+        + 2 * cos(theta) * d_phi(u_theta) / (r ** 2 * sin(theta) ** 2)
+
+    return lap_r, lap_theta, lap_phi
