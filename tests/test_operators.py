@@ -66,3 +66,9 @@ def test_div_curl():
     curl_u = curl(*vector_u)
     div_curl_u = div(*curl_u)
     assert is_zero(div_curl_u), div_curl_u
+
+
+def test_curl_grad():
+    grad_u = grad(scalar_u)
+    curl_grad_u = curl(*grad_u)
+    assert is_zero(curl_grad_u), curl_grad_u
