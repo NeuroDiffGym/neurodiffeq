@@ -84,3 +84,16 @@ def test_div_grad():
 
 def test_laplacian():
     test_div_grad()
+
+
+def test_curl_curl():
+    curl_curl_u = curl(*curl(*vector_u))
+    grad_div_u = grad(div(*vector_u))
+    vec_lap_u = vec_lap(*vector_u)
+
+    vec_delta = [cc - (gd - vl) for cc, gd, vl in zip(curl_curl_u, grad_div_u, vec_lap_u)]
+    assert is_zero(vec_delta), vec_delta
+
+
+def test_vec_laplacian():
+    test_curl_curl()
