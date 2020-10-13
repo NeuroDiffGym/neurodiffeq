@@ -72,3 +72,15 @@ def test_curl_grad():
     grad_u = grad(scalar_u)
     curl_grad_u = curl(*grad_u)
     assert is_zero(curl_grad_u), curl_grad_u
+
+
+def test_div_grad():
+    grad_u = grad(scalar_u)
+    div_grad_u = div(*grad_u)
+    lap_u = lap(scalar_u)
+    delta = div_grad_u - lap_u
+    assert is_zero(delta), delta
+
+
+def test_laplacian():
+    test_div_grad()
