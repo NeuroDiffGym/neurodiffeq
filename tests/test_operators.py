@@ -60,3 +60,9 @@ def is_zero(t):
         return t.detach().cpu().max() < EPS
     else:
         raise ValueError(f"t must be list, tuple or tensor; got {type(t)}")
+
+
+def test_div_curl():
+    curl_u = curl(*vector_u)
+    div_curl_u = div(*curl_u)
+    assert is_zero(div_curl_u), div_curl_u
