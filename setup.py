@@ -5,13 +5,24 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="neurodiffeq",
-    version="1.0.0",
+    version="0.1.0",
     author="odegym",
-    author_email="feiyu_chen@g.harvard.edu",
+    author_email="",
     description="A Python package for solving differential equations with neural networks",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/odegym/neurodiffeq",
+    download_url="https://github.com/odegym/neurodiffeq/archive/v0.1.0.tar.gz",
+    keywords=[
+        "neural network", 
+        "deep learning", 
+        "differential equation", 
+        "ODE", 
+        "PDE", 
+        "spectral method",
+        "numerical method",
+        "pytorch", 
+    ]
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
