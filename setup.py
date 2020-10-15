@@ -22,7 +22,7 @@ setuptools.setup(
         "spectral method",
         "numerical method",
         "pytorch", 
-    ]
+    ],
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
