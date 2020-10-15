@@ -15,5 +15,6 @@ script:
   - pytest tests/test_temporal.py
   - pytest tests/test_generator.py
   - pytest tests/test_networks.py
+  - pytest tests/test_operators.py
 # after_success:
   # - codecov
