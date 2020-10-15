@@ -7,7 +7,7 @@ setuptools.setup(
     name="neurodiffeq",
     version="0.1.0",
     author="odegym",
-    author_email="",
+    author_email="wish1104@icloud.com",
     description="A Python package for solving differential equations with neural networks",
     long_description=long_description,
     long_description_content_type="text/markdown",
