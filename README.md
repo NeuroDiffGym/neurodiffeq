@@ -13,7 +13,18 @@ As universal function approximators, artificial neural networks have been shown 
 
 # Installation
 
-Currently `neurodiffeq` is not in PyPI, so it needs to be installed manually. To install `neurodiffeq`:
+## Install via pip (or pip3) 
+
+We are hosting `neurodiffeq` in PyPI shortly. By the time you read this, you should be able to install `neurodiffeq` by simply running
+
+```sh
+pip install neurodiffeq 
+# or try: pip3 install neurodiffeq
+```
+
+## Manual Install
+
+Alternatively, you can install the library manually, which allows you to make changes and contribute to this project.
 
 1. (optional) Create a new environment. With `conda`: `conda create --name [name of the new environment] python=3.7` and activate the enviroment by `conda activate  [name of the new environment]`; With `venv`: `python3 -m venv temp [path to the new environment]` and activate the environment by `source [path to the new environment]/bin/activate`
 
