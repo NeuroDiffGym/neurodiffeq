@@ -48,16 +48,16 @@ class NoConditionSpherical(BaseConditionSpherical):
 
 
 class DirichletBVPSpherical(BaseConditionSpherical):
-    """Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
-        We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`
+    r"""Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
+        We are solving :math:`u(r, \theta, \phi)` given :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)` and :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`
 
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :param r_0: The radius of the interior boundary. When :math:`r_0 = 0`, the interior boundary collapses to a single point (center of the ball)
     :type r_0: float
-    :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
+    :param f: The value of :math:`u` on the interior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)`.
     :type f: callable
     :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None
     :type r_1: float or None
-    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`. If set to None, `r_1` must also be set to None
+    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`. If set to None, `r_1` must also be set to None
     :type g: callable or None
     """
 
@@ -76,16 +76,16 @@ class DirichletBVPSpherical(BaseConditionSpherical):
         :type net: `torch.nn.Module`
         :param r: The radii of points where the neural network output is evaluated.
         :type r: `torch.tensor`
-        :param theta: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
+        :param theta: The co-latitudes of points where the neural network output is evaluated. `theta` ranges :math:`[0, \pi]`
         :type theta: `torch.tensor`
-        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
+        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges :math:`[0, 2\pi)`
         :type phi: `torch.tensor`
-        :return: The modified output which now satisfies the boundary condition.
+        :return: The reconstructed output which now satisfies the boundary condition.
         :rtype: `torch.tensor`
 
 
         .. note::
-            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
+            `enforce` is meant to be called by a solver class or a solve function
         """
         u = _nn_output_spherical_input(net, r, theta, phi)
         if self.r_1 is None:
@@ -99,16 +99,16 @@ class DirichletBVPSpherical(BaseConditionSpherical):
 
 
 class InfDirichletBVPSpherical(BaseConditionSpherical):
-    """Similar to `DirichletBVPSpherical`; only difference is we are considering :math:`g(\\theta, \\phi)` as :math:`r_1 \\to \\infty`, so `r_1` doesn't need to be specified
-        We are solving :math:`u(t)` given :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)` and :math:`\\lim_{r \\to \\infty} u(r, \\theta, \\phi) = g(\\theta, \\phi)`
+    r"""Similar to `DirichletBVPSpherical`. The only difference is we are considering :math:`g(\theta, \phi)` as :math:`r_1 \to \infty`, so `r_1` doesn't need to be specified
+        We are solving :math:`u(t)` given :math:`u(r, \theta, \phi) \bigg|_{r = r_0} = f(\theta, \phi)` and :math:`\lim_{r \to \infty} u(r, \theta, \phi) = g(\theta, \phi)`
 
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :param r_0: The radius of the interior boundary. When `r_0 = 0`, the interior boundary collapses to a single point (center of the ball)
     :type r_0: float
-    :param f: The value of :math:u on the interior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_0} = f(\\theta, \\phi)`.
+    :param f: The value of :math:`u` on the interior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)`.
     :type f: callable
-    :param g: The value of :math:u on the exterior boundary. :math:`u(r, \\theta, \\phi)\\bigg|_{r = r_1} = g(\\theta, \\phi)`.
+    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`.
     :type g: callable
-    :param order: The smallest :math:k that guarantees :math:`\\lim_{r \\to +\\infty} u(r, \\theta, \\phi) e^{-k r} = 0`, defaults to 1
+    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} u(r, \theta, \phi) e^{-k r} = 0`, defaults to 1
     :type order: int or float, optional
     """
 
@@ -125,16 +125,16 @@ class InfDirichletBVPSpherical(BaseConditionSpherical):
         :type net: `torch.nn.Module`
         :param r: The radii of points where the neural network output is evaluated.
         :type r: `torch.tensor`
-        :param theta: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
+        :param theta: The co-latitudes of points where the neural network output is evaluated. `theta` ranges :math:`[0, \pi]`
         :type theta: `torch.tensor`
-        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
+        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges :math:`[0, 2\pi)`
         :type phi: `torch.tensor`
-        :return: The modified output which now satisfies the boundary condition.
+        :return: The reconstructed output which now satisfies the boundary condition.
         :rtype: `torch.tensor`
 
 
         .. note::
-            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
+            `enforce` is meant to be called by a solver class or a solve function
         """
         u = _nn_output_spherical_input(net, r, theta, phi)
         dr = r - self.r_0
@@ -246,6 +246,10 @@ def solve_spherical(
             Optionally, MSE against analytic solution, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
+
+
+        .. note::
+            This function is deprecated, use a `SphericalSolver` instead
         """
 
     warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
@@ -313,6 +317,9 @@ def solve_spherical_system(
             Optionally, MSE against analytic solutions, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
         :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
+
+        .. note::
+            This function is deprecated, use a `SphericalSolver` instead
         """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
@@ -463,16 +470,17 @@ class SphericalSolver:
 
     @property
     def global_epoch(self):
-        """global epoch count, always equal to the length of train loss history
+        """Global epoch count, always equal to the length of train loss history
+
         :return: number of training epochs that have been run
         :rtype: int
         """
         return len(self.loss['train'])
 
     def _auto_enforce(self, net, cond, *points):
-        """enforce condition on network with inputs
-        if self.enforcer is set, use it;
-        otherwise, fill cond.enforce() with as many arguments as needed
+        """Enforce condition on network with inputs.
+            If self.enforcer is set, use it;
+            otherwise, fill cond.enforce() with as many arguments as needed
 
         :param net: network for parameterized solution
         :type net: torch.nn.Module
@@ -491,7 +499,7 @@ class SphericalSolver:
         return cond.enforce(net, *points)
 
     def _update_history(self, value, metric_type, key):
-        """append a value to corresponding history list
+        """Append a value to corresponding history list
 
         :param value: value to be appended
         :type value: float
@@ -509,15 +517,15 @@ class SphericalSolver:
             raise KeyError(f'history type = {metric_type} not understood')
 
     def _update_train_history(self, value, metric_type):
-        """append a value to corresponding training history list"""
+        """Append a value to corresponding training history list"""
         self._update_history(value, metric_type, key='train')
 
     def _update_valid_history(self, value, metric_type):
-        """append a value to corresponding validation history list"""
+        """Append a value to corresponding validation history list"""
         self._update_history(value, metric_type, key='valid')
 
     def _generate_batch(self, key):
-        """generate the next batch, register in self._batch_examples and return the batch
+        """Generate the next batch, register in self._batch_examples and return the batch
 
         :param key: {'train', 'valid'}; dict key in self._examples / self._batch_examples / self._batch_start
         :type key: str
@@ -529,16 +537,16 @@ class SphericalSolver:
         return self._batch_examples[key]
 
     def _generate_train_batch(self):
-        """generate the next training batch, register in self._batch_examples and return"""
+        """Generate the next training batch, register in self._batch_examples and return"""
         return self._generate_batch('train')
 
     def _generate_valid_batch(self):
-        """generate the next validation batch, register in self._batch_examples and return"""
+        """Generate the next validation batch, register in self._batch_examples and return"""
         return self._generate_batch('valid')
 
     def _do_optimizer_step(self):
-        """Optimization procedures after gradients have been computed. Usually, self.optimizer.step() is sufficient.
-        At times, user can overwrite this method to perform gradient clipping, etc. Here is an example:
+        r"""Optimization procedures after gradients have been computed. Usually, self.optimizer.step() is sufficient.
+            At times, user can overwrite this method to perform gradient clipping, etc. Here is an example:
         >>> import itertools
         >>> class MySolver(SphericalSolver)
         >>>     def _do_optimizer_step(self):
@@ -548,7 +556,7 @@ class SphericalSolver:
         self.optimizer.step()
 
     def _run_epoch(self, key):
-        """run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
+        """Run an epoch on train/valid points, update history, and perform an optimization step if key=='train'
         Note that the optimization step is only performed after all batches are run
         This method doesn't resample points, which shall be handled in the `.fit()` call.
 
@@ -602,25 +610,26 @@ class SphericalSolver:
             self._update_history(epoch_analytic_mse, 'analytic_mse', key)
 
     def run_train_epoch(self):
-        """run a training epoch, update history, and perform gradient descent"""
+        """Run a training epoch, update history, and perform gradient descent"""
         self._run_epoch('train')
 
     def run_valid_epoch(self):
-        """run a validation epoch and update history"""
+        """Run a validation epoch and update history"""
         self._run_epoch('valid')
 
     def _update_best(self):
-        """update self.lowest_loss and self.best_nets if current validation loss is lower than self.lowest_loss"""
+        """Update self.lowest_loss and self.best_nets if current validation loss is lower than self.lowest_loss"""
         current_loss = self.loss['valid'][-1]
         if (self.lowest_loss is None) or current_loss < self.lowest_loss:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
     def fit(self, max_epochs, callbacks=None, monitor=None):
-        """Run multiple epochs of training and validation, update best loss at the end of each epoch.
-        This method does not return solution, which is done in the `.get_solution` method.
-        If `callbacks` is passed, callbacks are run one at a time, after training, validating, updaing best model and before monitor checking
-        A callback function `cb(solver)` can set `solver._stop_training` to True to perform early stopping,
+        r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
+            This method does not return solution, which is done in the `.get_solution` method.
+            If `callbacks` is passed, callbacks are run one at a time, after training, validating, updaing best model and before monitor checking
+            A callback function `cb(solver)` can set `solver._stop_training` to True to perform early stopping,
+
         :param max_epochs: number of epochs to run
         :type max_epochs: int
         :param monitor: DEPRECATED; use a MonitorCallback instance instead; Monitor for visualizing solution and metrics
@@ -658,7 +667,8 @@ class SphericalSolver:
                     )
 
     def get_solution(self, copy=True, best=True, harmonics_fn=None):
-        """return a solution class
+        """Return a solution class
+
         :param copy: if True, use a deep copy of internal nets and conditions
         :type copy: bool
         :param best: if True, return the solution with lowest loss instead of the solution after the last epoch
@@ -680,11 +690,11 @@ class SphericalSolver:
             return SolutionSpherical(nets, conditions)
 
     def get_internals(self, param_names, return_type='list'):
-        """return internal variable(s) of the solver
-        if param_names == 'all', return all internal variables as a dict;
-        if param_names is single str, return the corresponding variables
-        if param_names is a list and return_type == 'list', return corresponding internal variables as a list
-        if param_names is a list and return_type == 'dict', return a dict with keys in param_names
+        """Return internal variable(s) of the solver
+        If param_names == 'all', return all internal variables as a dict;
+        If param_names is single str, return the corresponding variables
+        If param_names is a list and return_type == 'list', return corresponding internal variables as a list
+        If param_names is a list and return_type == 'dict', return a dict with keys in param_names
 
         :param param_names: a parameter name or a list of parameter names
         :type param_names: str or list[str]
@@ -727,8 +737,9 @@ class SphericalSolver:
             raise ValueError(f"unrecognized return_type = {return_type}")
 
     def additional_loss(self, funcs, key):
-        """return additional loss; this method is to be overridden by subclasses
-        This method can use any of the internal variables: the current batch, the nets, the conditions, etc.
+        r"""Return additional loss; this method is to be overridden by subclasses
+            This method can use any of the internal variables: the current batch, the nets, the conditions, etc.
+
         :param funcs: outputs of the networks after enforced by conditions
         :type funcs: list[torch.Tensor]
         :param key: {'train', 'valid'}; phase of the epoch; used to access the sample batch, etc.
@@ -931,7 +942,7 @@ class MonitorSpherical:
             plt.pause(0.05)
 
     def customization(self):
-        """customized tweaks can be implemented by overwriting this method
+        """Customized tweaks can be implemented by overwriting this method.
         """
         pass
 
@@ -998,8 +1009,9 @@ class MonitorSpherical:
         return self
 
     def set_variable_count(self, n):
-        """manually set the number of scalar fields to be visualized;
-        if not set, defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        r"""Manually set the number of scalar fields to be visualized;
+            If not set, defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+
         :param n: number of scalar fields to overwrite default
         :type n: int
         :return: self
@@ -1008,8 +1020,9 @@ class MonitorSpherical:
         return self
 
     def unset_variable_count(self):
-        """manually unset the number of scalar fields to be visualized;
-        Once unset, the number defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        r"""Manually unset the number of scalar fields to be visualized;
+            Once unset, the number defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+
         :return: self
         """
         self.n_vars = None
@@ -1017,7 +1030,8 @@ class MonitorSpherical:
 
 
 class BaseConditionSphericalHarmonics(BaseConditionSpherical):
-    """
+    """Base class for conditions to be applied on a network that returns spherical harmonic coefficients
+
     :param max_degree: highest degree for spherical harmonics
     :type max_degree: int
     """
@@ -1036,17 +1050,17 @@ class NoConditionSphericalHarmonics(BaseConditionSphericalHarmonics):
 
 
 class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
-    """Similar to `DirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
-        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
-        We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`R(r)\\bigg|_{r = r_1} = R_1`.
+    r"""Similar to `DirichletBVPSpherical`. The only difference is this condition is enforced on a neural net that takes in :math:`r` and returns the spherical harmonic coefficients R(r);
+        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \cdot Y(\theta, \phi)`
+        We are solving :math:`R(r)` given :math:`R(r)\bigg|_{r = r_0} = R_0` and :math:`R(r)\bigg|_{r = r_1} = R_1`.
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:R on the interior boundary. :math:`R(r)\\bigg|_{r = r_0} = R_0`.
+    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r)\bigg|_{r = r_0} = R_0`.
     :type R_0: torch.tensor
     :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
     :type r_1: float or None
-    :param R_1: The value of harmonic coefficients :math:R on the exterior bounadry. :math:`R(r)\\bigg|_{r = r_1} = R_1`.
+    :param R_1: The value of harmonic coefficients :math:`R` on the exterior boundary. :math:`R(r)\bigg|_{r = r_1} = R_1`.
     :type R_1: torch.tensor
     :param max_degree: highest degree for spherical harmonics
     :type max_degree: int
@@ -1087,17 +1101,17 @@ class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
 
 
 class InfDirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
-    """Similar to `InfDirichletBVPSpherical`; only difference is this condition is enforced on a neural net that takes in :math:r and returns the spherical harmonic coefficients R(r)
-        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \\cdot Y(\\theta, \\phi)`
-        We are solving :math:`R(r)` given :math:`R(r)\\bigg|_{r = r_0} = R_0` and :math:`\\lim_{r \\to \\infty} R(r) = R_\\infty`
+    r"""Similar to `InfDirichletBVPSpherical`. The only difference is this condition is enforced on a neural net that takes in :math:`r` and returns the spherical harmonic coefficients R(r)
+        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \cdot Y(\theta, \phi)`
+        We are solving :math:`R(r)` given :math:`R(r)\bigg|_{r = r_0} = R_0` and :math:`\lim_{r \to \infty} R(r) = R_\infty`
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:R on the interior boundary. :math:`R(r)\\bigg|_{r = r_0} = R_0`.
+    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r)\bigg|_{r = r_0} = R_0`.
     :type R_0: torch.tensor
-    :param R_inf: The value of harmonic coefficients :math:R at infinity. :math:`\\lim_{r \\to \\infty} R(r) = R_\\infty`.
+    :param R_inf: The value of harmonic coefficients :math:`R` at infinity. :math:`\lim_{r \to \infty} R(r) = R_\infty`.
     :type R_inf: torch.tensor
-    :param order: The smallest :math:k that guarantees :math:`\\lim_{r \\to +\\infty} R(r) e^{-k r} = \\bf 0`, defaults to 1
+    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
     :type order: int or float, optional
     :param max_degree: highest degree for spherical harmonics
     :type max_degree: int
@@ -1241,6 +1255,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
 class MonitorCallback:
     """A callback for updating the monitor plots (and optionally saving the fig to disk)
+
     :param monitor: the underlying monitor responsible for plotting solutions
     :type monitor: MonitorSpherical
     :param fig_dir: directory for saving monitor figs; if not specified, figs will not be saved

@@ -53,6 +53,7 @@ class LegendreBasis(FunctionBasis):
 
 class ZonalSphericalHarmonics(FunctionBasis):
     """Zonal harmonics (spherical harmonics with order=0)
+
     :param max_degree: highest degrees to be included; degrees will contain {0, 1, ..., max_degree}; ignored if `degrees` is passed
     :type max_degree: int
     :param degrees: a list of degrees to be used, must be nonnegative and unique; if passed, `max_degrees` will be ignored
@@ -90,6 +91,7 @@ ZeroOrderSphericalHarmonics = warn_deprecate_class(ZonalSphericalHarmonics)
 
 class ZonalSphericalHarmonicsLaplacian(BasisOperator):
     """Laplacian operator acting on coefficients of zonal harmonics (spherical harmonics with order=0)
+
     :param max_degree: highest degrees to be included; degrees will contain {0, 1, ..., max_degree}; ignored if `degrees` is passed
     :type max_degree: int
     :param degrees: a list of degrees to be used, must be nonnegative and unique; if passed, `max_degrees` will be ignored
@@ -225,8 +227,8 @@ Y4p4 = lambda th, ph: sin(th) ** 4 * (cos(ph) ** 4 - 6 * cos(ph) ** 2 * sin(ph) 
 
 
 class RealSphericalHarmonics(FunctionBasis):
-    """an array of (unnormalized) spherical harmonics_fn of degree from -l to +l
-    There is no trainable parameters in this module
+    """Spherical harmonics as a function basis
+
     :param max_degree: highest degree (currently only supports l<=4) for the spherical harmonics_fn
     :type max_degree: int
     """
@@ -250,6 +252,7 @@ class RealSphericalHarmonics(FunctionBasis):
 
     def __call__(self, theta, phi):
         """ compute the value of each spherical harmonic component evaluated at each point
+
         :param theta: theta in spherical coordinates, must have shape (-1, 1)
         :type theta: `torch.Tensor`
         :param phi: phis in spherical coordinates, must have the same shape as theta
@@ -266,16 +269,9 @@ class RealSphericalHarmonics(FunctionBasis):
 
 
 class HarmonicsLaplacian(BasisOperator):
-    """
-        Laplacian of spherical harmonics can be reduced in the following way. Using this method, we can avoid the :math:`\\frac{1}{\\sin \\theta}` singularity
-        :math:```
-        \\begin{aligned}
-        &\\nabla^{2} R_{l, m}(r) Y_{l,m}(\\theta, \\phi)\\\\
-        &=\\left(\\nabla_{r}^{2}+\\nabla_{\\theta}^{2}+\\nabla_{\\phi}^{2}\\right)\\left(R_{l, m}(r) Y_{l, m}(\\theta, \\phi)\\right)\\\\
-        &=Y_{l, m} \\nabla_{r}^{2} R_{l, m}+R_{l, m}\\left(\\left(\\nabla_{\\theta}^{2}+\\nabla_{\\phi}^{2}\\right) Y_{l, m}\\right)\\\\
-        &=Y_{l, m} \\nabla_{r}^{2} R_{l, m}+R_{l, m} \\frac{-l(l+1)}{r^{2}} Y_{l, m}\\\\
-        &=Y_{l, m}\\left(\\nabla_{r}^{2} R_{l, m}+\\frac{-l(l+1)}{r^{2}} R_{l, m}\\right)
-        \\end{aligned}```
+    r"""
+        Laplacian of spherical harmonics can be reduced in the following way. Using this method, we can avoid the :math:`\frac{1}{\sin \theta}` singularity
+        :math:`\begin{aligned} &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\ &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\ &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\ &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\ &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right) \end{aligned}`
     """
 
     def __init__(self, max_degree=4):

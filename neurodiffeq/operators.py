@@ -4,18 +4,19 @@ from neurodiffeq import diff
 
 
 def spherical_curl(u_r, u_theta, u_phi, r, theta, phi):
-    r""" derives and evaluates the spherical curl of a spherical vector field :math:`u`
-    :param u_r: :math:`r`-component of the vector field u, must have shape (n_samples, 1)
+    r"""Derives and evaluates the spherical curl of a spherical vector field :math:`u`
+
+    :param u_r: :math:`r`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_r: `torch.Tensor`
-    :param u_theta: :math:`\theta`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_theta: :math:`\theta`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_theta: `torch.Tensor`
-    :param u_phi: :math:`\phi`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_phi: :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_phi: `torch.Tensor`
     :param r: a vector of :math:`r`-coordinate values, must have shape (n_samples, 1)
     :type r: `torch.Tensor`
-    :param theta: a vector of :math:`theta`-coordinate values, must have shape (n_samples, 1)
+    :param theta: a vector of :math:`\theta`-coordinate values, must have shape (n_samples, 1)
     :type theta: `torch.Tensor`
-    :param phi: a vector of :math:`phi`-coordinate values, must have shape (n_samples, 1)
+    :param phi: a vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1)
     :type phi: `torch.Tensor`
     :return: :math:`r`, :math:`\theta`, and :math:`\phi` components of the curl, each with shape (n_samples, 1)
     :rtype: tuple[`torch.Tensor`]
@@ -33,14 +34,15 @@ def spherical_curl(u_r, u_theta, u_phi, r, theta, phi):
 
 
 def spherical_grad(u, r, theta, phi):
-    r""" derives and evaluates the spherical gradient of a spherical scalar field :math:`u`
-    :param u: a scalar field u, must have shape (n_samples, 1)
+    r"""Derives and evaluates the spherical gradient of a spherical scalar field :math:`u`
+
+    :param u: a scalar field :math:`u`, must have shape (n_samples, 1)
     :type u: `torch.Tensor`
     :param r: a vector of :math:`r`-coordinate values, must have shape (n_samples, 1)
     :type r: `torch.Tensor`
-    :param theta: a vector of :math:`theta`-coordinate values, must have shape (n_samples, 1)
+    :param theta: a vector of :math:`\theta`-coordinate values, must have shape (n_samples, 1)
     :type theta: `torch.Tensor`
-    :param phi: a vector of :math:`phi`-coordinate values, must have shape (n_samples, 1)
+    :param phi: a vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1)
     :type phi: `torch.Tensor`
     :return: :math:`r`, :math:`\theta`, and :math:`\phi` components of the gradient, each with shape (n_samples, 1)
     :rtype: tuple[`torch.Tensor`]
@@ -52,18 +54,19 @@ def spherical_grad(u, r, theta, phi):
 
 
 def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
-    r""" derives and evaluates the spherical divergence of a spherical vector field :math:`u`
-    :param u_r: :math:`r`-component of the vector field u, must have shape (n_samples, 1)
+    r"""Derives and evaluates the spherical divergence of a spherical vector field :math:`u`
+
+    :param u_r: :math:`r`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_r: `torch.Tensor`
-    :param u_theta: :math:`\theta`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_theta: :math:`\theta`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_theta: `torch.Tensor`
-    :param u_phi: :math:`\phi`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_phi: :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_phi: `torch.Tensor`
     :param r: a vector of :math:`r`-coordinate values, must have shape (n_samples, 1)
     :type r: `torch.Tensor`
-    :param theta: a vector of :math:`theta`-coordinate values, must have shape (n_samples, 1)
+    :param theta: a vector of :math:`\theta`-coordinate values, must have shape (n_samples, 1)
     :type theta: `torch.Tensor`
-    :param phi: a vector of :math:`phi`-coordinate values, must have shape (n_samples, 1)
+    :param phi: a vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1)
     :type phi: `torch.Tensor`
     :return: the divergence evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1)
     :rtype: `torch.Tensor`
@@ -75,14 +78,15 @@ def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
 
 
 def spherical_laplacian(u, r, theta, phi):
-    r""" derives and evaluates the spherical laplacian of a spherical scalar field :math:`u`
-    :param u: a scalar field u, must have shape (n_samples, 1)
+    r"""Derives and evaluates the spherical laplacian of a spherical scalar field :math:`u`
+
+    :param u: a scalar field :math:`u`, must have shape (n_samples, 1)
     :type u: `torch.Tensor`
     :param r: a vector of :math:`r`-coordinate values, must have shape (n_samples, 1)
     :type r: `torch.Tensor`
-    :param theta: a vector of :math:`theta`-coordinate values, must have shape (n_samples, 1)
+    :param theta: a vector of :math:`\theta`-coordinate values, must have shape (n_samples, 1)
     :type theta: `torch.Tensor`
-    :param phi: a vector of :math:`phi`-coordinate values, must have shape (n_samples, 1)
+    :param phi: a vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1)
     :type phi: `torch.Tensor`
     :return: the laplacian evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1)
     :rtype: `torch.Tensor`
@@ -98,18 +102,19 @@ def spherical_laplacian(u, r, theta, phi):
 
 
 def spherical_vector_laplacian(u_r, u_theta, u_phi, r, theta, phi):
-    r""" derives and evaluates the spherical laplacian of a spherical vector field :math:`u`
-    :param u_r: :math:`r`-component of the vector field u, must have shape (n_samples, 1)
+    r"""Derives and evaluates the spherical laplacian of a spherical vector field :math:`u`
+
+    :param u_r: :math:`r`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_r: `torch.Tensor`
-    :param u_theta: :math:`\theta`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_theta: :math:`\theta`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_theta: `torch.Tensor`
-    :param u_phi: :math:`\phi`-component of the vector field u, must have shape (n_samples, 1)
+    :param u_phi: :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1)
     :type u_phi: `torch.Tensor`
     :param r: a vector of :math:`r`-coordinate values, must have shape (n_samples, 1)
     :type r: `torch.Tensor`
-    :param theta: a vector of :math:`theta`-coordinate values, must have shape (n_samples, 1)
+    :param theta: a vector of :math:`\theta`-coordinate values, must have shape (n_samples, 1)
     :type theta: `torch.Tensor`
-    :param phi: a vector of :math:`phi`-coordinate values, must have shape (n_samples, 1)
+    :param phi: a vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1)
     :type phi: `torch.Tensor`
     :return: the laplacian evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1)
     :rtype: `torch.Tensor`

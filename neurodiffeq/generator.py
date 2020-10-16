@@ -149,11 +149,12 @@ class Generator2D(BaseGenerator):
 
 class Generator3D(BaseGenerator):
     """An example generator for generating 3-D training points. NOT TO BE CONFUSED with `GeneratorSpherical`
+
         :param grid: The discretization of the 3 dimensions, if we want to generate points on a :math:`m \\times n \\times k` grid, then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
         :type grid: tuple[int, int, int], optional
-        :param xyz_min: The lower bound of 3 dimensions, if we only care about :math:`x \\geq x_0`, :math:`y \\geq y_0`, and :math:`z \\geq z_0` then `xyz_min` is `(x_0, y_0, z_0)`, defaults to `(0.0, 0.0, 0.0)`.
+        :param xyz_min: The lower bound of 3 dimensions, if we only care about :math:`x \\geq x_0`, :math:`y \\geq y_0`, and :math:`z \\geq z_0` then `xyz_min` is :math:`(x_0, y_0, z_0)`, defaults to `(0.0, 0.0, 0.0)`.
         :type xyz_min: tuple[float, float, float], optional
-        :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is `(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
+        :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is :math:`(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
         :type xyz_max: tuple[float, float, float], optional
         :param method: The distribution of the 3-D points generated. If set to 'equally-spaced', the points will be fixed to the grid specified. If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -200,6 +201,7 @@ class Generator3D(BaseGenerator):
 
 class GeneratorSpherical(BaseGenerator):
     """An example generator for generating points in spherical coordinates. NOT TO BE CONFUSED with `Generator3D`
+
     :param size: number of points in 3-D sphere
     :type size: int
     :param r_min: radius of the interior boundary
@@ -260,11 +262,11 @@ class GeneratorSpherical(BaseGenerator):
 
 
 class ConcatGenerator(BaseGenerator):
-    r"""An concatenated generator for sampling points, whose `get_examples` method returns the concatenated vector of
-    the samples returned by its sub-generators.
-    Not to be confused with EnsembleGenerator which returns all the samples of its sub-generators
-    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    :type \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    r"""An concatenated generator for sampling points, whose `get_examples` method returns the concatenated vector of the samples returned by its sub-generators.
+        Not to be confused with EnsembleGenerator which returns all the samples of its sub-generators
+
+    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
     """
 
     def __init__(self, *generators):
@@ -283,7 +285,8 @@ class ConcatGenerator(BaseGenerator):
 
 
 class StaticGenerator(BaseGenerator):
-    """A generator that returns the same samples every time
+    """A generator that returns the same samples, obtained by its sub-generator, every time
+
     :param generator: a generator used to generate the static samples
     :type generator: BaseGenerator
     """
@@ -299,6 +302,7 @@ class StaticGenerator(BaseGenerator):
 
 class PredefinedGenerator(BaseGenerator):
     """A generator for generating training points. Here the training points are fixed and predefined.
+
     :param xs: The x-dimension of the trianing points
     :type xs: `torch.tensor`
     :param ys: The y-dimension of the training points
@@ -318,8 +322,7 @@ class PredefinedGenerator(BaseGenerator):
             self.xs = self.xs[0]
 
     def get_examples(self):
-        """Returns the training points
-            points are fixed and predefined.
+        """Returns the training points. Points are fixed and predefined.
 
             :returns: The predefined training points
             :rtype: tuple[`torch.tensor`]
@@ -329,6 +332,7 @@ class PredefinedGenerator(BaseGenerator):
 
 class TransformGenerator(BaseGenerator):
     """A generator which applies certain transformations on the sample vectors
+
     :param generator: a generator used to generate samples on which transformations will be applied
     :type generator: BaseGenerator
     :param transforms: a list of transformations to be applied on the sample vectors; identity transformation can be replaced with None
@@ -353,8 +357,9 @@ class TransformGenerator(BaseGenerator):
 
 class EnsembleGenerator(BaseGenerator):
     r"""An ensemble generator for sampling points, whose `get_examples` method returns all the samples of its sub-generators;
-    Not to be confused with ConcatGenerator which returns the concatenated vector of samples returned by its sub-generators.
-    All sub-generator must return vectors of the same shape; yet the number of vectors for each sub-generator can be different
+        Not to be confused with ConcatGenerator which returns the concatenated vector of samples returned by its sub-generators.
+        All sub-generator must return vectors of the same shape; yet the number of vectors for each sub-generator can be different
+
     :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
     :type \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
     """
@@ -385,6 +390,7 @@ class EnsembleGenerator(BaseGenerator):
 
 class FilterGenerator(BaseGenerator):
     """A generator which applies some filtering before samples are returned
+
     :param generator: a generator used to generate samples to be filtered
     :type generator: BaseGenerator
     :param filter_fn: a filter to be applied on the sample vectors; maps a list of tensors to a mask tensor
@@ -421,6 +427,7 @@ class FilterGenerator(BaseGenerator):
 
 class ResampleGenerator(BaseGenerator):
     """A generator whose output is shuffled and resampled every time
+
     :param generator: a generator used to generate samples to be shuffled and resampled
     :type generator: BaseGenerator
     :param size: size of the shuffled output, defaults to the size of `generator`
@@ -453,6 +460,7 @@ class ResampleGenerator(BaseGenerator):
 
 class BatchGenerator(BaseGenerator):
     """A generator which caches samples and returns a single batch of the samples at a time
+
     :param generator: a generator used for getting (cached) examples
     :type generator: BaseGenerator
     :param batch_size: number of batches to be returned; can be larger than size of  `generator`, but inefficient if so
