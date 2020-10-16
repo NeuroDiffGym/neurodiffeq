@@ -9,7 +9,7 @@ from neurodiffeq import diff
 from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor
-from neurodiffeq.generator import Generator1D
+from neurodiffeq.generators import Generator1D
 
 import torch
 torch.manual_seed(42)

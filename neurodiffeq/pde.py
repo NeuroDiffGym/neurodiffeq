@@ -10,7 +10,7 @@ import matplotlib.tri as tri
 
 from .networks import FCNN
 from .neurodiffeq import diff
-from .generator import Generator2D, PredefinedGenerator
+from .generators import Generator2D, PredefinedGenerator
 from .version_utils import warn_deprecate_class
 from copy import deepcopy
 

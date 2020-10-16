@@ -7,7 +7,7 @@ from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
 from neurodiffeq.pde import DirichletBVP2D, IBVP1D, Condition,_network_output_2input
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
-from neurodiffeq.generator import PredefinedGenerator, Generator2D
+from neurodiffeq.generators import PredefinedGenerator, Generator2D
 from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation, set_default_dtype
 
 from pytest import raises

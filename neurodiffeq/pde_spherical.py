@@ -17,7 +17,7 @@ from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
 from .version_utils import warn_deprecate_class
-from .generator import Generator3D, GeneratorSpherical
+from .generators import Generator3D, GeneratorSpherical
 from inspect import signature
 from copy import deepcopy
 from datetime import datetime

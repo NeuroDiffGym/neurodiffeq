@@ -3,19 +3,19 @@ import torch
 import numpy as np
 from pytest import raises
 # atomic-ish generator classes
-from neurodiffeq.generator import Generator1D
-from neurodiffeq.generator import Generator2D
-from neurodiffeq.generator import Generator3D
-from neurodiffeq.generator import GeneratorSpherical
+from neurodiffeq.generators import Generator1D
+from neurodiffeq.generators import Generator2D
+from neurodiffeq.generators import Generator3D
+from neurodiffeq.generators import GeneratorSpherical
 # complex generator classes
-from neurodiffeq.generator import ConcatGenerator
-from neurodiffeq.generator import StaticGenerator
-from neurodiffeq.generator import PredefinedGenerator
-from neurodiffeq.generator import TransformGenerator
-from neurodiffeq.generator import EnsembleGenerator
-from neurodiffeq.generator import FilterGenerator
-from neurodiffeq.generator import ResampleGenerator
-from neurodiffeq.generator import BatchGenerator
+from neurodiffeq.generators import ConcatGenerator
+from neurodiffeq.generators import StaticGenerator
+from neurodiffeq.generators import PredefinedGenerator
+from neurodiffeq.generators import TransformGenerator
+from neurodiffeq.generators import EnsembleGenerator
+from neurodiffeq.generators import FilterGenerator
+from neurodiffeq.generators import ResampleGenerator
+from neurodiffeq.generators import BatchGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)

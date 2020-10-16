@@ -36,9 +36,9 @@ API Reference
 .. automodule:: neurodiffeq.function_basis
     :members:
 
-`neurodiffeq.generator`
+`neurodiffeq.generators`
 ------------------------------------------------------
-.. automodule:: neurodiffeq.generator
+.. automodule:: neurodiffeq.generators
     :members:
 
 `neurodiffeq.operators`

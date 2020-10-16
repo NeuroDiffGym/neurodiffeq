@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch import sin, cos
 import numpy as np
-from neurodiffeq.generator import GeneratorSpherical
+from neurodiffeq.generators import GeneratorSpherical
 from neurodiffeq.function_basis import ZonalSphericalHarmonics
 from neurodiffeq.networks import FCNN
 from neurodiffeq.operators import spherical_curl

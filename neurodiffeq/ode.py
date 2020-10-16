@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from .networks import FCNN
-from .generator import Generator1D
+from .generators import Generator1D
 from .version_utils import warn_deprecate_class
 from copy import deepcopy
 
