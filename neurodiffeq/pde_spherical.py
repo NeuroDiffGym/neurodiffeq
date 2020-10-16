@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.nn as nn
 
 import numpy as np
+import math
 import pandas as pd
 import seaborn as sns
 import matplotlib
@@ -764,7 +765,7 @@ class MonitorSpherical:
     """
 
     def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
-                 theta_min=0.0, theta_max=np.pi, phi_min=0.0, phi_max=np.pi * 2):
+                 theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2):
         """Initializer method
         """
         self.contour_plot_available = self._matplotlib_version_satisfies()
@@ -814,7 +815,7 @@ class MonitorSpherical:
 
     @staticmethod
     def _longitude_formatter(value, count):
-        value = int(round(value / np.pi * 180)) - 180
+        value = int(round(value / math.pi * 180)) - 180
         if value == 0 or abs(value) == 180:
             marker = ''
         elif value > 0:
@@ -825,7 +826,7 @@ class MonitorSpherical:
 
     @staticmethod
     def _latitude_formatter(value, count):
-        value = int(round(value / np.pi * 180)) - 90
+        value = int(round(value / math.pi * 180)) - 90
         if value == 0:
             marker = ''
         elif value > 0:
@@ -961,11 +962,11 @@ class MonitorSpherical:
             theta = self.theta_label.reshape(*self.shape)[0, :, 0]
             phi = self.phi_label.reshape(*self.shape)[0, 0, :]
             cax = ax.contourf(phi, theta, u, cmap='magma')
-            ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
-            ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+            ax.xaxis.set_major_locator(plt.MultipleLocator(math.pi / 6))
+            ax.xaxis.set_minor_locator(plt.MultipleLocator(math.pi / 12))
             ax.xaxis.set_major_formatter(plt.FuncFormatter(self._longitude_formatter))
-            ax.yaxis.set_major_locator(plt.MultipleLocator(np.pi / 6))
-            ax.yaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+            ax.yaxis.set_major_locator(plt.MultipleLocator(math.pi / 6))
+            ax.yaxis.set_minor_locator(plt.MultipleLocator(math.pi / 12))
             ax.yaxis.set_major_formatter(plt.FuncFormatter(self._latitude_formatter))
             ax.grid(which='major', linestyle='--', linewidth=0.5)
             ax.grid(which='minor', linestyle=':', linewidth=0.5)
@@ -1190,7 +1191,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     """
 
     def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
-                 harmonics_fn=None, theta_min=0.0, theta_max=np.pi, phi_min=0.0, phi_max=np.pi * 2,
+                 harmonics_fn=None, theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2,
                  # DEPRECATED
                  max_degree=None):
         super(MonitorSphericalHarmonics, self).__init__(
