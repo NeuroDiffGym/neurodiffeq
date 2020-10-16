@@ -30,3 +30,19 @@ API Reference
 ---------------------------
 .. automodule:: neurodiffeq.temporal
     :members:
+
+`neurodiffeq.function_basis`
+---------------------------
+.. automodule:: neurodiffeq.function_basis
+    :members:
+
+`neurodiffeq.generator`
+---------------------------
+.. automodule:: neurodiffeq.generator
+    :members:
+
+`neurodiffeq.operators`
+---------------------------
+.. automodule:: neurodiffeq.operators
+    :members:
+
