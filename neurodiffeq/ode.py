@@ -92,7 +92,7 @@ class IVP(Condition):
             `enforce` is meant to be called by the function `solve` and `solve_system`.
         """
         x = _network_output(net, t, self.ith_unit)
-        if self.x_0_prime:
+        if self.x_0_prime is not None:
             return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
         else:
             return self.x_0 + (1-torch.exp(-t+self.t_0))*x
