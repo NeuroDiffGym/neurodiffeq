@@ -1,6 +1,6 @@
 import torch
 from torch import sin, cos
-from neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 
 
 def spherical_curl(u_r, u_theta, u_phi, r, theta, phi):
