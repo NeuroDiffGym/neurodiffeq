@@ -44,3 +44,21 @@ class BaseCondition:
 
         warnings.warn(f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future")
         self.ith_unit = ith_unit
+
+
+class NoCondition(BaseCondition):
+    r"""A polymorphic condition where no re-parameterization will be performed
+
+    """
+
+    def enforce(self, net, *coordinates):
+        """enforce no condition (or an identity re-parameterization) on network output(s)
+
+        :param net: the network whose output is to be re-parameterized
+        :type net: `torch.nn.Module`
+        :param coordinates: inputs of the neural network
+        :type coordinates: tuple[`torch.Tensor`]
+        :return: the re-parameterized output, where actually no condition is enforced
+        :rtype: `torch.Tensor`
+        """
+        return net(*coordinates)
