@@ -59,6 +59,33 @@ class BaseCondition:
         self.ith_unit = ith_unit
 
 
+class EnsembleCondition:
+    r"""An ensemble condition that enforces sub-conditions on individual output units of the networks.
+    """
+
+    def __init__(self, *sub_conditions):
+        super(EnsembleCondition, self).__init__()
+        self.conditions = sub_conditions
+
+    def parameterize(self, output_tensor, *input_tensors):
+        r"""Re-parameterizes each column in output_tensor individually, using its corresponding sub-condition.
+            This is useful when solving differential equations with a single, multi-output network.
+
+        :param output_tensor: Output of the neural network. Number of units (.shape[1]) must equal number of sub-conditions.
+        :type output_tensor: `torch.nn.Tensor`
+        :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
+        :type input_tensors: tuple[`torch.nn.Tensor`]
+        :return: The column-wise re-parameterized network output, concatenated across columns so that it's still one tensor.
+        :rtype: `torch.Tensor`
+        """
+        if output_tensor.shape[1] != len(self.conditions):
+            raise ValueError(f"number of output units ({output_tensor.shape[1]}) "
+                             f"differs from number of conditions ({len(self.conditions)})")
+        return torch.cat([
+            con.parameterize(output_tensor[:, i].view(-1, 1), *input_tensors) for i, con in enumerate(self.conditions)
+        ], dim=1)
+
+
 class NoCondition(BaseCondition):
     r"""A polymorphic condition where no re-parameterization will be performed.
 
