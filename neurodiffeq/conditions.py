@@ -21,9 +21,9 @@ class BaseCondition:
         f"""[ABSTRACT METHOD] Re-parameterize output(s) of a network.
 
         :param output_tensor: Output of the neural network.
-        :type output_tensor: `torch.nn.Tensor`
+        :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
-        :type input_tensors: tuple[`torch.nn.Tensor`]
+        :type input_tensors: tuple[`torch.Tensor`]
         :return: the re-parameterized output of the network
         :rtype: `torch.Tensor`
 
@@ -72,9 +72,9 @@ class EnsembleCondition:
             This is useful when solving differential equations with a single, multi-output network.
 
         :param output_tensor: Output of the neural network. Number of units (.shape[1]) must equal number of sub-conditions.
-        :type output_tensor: `torch.nn.Tensor`
+        :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
-        :type input_tensors: tuple[`torch.nn.Tensor`]
+        :type input_tensors: tuple[`torch.Tensor`]
         :return: The column-wise re-parameterized network output, concatenated across columns so that it's still one tensor.
         :rtype: `torch.Tensor`
         """
