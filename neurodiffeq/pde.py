@@ -21,7 +21,7 @@ PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 FLOAT_DTYPE=torch.float32
 
 def set_default_dtype(dtype):
-    """Set the default `dtype` of `torch.tensor` used in `neurodiffeq`.
+    r"""Set the default `dtype` of `torch.tensor` used in `neurodiffeq`.
 
     :param dtype: `torch.float`, `torch.double`, etc
     """
@@ -86,12 +86,12 @@ class NoCondition2D(Condition):
 
 
 class DirichletBVP2D(Condition):
-    """An Dirichlet boundary value problem on a 2-D orthogonal box where :math:`x\\in[x_0, x_1]` and :math:`y\\in[y_0, y_1]`
+    r"""An Dirichlet boundary value problem on a 2-D orthogonal box where :math:`x\in[x_0, x_1]` and :math:`y\in[y_0, y_1]`
         We are solving :math:`u(x, t)` given:
-        :math:`u(x, y)\\bigg|_{x = x_0} = f_0(y)`;
-        :math:`u(x, y)\\bigg|_{x = x_1} = f_1(y)`;
-        :math:`u(x, y)\\bigg|_{y = y_0} = g_0(x)`;
-        :math:`u(x, y)\\bigg|_{y = y_1} = g_1(x)`.
+        :math:`u(x, y)\bigg|_{x = x_0} = f_0(y)`;
+        :math:`u(x, y)\bigg|_{x = x_1} = f_1(y)`;
+        :math:`u(x, y)\bigg|_{y = y_0} = g_0(x)`;
+        :math:`u(x, y)\bigg|_{y = y_1} = g_1(x)`.
 
         :param x_min: The lower bound of x, the :math:`x_0`.
         :type x_min: float
@@ -112,7 +112,7 @@ class DirichletBVP2D(Condition):
     """
 
     def __init__(self, x_min, x_min_val, x_max, x_max_val, y_min, y_min_val, y_max, y_max_val):
-        """Initializer method
+        r"""Initializer method
         """
         super().__init__()
         self.x_min, self.x_min_val = x_min, x_min_val
@@ -147,11 +147,11 @@ class DirichletBVP2D(Condition):
 
 
 class IBVP1D(Condition):
-    """An initial boundary value problem on a 1-D range where :math:`x\\in[x_0, x_1]` and time starts at :math:`t_0`
+    r"""An initial boundary value problem on a 1-D range where :math:`x\in[x_0, x_1]` and time starts at :math:`t_0`
             We are solving :math:`u(x, t)` given:
-            :math:`u(x, t)\\bigg|_{t = t_0} = u_0(x)`;
-            :math:`u(x, t)\\bigg|_{x = x_0} = g(t)` or :math:`\\displaystyle\\frac{\\partial u(x, t)}{\\partial x}\\bigg|_{x = x_0} = g(t)`;
-            :math:`u(x, t)\\bigg|_{x = x_1} = h(t)` or :math:`\\displaystyle\\frac{\\partial u(x, t)}{\\partial x}\\bigg|_{x = x_1} = h(t)`.
+            :math:`u(x, t)\bigg|_{t = t_0} = u_0(x)`;
+            :math:`u(x, t)\bigg|_{x = x_0} = g(t)` or :math:`\displaystyle\frac{\partial u(x, t)}{\partial x}\bigg|_{x = x_0} = g(t)`;
+            :math:`u(x, t)\bigg|_{x = x_1} = h(t)` or :math:`\displaystyle\frac{\partial u(x, t)}{\partial x}\bigg|_{x = x_1} = h(t)`.
 
             :param x_min: The lower bound of x, the :math:`x_0`.
             :type x_min: float
@@ -161,13 +161,13 @@ class IBVP1D(Condition):
             :type t_min: float
             :param t_min_val: The initial condition, the :math:`u_0(x)`.
             :type t_min_val: function
-            :param x_min_val: The Dirichlet boundary condition when :math:`x = x_0`, the :math:`u(x, t)\\bigg|_{x = x_0}`, defaults to None.
+            :param x_min_val: The Dirichlet boundary condition when :math:`x = x_0`, the :math:`u(x, t)\bigg|_{x = x_0}`, defaults to None.
             :type x_min_val: function, optional
-            :param x_min_prime: The Neumann boundary condition when :math:`x = x_0`, the :math:`\\displaystyle\\frac{\\partial u(x, t)}{\\partial x}\\bigg|_{x = x_0}`, defaults to None.
+            :param x_min_prime: The Neumann boundary condition when :math:`x = x_0`, the :math:`\displaystyle\frac{\partial u(x, t)}{\partial x}\bigg|_{x = x_0}`, defaults to None.
             :type x_min_prime: function, optional
-            :param x_max_val: The Dirichlet boundary condition when :math:`x = x_1`, the :math:`u(x, t)\\bigg|_{x = x_1}`, defaults to None.
+            :param x_max_val: The Dirichlet boundary condition when :math:`x = x_1`, the :math:`u(x, t)\bigg|_{x = x_1}`, defaults to None.
             :type x_max_val: function, optioonal
-            :param x_max_prime: The Neumann boundary condition when :math:`x = x_1`, the :math:`\\displaystyle\\frac{\\partial u(x, t)}{\\partial x}\\bigg|_{x = x_1}`, defaults to None.
+            :param x_max_prime: The Neumann boundary condition when :math:`x = x_1`, the :math:`\displaystyle\frac{\partial u(x, t)}{\partial x}\bigg|_{x = x_1}`, defaults to None.
             :type x_max_prime: function, optional
             :raises NotImplementedError: When unimplemented boundary conditions are configured.
         """
@@ -284,11 +284,11 @@ class IBVP1D(Condition):
 
 
 class Monitor2D:
-    """A monitor for checking the status of the neural network during training.
+    r"""A monitor for checking the status of the neural network during training.
 
-    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`.
+    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
     :type xy_min: tuple[float, float], optional
-    :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`.
+    :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
     :type xy_max: tuple[float, float], optional
     :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
     :type check_every: int, optional
@@ -403,16 +403,16 @@ def solve2D(
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
-    """Train a neural network to solve a PDE with 2 independent variables.
+    r"""Train a neural network to solve a PDE with 2 independent variables.
 
     :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` where :math:`u` is the dependent variable and :math:`x` and :math:`y` are the independent variables,
         then `pde` should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: function
     :param condition: The initial/boundary condition.
     :type condition: `neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`
-    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator and valid_generator are not specified, defaults to None
+    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator and valid_generator are not specified, defaults to None
     :type xy_min: tuple[float, float], optional
-    :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator and valid_generator are not specified, defaults to None
+    :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator and valid_generator are not specified, defaults to None
     :type xy_max: tuple[float, float], optional
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
@@ -463,16 +463,16 @@ def solve2D_system(
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
-    """Train a neural network to solve a PDE with 2 independent variables.
+    r"""Train a neural network to solve a PDE with 2 independent variables.
 
         :param pde_system: The PDEsystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0` where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
         :type pde_system: function
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
         :type conditions: list[`neurodiffeq.pde.DirichletBVP2D` or `neurodiffeq.pde.IBVP1D` or `neurodiffeq.pde.NoCondition`]
-        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator or valid_generator are not specified, defaults to None
+        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator or valid_generator are not specified, defaults to None
         :type xy_min: tuple[float, float], optional
-        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator or valid_generator are not specified, defaults to None
+        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator or valid_generator are not specified, defaults to None
         :type xy_max: tuple[float, float], optional
         :param single_net: The single neural network used to approximate the solution. Only one of `single_net` and `nets` should be specified, defaults to None
         :param single_net: `torch.nn.Module`, optional
@@ -650,7 +650,7 @@ def solve2D_system(
 
 
 class Solution:
-    """A solution to an PDE (system)
+    r"""A solution to an PDE (system)
 
     :param single_net: The neural networks that approximates the PDE.
     :type single_net: `torch.nn.Module`
@@ -697,7 +697,7 @@ class Solution:
 
 
 def make_animation(solution, xs, ts):
-    """Create animation of 1-D time-dependent problems.
+    r"""Create animation of 1-D time-dependent problems.
 
     :param solution: solution function returned by `solve2D` (for a 1-D time-dependent problem).
     :type solution: function
@@ -740,7 +740,7 @@ ALPHA = 5.0
 
 
 class Point:
-    """A 2D point.
+    r"""A 2D point.
 
     :param loc: the location of the point in the form of :math:`(x, y)`
     :type loc: tuple[float, float]
@@ -755,7 +755,7 @@ class Point:
 
 
 class DirichletControlPoint(Point):
-    """A 2D point on the Dirichlet boundary.
+    r"""A 2D point on the Dirichlet boundary.
 
     :param loc: the location of the point in the form of :math:`(x, y)`
     :type loc: tuple[float, float]
@@ -773,7 +773,7 @@ class DirichletControlPoint(Point):
 
 # TODO: Irregular Neumann boundary conditions are not working yet.
 class NeumannControlPoint(Point):
-    """A 2D point on the Neumann boundary.
+    r"""A 2D point on the Neumann boundary.
 
     :param loc: the location of the point in the form of :math:`(x, y)`
     :type loc: tuple[float, float]
@@ -793,7 +793,7 @@ class NeumannControlPoint(Point):
 
 
 class CustomBoundaryCondition(Condition):
-    """A boundary condition with irregular shape.
+    r"""A boundary condition with irregular shape.
 
     :param center_point: A point that roughly locate at the center of the domain. It will be used to sort the control points 'clockwise'.
     :type center_point: `pde.Point`

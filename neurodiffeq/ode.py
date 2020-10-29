@@ -45,7 +45,7 @@ class Condition:
 
 
 class NoCondition(Condition):
-    """An condition class that does not impose any initial/boundary conditions
+    r"""An condition class that does not impose any initial/boundary conditions
     """
 
     def __init__(self):
@@ -61,15 +61,15 @@ class NoCondition(Condition):
 
 
 class IVP(Condition):
-    """An initial value problem.
-        For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0`.
-        For Neumann condition, we are solving :math:`x(t)` given :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`.
+    r"""An initial value problem.
+        For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\bigg|_{t = t_0} = x_0`.
+        For Neumann condition, we are solving :math:`x(t)` given :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`.
 
     :param t_0: The initial time.
     :type t_0: float
-    :param x_0: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_0} = x_0`.
+    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
     :type x_0: float
-    :param x_0_prime: The inital derivative of :math:`x` wrt :math:`t`. :math:`\\displaystyle\\frac{\\partial x}{\\partial t}\\bigg|_{t = t_0} = x_0'`, defaults to None.
+    :param x_0_prime: The inital derivative of :math:`x` wrt :math:`t`. :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`, defaults to None.
     :type x_0_prime: float, optional
     """
     def __init__(self, t_0, x_0, x_0_prime=None):
@@ -99,16 +99,16 @@ class IVP(Condition):
 
 
 class DirichletBVP(Condition):
-    """A two-point Dirichlet boundary condition.
-        We are solving :math:`x(t)` given :math:`x(t)\\bigg|_{t = t_0} = x_0` and :math:`x(t)\\bigg|_{t = t_1} = x_1`.
+    r"""A two-point Dirichlet boundary condition.
+        We are solving :math:`x(t)` given :math:`x(t)\bigg|_{t = t_0} = x_0` and :math:`x(t)\bigg|_{t = t_1} = x_1`.
 
     :param t_0: The initial time.
     :type t_0: float
     :param t_1: The final time.
     :type t_1: float
-    :param x_0: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_0} = x_0`.
+    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
     :type x_0: float
-    :param x_1: The initial value of :math:x. :math:`x(t)\\bigg|_{t = t_1} = x_1`.
+    :param x_1: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_1} = x_1`.
     :type x_1: float
     """
     def __init__(self, t_0, x_0, t_1, x_1):
@@ -217,7 +217,7 @@ def solve(
         monitor=None, return_internal=False,
         return_best=False
 ):
-    """Train a neural network to solve an ODE.
+    r"""Train a neural network to solve an ODE.
 
     :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
@@ -278,7 +278,7 @@ def solve_system(
         monitor=None, return_internal=False,
         return_best=False,
 ):
-    """Train a neural network to solve an ODE.
+    r"""Train a neural network to solve an ODE.
 
     :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent i-th variable and :math:`t` is the independent variable,
         then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
@@ -462,7 +462,7 @@ def solve_system(
 
 
 class Solution:
-    """A solution to an ODE (system)
+    r"""A solution to an ODE (system)
 
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
