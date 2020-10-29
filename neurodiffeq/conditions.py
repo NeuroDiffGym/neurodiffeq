@@ -7,6 +7,10 @@ class BaseCondition:
     A condition is a tool to `re-parameterize` the output(s) of a neural network.
         such that the re-parameterized output(s) will automatically satisfy initial conditions (ICs)
         and boundary conditions (BCs) of the PDEs/ODEs that are being solved.
+
+    .. note::
+        The nouns "(re)parameterization" and "condition" are used interchangeably in the documentation and the library.
+        The verbs "(re)parameterize" and "enforce" are used interchangeably in the documentation and the library.
     """
 
     def __init__(self):
