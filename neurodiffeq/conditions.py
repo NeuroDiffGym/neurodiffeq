@@ -17,13 +17,13 @@ class BaseCondition:
         self.ith_unit = None
 
     def enforce(self, net, *coordinates):
-        f"""[ABSTRACT METHOD] re-parameterize output(s) of a network
+        f"""[ABSTRACT METHOD] Re-parameterize output(s) of a network.
 
-        :param net: the network whose output is to be re-parameterized
+        :param net: The network whose output is to be re-parameterized.
         :type net: `torch.nn.Module`
-        :param coordinates: inputs of the neural network
+        :param coordinates: Inputs of the neural network.
         :type coordinates: tuple[`torch.Tensor`]
-        :return: the re-parameterized output, where the condition is automatically satisfied
+        :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
 
         .. note:: 
@@ -35,7 +35,7 @@ class BaseCondition:
         r"""[DEPRECATED] When training several functions with a single (multi-output network), this method is called
             (by a `Solver` class or a `solve` function) to keep track of which output is being parameterized.
 
-        :param ith_unit: the index of network output to be parameterized
+        :param ith_unit: The index of network output to be parameterized.
         :type ith_unit: int
 
         .. note::
@@ -47,20 +47,20 @@ class BaseCondition:
 
 
 class NoCondition(BaseCondition):
-    r"""A polymorphic condition where no re-parameterization will be performed
+    r"""A polymorphic condition where no re-parameterization will be performed.
 
     .. note::
-        This condition is called *polymorphic* because it can be enforced on networks of arbitrary input/output sizes
+        This condition is called *polymorphic* because it can be enforced on networks of arbitrary input/output sizes.
     """
 
     def enforce(self, net, *coordinates):
         """enforce no condition (or an identity re-parameterization) on network output(s)
 
-        :param net: the network whose output is to be re-parameterized
+        :param net: The network whose output is to be re-parameterized.
         :type net: `torch.nn.Module`
-        :param coordinates: inputs of the neural network
+        :param coordinates: Inputs of the neural network.
         :type coordinates: tuple[`torch.Tensor`]
-        :return: the re-parameterized output, where actually no condition is enforced
+        :return: The re-parameterized output, where actually no condition is enforced.
         :rtype: `torch.Tensor`
         """
         return net(*coordinates)
