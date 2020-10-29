@@ -66,10 +66,10 @@ class NoCondition(BaseCondition):
         This condition is called *polymorphic* because it can be enforced on networks of arbitrary input/output sizes.
     """
 
-    def enforce(self, net, *coordinates):
-        """enforce no condition (or an identity re-parameterization) on network output(s)
+    def parameterize(self, output_tensor, *input_tensors):
+        return output_tensor
 
-        :param net: The network whose output is to be re-parameterized.
+
         :type net: `torch.nn.Module`
         :param coordinates: Inputs of the neural network.
         :type coordinates: tuple[`torch.Tensor`]
