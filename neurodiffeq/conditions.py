@@ -49,6 +49,8 @@ class BaseCondition:
 class NoCondition(BaseCondition):
     r"""A polymorphic condition where no re-parameterization will be performed
 
+    .. note::
+        This condition is called *polymorphic* because it can be enforced on networks of arbitrary input/output sizes
     """
 
     def enforce(self, net, *coordinates):
