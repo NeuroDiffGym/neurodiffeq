@@ -10,14 +10,30 @@ class BaseCondition:
 
     .. note::
         The nouns "(re)parameterization" and "condition" are used interchangeably in the documentation and the library.
-        The verbs "(re)parameterize" and "enforce" are used interchangeably in the documentation and the library.
+        The verbs "(re)parameterize" and "enforce" are different in that *(re)parameterize* is said of network outputs
+            whereas *enforce* is said of networks themselves.
     """
 
     def __init__(self):
         self.ith_unit = None
 
-    def enforce(self, net, *coordinates):
+    def parameterize(self, output_tensor, *input_tensors):
         f"""[ABSTRACT METHOD] Re-parameterize output(s) of a network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.nn.Tensor`
+        :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
+        :type input_tensors: tuple[`torch.nn.Tensor`]
+        :return: the re-parameterized output of the network
+        :rtype: `torch.Tensor`
+
+        .. note:: 
+            This method is abstract for {self.__class__.__name__}
+        """
+        raise ValueError(f"Abstract {self.__class__.__name__} cannot be parameterized")
+
+    def enforce(self, net, *coordinates):
+        f"""Enforces this condition on a network.
 
         :param net: The network whose output is to be re-parameterized.
         :type net: `torch.nn.Module`
@@ -25,11 +41,8 @@ class BaseCondition:
         :type coordinates: tuple[`torch.Tensor`]
         :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
-
-        .. note:: 
-            This method is abstract for {self.__class__.__name__}
         """
-        raise ValueError(f"Abstract {self.__class__.__name__} cannot be enforced")
+        return self.parameterize(net(*coordinates), *coordinates)
 
     def set_impose_on(self, ith_unit):
         r"""[DEPRECATED] When training several functions with a single (multi-output network), this method is called
