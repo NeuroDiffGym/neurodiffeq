@@ -11,6 +11,11 @@ API Reference
 .. automodule:: neurodiffeq.networks
     :members:
 
+`neurodiffeq.conditions`
+------------------------------------------------------
+.. automodule:: neurodiffeq.conditions
+    :members:
+
 `neurodiffeq.ode`
 ------------------------------------------------------
 .. automodule:: neurodiffeq.ode
