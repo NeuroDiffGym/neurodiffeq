@@ -14,13 +14,6 @@ from copy import deepcopy
 
 ExampleGenerator = warn_deprecate_class(Generator1D)
 
-def _network_output(net, ts, ith_unit):
-    nn_output = net(ts)
-    if ith_unit is not None:
-        return nn_output[:, ith_unit].reshape(-1, 1)
-    else:
-        return nn_output
-
 
 def _trial_solution(single_net, nets, ts, conditions):
     if single_net:  # using a single net
