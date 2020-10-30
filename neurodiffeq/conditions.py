@@ -46,9 +46,12 @@ class BaseCondition:
         :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
         """
-        network_output = net(*coordinates)
+        # concatenate the coordinates and pass to network
+        network_output = net(torch.cat(coordinates, dim=1))
+        # if `ith_unit` is set, the condition will only be enforced on the i-th output unit
         if self.ith_unit is not None:
             network_output = network_output[:, self.ith_unit].view(-1, 1)
+        # parameterize the raw output and return
         return self.parameterize(network_output, *coordinates)
 
     def set_impose_on(self, ith_unit):
