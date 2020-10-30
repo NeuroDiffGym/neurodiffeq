@@ -455,7 +455,7 @@ class MonitorMinimal:
     """A monitor that shows the loss function and custom metrics.
     """
     def __init__(self, check_every):
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
         self.check_every = check_every
 
         self.fig = plt.figure(figsize=(20, 8))
@@ -495,7 +495,7 @@ class Monitor1DSpatialTemporal:
     """A monitor for 1D time-dependent problems.
     """
     def __init__(self, check_on_x, check_on_t, check_every):
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
         self.xx_tensor, self.tt_tensor = _cartesian_prod_dims(check_on_x, check_on_t)
         self.x_array = check_on_x.clone().detach().cpu().numpy()
@@ -553,7 +553,7 @@ class Monitor2DSpatialTemporal:
     """A monitor for 2D time-dependent problems.
     """
     def __init__(self, check_on_x, check_on_y, check_on_t, check_every):
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
         xy_tensor = torch.cartesian_prod(check_on_x, check_on_y)
         self.xx_tensor = torch.squeeze(xy_tensor[:, 0])
@@ -634,7 +634,7 @@ class Monitor2DSpatial:
     """A Monitor for 2D steady-state problems
     """
     def __init__(self, check_on_x, check_on_y, check_every):
-        self.using_non_gui_backend = matplotlib.get_backend() is 'agg'
+        self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
         xy_tensor = torch.cartesian_prod(check_on_x, check_on_y)
         self.xx_tensor = torch.squeeze(xy_tensor[:, 0])
