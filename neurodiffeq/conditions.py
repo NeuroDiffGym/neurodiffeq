@@ -141,3 +141,40 @@ class IVP(BaseCondition):
             return self.x_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
         else:
             return self.x_0 + (t - self.t_0) * self.x_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
+
+
+class DirichletBVP(BaseCondition):
+    r"""A double-ended Dirichlet boundary condition:
+    :math:`x(t)\bigg|_{t = t_0} = x_0` and :math:`x(t)\bigg|_{t = t_1} = x_1`.
+
+    :param t_0: The initial time.
+    :type t_0: float
+    :param t_1: The final time.
+    :type t_1: float
+    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
+    :type x_0: float
+    :param x_1: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_1} = x_1`.
+    :type x_1: float
+    """
+
+    def __init__(self, t_0, x_0, t_1, x_1):
+        super().__init__()
+        self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
+
+    def parameterize(self, output_tensor, t):
+        r"""Re-parameterize outputs such that the Dirichlet condition is satisfied on both ends of the domain.
+
+        The re-parameterization is
+        :math:`\displaystyle x(t)=(1-\tilde{t})x_0+\tilde{t}x_1+\left(1-e^{(1-\tilde{t})\tilde{t}}\right)\mathrm{ANN}(t)`,
+        where :math:`\displaystyle \tilde{t} = \frac{t-t_0}{t_1-t_0}` and :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param t: Input to the neural network; i.e., sampled time-points or another independent variable.
+        :type t: `torch.Tensor`
+        """
+
+        t_tilde = (t - self.t_0) / (self.t_1 - self.t_0)
+        return self.x_0 * (1 - t_tilde) \
+               + self.x_1 * t_tilde \
+               + (1 - torch.exp((1 - t_tilde) * t_tilde)) * output_tensor
