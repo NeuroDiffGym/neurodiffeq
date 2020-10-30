@@ -53,7 +53,7 @@ def safe_diff(x, t, order=1):
     return unsafe_diff(x, t, order=order)
 
 
-def diff(x, t, order=1, shape_check=False):
+def diff(x, t, order=1, shape_check=None):
     """The derivative of a variable with respect to another.
         Currently, `diff` defaults to `unsafe_diff`, but in a future release, it will default to `safe_diff`
 
@@ -72,7 +72,9 @@ def diff(x, t, order=1, shape_check=False):
     if shape_check:
         return safe_diff(x, t, order=order)
     else:
-        warnings.warn("Currently, `diff` doesn't enforce any restrictions on shapes, which will be enforced in v0.2.0"
-                      "To perform shape checking before v0.2.0, please set shape_check=True"
-                      "See https://github.com/odegym/neurodiffeq/issues/63#issue-719436650 for more details")
+        if shape_check is None:
+            warnings.warn("Currently, `diff` doesn't enforce any restrictions on shapes, "
+                          "which will be enforced in v0.2.0\n"
+                          "To perform shape checking before v0.2.0, please set shape_check=True\n"
+                          "See https://github.com/odegym/neurodiffeq/issues/63#issue-719436650 for more details")
         return unsafe_diff(x, t, order=order)
