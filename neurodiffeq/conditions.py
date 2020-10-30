@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import warnings
 
@@ -64,6 +65,25 @@ class BaseCondition:
 
         warnings.warn(f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future")
         self.ith_unit = ith_unit
+
+
+class IrregularBoundaryCondition(BaseCondition):
+    # Is there a more elegant solution?
+    def in_domain(self, *coordinates):
+        """Given the coordinates (numpy.ndarray), the methods returns an boolean array indicating
+        whether the points lie within the domain.
+
+        :param coordinates: Input tensors, each with shape (n_samples, 1).
+        :type coordinates: tuple[`numpy.ndarray`]
+        :return: Whether each point lies within the domain.
+        :rtype: `numpy.ndarray`
+
+        .. note::
+            - This method is meant to be used by monitors for irregular domain visualization.
+        """
+
+        # returns straight `True`-s by default; i.e., all points are considered within domain
+        return np.ones_like(coordinates[0], dtype=np.bool)
 
 
 class EnsembleCondition:
