@@ -11,7 +11,7 @@ class BaseCondition:
 
     .. note::
         - The nouns *(re-)parameterization* and *condition* are used interchangeably in the documentation and library.
-        - The verbs *(re-)parameterize* and *enforce* are different:
+        - The verbs *(re-)parameterize* and *enforce* are different in that:
 
           - *(re)parameterize* is said of network outputs;
           - *enforce* is said of networks themselves.
@@ -51,14 +51,15 @@ class BaseCondition:
         return self.parameterize(network_output, *coordinates)
 
     def set_impose_on(self, ith_unit):
-        r"""**[DEPRECATED]** When training several functions with a single (multi-output network), this method is called
+        r"""**[DEPRECATED]** When training several functions with a single, multi-output network, this method is called
         (by a `Solver` class or a `solve` function) to keep track of which output is being parameterized.
 
         :param ith_unit: The index of network output to be parameterized.
         :type ith_unit: int
 
         .. note::
-            This method is deprecated and retained for backward compatibility only.
+            This method is deprecated and retained for backward compatibility only. Users interested in enforcing
+            conditions on multi-output networks should consider using a ``neurodiffeq.neurodiffeq.EnsembleCondition``.
         """
 
         warnings.warn(f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future")
