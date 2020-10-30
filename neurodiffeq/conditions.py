@@ -27,7 +27,7 @@ class BaseCondition:
         :param output_tensor: Output of the neural network.
         :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
-        :type input_tensors: tuple[`torch.Tensor`]
+        :type input_tensors: `torch.Tensor`
         :return: the re-parameterized output of the network
         :rtype: `torch.Tensor`
 
@@ -42,7 +42,7 @@ class BaseCondition:
         :param net: The network whose output is to be re-parameterized.
         :type net: `torch.nn.Module`
         :param coordinates: Inputs of the neural network.
-        :type coordinates: tuple[`torch.Tensor`]
+        :type coordinates: `torch.Tensor`
         :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
         """
@@ -74,7 +74,7 @@ class IrregularBoundaryCondition(BaseCondition):
         whether the points lie within the domain.
 
         :param coordinates: Input tensors, each with shape (n_samples, 1).
-        :type coordinates: tuple[`numpy.ndarray`]
+        :type coordinates: `numpy.ndarray`
         :return: Whether each point lies within the domain.
         :rtype: `numpy.ndarray`
 
@@ -101,7 +101,7 @@ class EnsembleCondition:
         :param output_tensor: Output of the neural network. Number of units (.shape[1]) must equal number of sub-conditions.
         :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
-        :type input_tensors: tuple[`torch.Tensor`]
+        :type input_tensors: `torch.Tensor`
         :return: The column-wise re-parameterized network output, concatenated across columns so that it's still one tensor.
         :rtype: `torch.Tensor`
         """
