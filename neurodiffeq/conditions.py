@@ -45,7 +45,10 @@ class BaseCondition:
         :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
         """
-        return self.parameterize(net(*coordinates), *coordinates)
+        network_output = net(*coordinates)
+        if self.ith_unit is not None:
+            network_output = network_output[:, self.ith_unit].view(-1, 1)
+        return self.parameterize(network_output, *coordinates)
 
     def set_impose_on(self, ith_unit):
         r"""**[DEPRECATED]** When training several functions with a single (multi-output network), this method is called
