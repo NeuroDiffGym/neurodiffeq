@@ -89,7 +89,7 @@ class IrregularBoundaryCondition(BaseCondition):
         return np.ones_like(coordinates[0], dtype=np.bool)
 
 
-class EnsembleCondition:
+class EnsembleCondition(BaseCondition):
     r"""An ensemble condition that enforces sub-conditions on individual output units of the networks.
     """
 
