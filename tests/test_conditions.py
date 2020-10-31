@@ -3,6 +3,7 @@ import random
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import EnsembleCondition
+from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
@@ -33,12 +34,12 @@ def test_ivp():
 
     cond = IVP(x0, y0)
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(0) != y_0"
+    assert (y == y0).all(), "y(x_0) != y_0"
 
     cond = IVP(x0, y0, y1)
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(0) != y_0"
-    assert (diff(y, x) == y1).all(), "y'(0) != y'_0"
+    assert (y == y0).all(), "y(x_0) != y_0"
+    assert (diff(y, x) == y1).all(), "y'(x_0) != y'_0"
 
 
 def test_ensemble_condition():
@@ -51,12 +52,12 @@ def test_ensemble_condition():
     x = x0 * ones
     y = cond.enforce(net, x)
     ya = y[:, 0:1]
-    assert (ya == y0).all(), "y(0) != y_0"
+    assert (ya == y0).all(), "y(x_0) != y_0"
     x = x1 * ones
     y = cond.enforce(net, x)
     yb = y[:, 1:2]
-    assert (yb == y0).all(), "y(0) != y_0"
-    assert (diff(yb, x) == y1).all(), "y'(0) != y'_0"
+    assert (yb == y0).all(), "y(x_0) != y_0"
+    assert (diff(yb, x) == y1).all(), "y'(x_0) != y'_0"
 
     net = FCNN(1, 1)
     cond = EnsembleCondition(
@@ -64,5 +65,17 @@ def test_ensemble_condition():
     )
     x = x0 * ones
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(0) != y_0"
+    assert (y == y0).all(), "y(x_0) != y_0"
 
+
+def test_dirichlet_bvp():
+    cond = DirichletBVP(x0, y0, x1, y1)
+    net = FCNN(1, 1)
+
+    x = x0 * ones
+    y = cond.enforce(net, x)
+    assert (y == y0).all(), "y(x_0) != y_0"
+
+    x = x1 * ones
+    y = cond.enforce(net, x)
+    assert (y == y1).all(), "y(x_1) != y_1"
