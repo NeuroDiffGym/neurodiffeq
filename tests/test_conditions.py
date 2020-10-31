@@ -1,6 +1,7 @@
 import torch
 import random
 from neurodiffeq.conditions import NoCondition
+from neurodiffeq.conditions import IVP
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
@@ -23,3 +24,17 @@ def test_no_condition():
         y_cond = cond.enforce(net, *xs)
         y_raw = net(torch.cat(xs, dim=1))
         assert (y_cond == y_raw).all()
+
+
+def test_ivp():
+    x = x0 * ones
+    net = FCNN(1, 1)
+
+    cond = IVP(x0, y0)
+    y = cond.enforce(net, x)
+    assert (y == y0).all(), "y(0) != y_0"
+
+    cond = IVP(x0, y0, y1)
+    y = cond.enforce(net, x)
+    assert (y == y0).all(), "y(0) != y_0"
+    assert (diff(y, x) == y1).all(), "y'(0) != y'_0"
