@@ -125,6 +125,13 @@ class NoCondition(BaseCondition):
 
     def parameterize(self, output_tensor, *input_tensors):
         f"""Performs no re-parameterization, or identity parameterization, in this case.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
+        :type input_tensors: `torch.Tensor`
+        :return: the re-parameterized output of the network
+        :rtype: `torch.Tensor`
         """
         return output_tensor
 
@@ -199,6 +206,8 @@ class DirichletBVP(BaseCondition):
         :type output_tensor: `torch.Tensor`
         :param t: Input to the neural network; i.e., sampled time-points or another independent variable.
         :type t: `torch.Tensor`
+        :return: the re-parameterized output of the network
+        :rtype: `torch.Tensor`
         """
 
         t_tilde = (t - self.t_0) / (self.t_1 - self.t_0)
