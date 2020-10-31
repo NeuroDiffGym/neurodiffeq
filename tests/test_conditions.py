@@ -2,6 +2,7 @@ import torch
 import random
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.conditions import IVP
+from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
@@ -38,3 +39,30 @@ def test_ivp():
     y = cond.enforce(net, x)
     assert (y == y0).all(), "y(0) != y_0"
     assert (diff(y, x) == y1).all(), "y'(0) != y'_0"
+
+
+def test_ensemble_condition():
+    net = FCNN(1, 2)
+    cond = EnsembleCondition(
+        IVP(x0, y0),
+        IVP(x1, y0, y1),
+    )
+
+    x = x0 * ones
+    y = cond.enforce(net, x)
+    ya = y[:, 0:1]
+    assert (ya == y0).all(), "y(0) != y_0"
+    x = x1 * ones
+    y = cond.enforce(net, x)
+    yb = y[:, 1:2]
+    assert (yb == y0).all(), "y(0) != y_0"
+    assert (diff(yb, x) == y1).all(), "y'(0) != y'_0"
+
+    net = FCNN(1, 1)
+    cond = EnsembleCondition(
+        IVP(x0, y0),
+    )
+    x = x0 * ones
+    y = cond.enforce(net, x)
+    assert (y == y0).all(), "y(0) != y_0"
+
