@@ -214,3 +214,77 @@ class DirichletBVP(BaseCondition):
         return self.x_0 * (1 - t_tilde) \
                + self.x_1 * t_tilde \
                + (1 - torch.exp((1 - t_tilde) * t_tilde)) * output_tensor
+
+
+class DirichletBVP2D(BaseCondition):
+    r"""An Dirichlet boundary condition on the boundary of :math:`\left([x_0, x_1] \times [y_0, y_1]`, where
+
+    - :math:`u(x, y)\bigg|_{x = x_0} = f_0(y)`;
+    - :math:`u(x, y)\bigg|_{x = x_1} = f_1(y)`;
+    - :math:`u(x, y)\bigg|_{y = y_0} = g_0(x)`;
+    - :math:`u(x, y)\bigg|_{y = y_1} = g_1(x)`.
+
+    :param x_min: The lower bound of x, the :math:`x_0`.
+    :type x_min: float
+    :param x_min_val: The boundary value on :math:`x = x_0`, i.e. :math:`f_0(y)`.
+    :type x_min_val: callable
+    :param x_max: The upper bound of x, the :math:`x_1`.
+    :type x_max: float
+    :param x_max_val: The boundary value on :math:`x = x_1`, i.e. :math:`f_1(y)`.
+    :type x_max_val: callable
+    :param y_min: The lower bound of y, the :math:`y_0`.
+    :type y_min: float
+    :param y_min_val: The boundary value on :math:`y = y_0`, i.e. :math:`g_0(x)`.
+    :type y_min_val: callable
+    :param y_max: The upper bound of y, the :math:`y_1`.
+    :type y_max: float
+    :param y_max_val: The boundary value on :math:`y = y_1`, i.e. :math:`g_1(x)`.
+    :type y_max_val: callable
+    """
+
+    def __init__(self, x_min, x_min_val, x_max, x_max_val, y_min, y_min_val, y_max, y_max_val):
+        r"""Initializer method
+        """
+        super().__init__()
+        self.x0, self.f0 = x_min, x_min_val
+        self.x1, self.f1 = x_max, x_max_val
+        self.y0, self.g0 = y_min, y_min_val
+        self.y1, self.g1 = y_max, y_max_val
+
+    def parameterize(self, output_tensor, x, y):
+        r"""Re-parameterize outputs such that the Dirichlet condition is satisfied on all four sides of the domain.
+
+        The re-parameterization is
+        :math:`\displaystyle u(x,y)=A(x,y)
+        +\tilde{x}\left(1-\tilde{x}\right)\tilde{y}\left(1-\tilde{y}\right)\mathrm{ANN}(x,y)`, where
+
+        :math:`\displaystyle \begin{align*}
+        A(x,y)=&\left(1-\tilde{x}\right)f_0(y)+\tilde{x}f_1(y) \\
+        &+\left(1-\tilde{y}\right)\left(g_0(x)-\left(1-\tilde{x}\right)g_0(x_0)+\tilde{x}g_0(x_1)\right) \\
+        &+\tilde{y}\left(g_1(x)-\left(1-\tilde{x}\right)g_1(x_0)+\tilde{x}g_1(x_1)\right)
+        \end{align*}`
+
+        :math:`\displaystyle\tilde{x}=\frac{x-x_0}{x_1-x_0}`,
+
+        :math:`\displaystyle\tilde{y}=\frac{y-y_0}{y_1-y_0}`,
+
+        and :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param x: :math:`x`-coordinates of inputs to the neural network; i.e., the sampled :math:`x`-coordinates
+        :type x: `torch.Tensor`
+        :param y: :math:`y`-coordinates of inputs to the neural network; i.e., the sampled :math:`y`-coordinates
+        :type y: `torch.Tensor`
+        :return: the re-parameterized output of the network
+        :rtype: `torch.Tensor`
+        """
+        x_tilde = (x - self.x0) / (self.x1 - self.x0)
+        y_tilde = (y - self.y0) / (self.y1 - self.y0)
+        x0 = torch.ones_like(x_tilde[0, 0]).expand(*x_tilde.shape) * self.x0
+        x1 = torch.ones_like(x_tilde[0, 0]).expand(*x_tilde.shape) * self.x1
+        Axy = (1 - x_tilde) * self.f0(y) + x_tilde * self.f1(y) \
+              + (1 - y_tilde) * (self.g0(x) - ((1 - x_tilde) * self.g0(x0) + x_tilde * self.g0(x1))) \
+              + y_tilde * (self.g1(x) - ((1 - x_tilde) * self.g1(x0) + x_tilde * self.g1(x1)))
+
+        return Axy + x_tilde * (1 - x_tilde) * y_tilde * (1 - y_tilde) * output_tensor
