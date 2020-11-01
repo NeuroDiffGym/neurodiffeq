@@ -16,8 +16,9 @@ from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
 from neurodiffeq.function_basis import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import FCNN
 
-torch.manual_seed(43)
-np.random.seed(43)
+MAGIC = 42
+torch.manual_seed(MAGIC)
+np.random.seed(MAGIC)
 
 
 def laplacian_spherical(u, r, theta, phi):

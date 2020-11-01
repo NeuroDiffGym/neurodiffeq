@@ -9,7 +9,7 @@ from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
-MAGIC = 43
+MAGIC = 42
 torch.manual_seed(MAGIC)
 np.random.seed(MAGIC)
 
