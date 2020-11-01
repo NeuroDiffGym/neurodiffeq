@@ -4,6 +4,7 @@ from neurodiffeq.conditions import NoCondition
 from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
+from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
@@ -79,3 +80,39 @@ def test_dirichlet_bvp():
     x = x1 * ones
     y = cond.enforce(net, x)
     assert (y == y1).all(), "y(x_1) != y_1"
+
+
+def test_dirichlet_bvp_2d():
+    # fix u(x, y) at the four corners (x0, y0), (x0, y1), (x1, y0), (x1, y1),
+    u00, u01, u10, u11 = [random.random() for _ in range(4)]
+
+    # set the boundary conditions on the four sides
+    net_f0, net_f1, net_g0, net_g1 = [FCNN(1, 1) for _ in range(4)]
+    cond_f0 = DirichletBVP(y0, u00, y1, u01)
+    cond_f1 = DirichletBVP(y0, u10, y1, u11)
+    cond_g0 = DirichletBVP(x0, u00, x1, u10)
+    cond_g1 = DirichletBVP(x0, u01, x1, u11)
+    f0 = lambda y: cond_f0.enforce(net_f0, y)
+    f1 = lambda y: cond_f1.enforce(net_f1, y)
+    g0 = lambda x: cond_g0.enforce(net_g0, x)
+    g1 = lambda x: cond_g1.enforce(net_g1, x)
+
+    # test whether condition is enforced
+    condition = DirichletBVP2D(x0, f0, x1, f1, y0, g0, y1, g1)
+    net = FCNN(2, 1)
+
+    x = x0 * ones
+    y = torch.linspace(y0, y1, ones.numel(), requires_grad=True).reshape(-1, 1)
+    assert torch.isclose(condition.enforce(net, x, y), f0(y)).all(), "left boundary not satisfied"
+
+    x = x1 * ones
+    y = torch.linspace(y0, y1, ones.numel(), requires_grad=True).reshape(-1, 1)
+    assert torch.isclose(condition.enforce(net, x, y), f1(y)).all(), "right boundary not satisfied"
+
+    x = torch.linspace(x0, x1, ones.numel(), requires_grad=True).reshape(-1, 1)
+    y = y0 * ones
+    assert torch.isclose(condition.enforce(net, x, y), g0(x)).all(), "lower boundary not satisfied"
+
+    x = torch.linspace(x0, x1, ones.numel(), requires_grad=True).reshape(-1, 1)
+    y = y1 * ones
+    assert torch.isclose(condition.enforce(net, x, y), g1(x)).all(), "upper boundary not satisfied"
