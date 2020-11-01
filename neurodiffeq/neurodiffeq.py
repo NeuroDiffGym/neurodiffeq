@@ -44,9 +44,10 @@ def safe_diff(x, t, order=1):
     :rtype: `torch.tensor`
     """
     if len(x.shape) != 2 or len(t.shape) != 2 or x.shape[1] != 1 or t.shape[1] != 1:
-        raise ValueError("Input shape must be (n_samples, 1) starting from neurodiffeq v0.2.0; \n"
-                         "In most scenarios, consider reshaping inputs by `x = x.view(-1, 1)`\n"
-                         "For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
+        raise ValueError(f"Input shapes must both be (n_samples, 1) starting from neurodiffeq v0.2.0; \n"
+                         f"got {x.shape} (for dependent variable) and {t.shape} (for independent variable)"
+                         f"In most scenarios, consider reshaping inputs by `x = x.view(-1, 1)`\n"
+                         f"For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
     if x.shape != t.shape:
         raise ValueError(f"Input shapes must be the same shape starting from v0.2.0; got {x.shape} != {t.shape}"
                          f"For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
