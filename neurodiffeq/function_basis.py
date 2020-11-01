@@ -2,7 +2,7 @@ import torch
 import warnings
 import numpy as np
 from torch import sin, cos
-from .neurodiffeq import diff
+from .neurodiffeq import safe_diff as diff
 from .version_utils import warn_deprecate_class
 from scipy.special import legendre
 from abc import ABC, abstractmethod
@@ -106,7 +106,7 @@ class ZonalSphericalHarmonicsLaplacian(BasisOperator):
     def __call__(self, base_coeffs, r, theta, phi):
         coeffs_times_r = base_coeffs * r
         radial_components = [
-            diff(coeffs_times_r[:, j], r, order=2) for j in range(base_coeffs.shape[1])
+            diff(coeffs_times_r[:, j:j+1], r, order=2) for j in range(base_coeffs.shape[1])
         ]
         radial_components = torch.cat(radial_components, dim=1) / r
 
@@ -180,7 +180,7 @@ class FourierLaplacian(BasisOperator):
         # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivatives, and manually concatenate them back together
         radial_component = torch.cat([
-            diff(R[:, j], r) / r + diff(R[:, j], r, order=2) for j in range(R.shape[1])
+            diff(R[:, j:j+1], r) / r + diff(R[:, j:j+1], r, order=2) for j in range(R.shape[1])
         ], dim=1)
 
         angular_component = self.laplacian_coefficients * R / r ** 2
@@ -283,7 +283,7 @@ class HarmonicsLaplacian(BasisOperator):
         # We would hope to do `radial_component = diff(R * r, r, order=2) / r`
         # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivates, and manually concatenate them back together
-        radial_component = torch.cat([diff(R[:, j] * r[:, 0], r, order=2) for j in range(R.shape[1])], dim=1) / r
+        radial_component = torch.cat([diff(R[:, j:j+1] * r, r, order=2) for j in range(R.shape[1])], dim=1) / r
 
         angular_component = self.laplacian_coefficients * R / r ** 2
         products = (radial_component + angular_component) * self.harmonics_fn(theta, phi)
