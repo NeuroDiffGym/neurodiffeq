@@ -20,6 +20,12 @@ x0, x1 = random.random(), random.random()
 y0, y1 = random.random(), random.random()
 
 
+def all_close(x_tensor, y_tensor, rtol=1e-5, atol=1e-8, equal_nan=False):
+    if isinstance(y_tensor, (float, int)):
+        y_tensor = torch.ones_like(x_tensor) * y_tensor
+    return torch.isclose(x_tensor, y_tensor, rtol=rtol, atol=atol, equal_nan=equal_nan).all()
+
+
 def test_no_condition():
     N_INPUTS = 5
     N_OUTPUTS = 5
@@ -44,8 +50,8 @@ def test_ivp():
 
     cond = IVP(x0, y0, y1)
     y = cond.enforce(net, x)
-    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
-    assert torch.isclose(diff(y, x), y1 * ones).all(), "y'(x_0) != y'_0"
+    assert all_close(y, y0), "y(x_0) != y_0"
+    assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
 
 def test_ensemble_condition():
@@ -58,12 +64,12 @@ def test_ensemble_condition():
     x = x0 * ones
     y = cond.enforce(net, x)
     ya = y[:, 0:1]
-    assert (ya == y0).all(), "y(x_0) != y_0"
+    assert all_close(ya, y0), "y(x_0) != y_0"
     x = x1 * ones
     y = cond.enforce(net, x)
     yb = y[:, 1:2]
-    assert torch.isclose(yb, y0 * ones).all(), "y(x_0) != y_0"
-    assert torch.isclose(diff(yb, x), y1 * ones).all(), "y'(x_0) != y'_0"
+    assert all_close(yb, y0), "y(x_0) != y_0"
+    assert all_close(diff(yb, x), y1), "y'(x_0) != y'_0"
 
     net = FCNN(1, 1)
     cond = EnsembleCondition(
@@ -71,7 +77,7 @@ def test_ensemble_condition():
     )
     x = x0 * ones
     y = cond.enforce(net, x)
-    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
+    assert all_close(y, y0), "y(x_0) != y_0"
 
 
 def test_dirichlet_bvp():
@@ -80,11 +86,11 @@ def test_dirichlet_bvp():
 
     x = x0 * ones
     y = cond.enforce(net, x)
-    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
+    assert all_close(y, y0), "y(x_0) != y_0"
 
     x = x1 * ones
     y = cond.enforce(net, x)
-    assert torch.isclose(y, y1 * ones).all(), "y(x_1) != y_1"
+    assert all_close(y, y1), "y(x_1) != y_1"
 
 
 def test_dirichlet_bvp_2d():
@@ -108,16 +114,16 @@ def test_dirichlet_bvp_2d():
 
     x = x0 * ones
     y = torch.linspace(y0, y1, ones.numel(), requires_grad=True).reshape(-1, 1)
-    assert torch.isclose(condition.enforce(net, x, y), f0(y)).all(), "left boundary not satisfied"
+    assert all_close(condition.enforce(net, x, y), f0(y)), "left boundary not satisfied"
 
     x = x1 * ones
     y = torch.linspace(y0, y1, ones.numel(), requires_grad=True).reshape(-1, 1)
-    assert torch.isclose(condition.enforce(net, x, y), f1(y)).all(), "right boundary not satisfied"
+    assert all_close(condition.enforce(net, x, y), f1(y)), "right boundary not satisfied"
 
     x = torch.linspace(x0, x1, ones.numel(), requires_grad=True).reshape(-1, 1)
     y = y0 * ones
-    assert torch.isclose(condition.enforce(net, x, y), g0(x)).all(), "lower boundary not satisfied"
+    assert all_close(condition.enforce(net, x, y), g0(x)), "lower boundary not satisfied"
 
     x = torch.linspace(x0, x1, ones.numel(), requires_grad=True).reshape(-1, 1)
     y = y1 * ones
-    assert torch.isclose(condition.enforce(net, x, y), g1(x)).all(), "upper boundary not satisfied"
+    assert all_close(condition.enforce(net, x, y), g1(x)), "upper boundary not satisfied"
