@@ -6,11 +6,9 @@ from neurodiffeq.function_basis import LegendrePolynomial
 from neurodiffeq.function_basis import LegendreBasis
 from neurodiffeq.function_basis import ZonalSphericalHarmonics
 from neurodiffeq.function_basis import ZonalSphericalHarmonicsLaplacian
-from neurodiffeq.neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from scipy.special import legendre  # legendre polynomials
 from scipy.special import sph_harm  # spherical harmonics
-
-torch.set_default_dtype(torch.float64)
 
 n_samples = 50
 shape = (n_samples, 1)
@@ -71,16 +69,20 @@ def test_zero_order_spherical_harmonics():
 
 
 def test_zero_order_spherical_harmonics_laplacian():
-    eps = 0.1
-    r_values = np.random.rand(*shape) + 0.1
-    theta_values = np.random.uniform(eps, np.pi - eps, size=shape)
-    phi_values = np.random.rand(*shape) * np.pi * 2
+    # Somehow, if changing default dtype to float32, the test fails by a large margin
+    N_FLOAT=np.float64
+    T_FLOAT=torch.float64
+
+    THETA_EPS = 0.1
+    r_values = np.random.rand(*shape).astype(N_FLOAT) + 1.1
+    theta_values = np.random.uniform(THETA_EPS, np.pi - THETA_EPS, size=shape).astype(N_FLOAT)
+    phi_values = np.random.rand(*shape).astype(N_FLOAT) * np.pi * 2
 
     net = nn.Sequential(
         nn.Linear(1, 10),
         nn.Tanh(),
         nn.Linear(10, max_degree + 1),
-    )
+    ).to(T_FLOAT)
 
     harmonics = ZonalSphericalHarmonics(max_degree=max_degree)
 
