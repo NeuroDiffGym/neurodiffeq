@@ -40,12 +40,12 @@ def test_ivp():
 
     cond = IVP(x0, y0)
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(x_0) != y_0"
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
 
     cond = IVP(x0, y0, y1)
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(x_0) != y_0"
-    assert (diff(y, x) == y1).all(), "y'(x_0) != y'_0"
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
+    assert torch.isclose(diff(y, x), y1 * ones).all(), "y'(x_0) != y'_0"
 
 
 def test_ensemble_condition():
@@ -62,8 +62,8 @@ def test_ensemble_condition():
     x = x1 * ones
     y = cond.enforce(net, x)
     yb = y[:, 1:2]
-    assert (yb == y0).all(), "y(x_0) != y_0"
-    assert (diff(yb, x) == y1).all(), "y'(x_0) != y'_0"
+    assert torch.isclose(yb, y0 * ones).all(), "y(x_0) != y_0"
+    assert torch.isclose(diff(yb, x), y1 * ones).all(), "y'(x_0) != y'_0"
 
     net = FCNN(1, 1)
     cond = EnsembleCondition(
@@ -71,7 +71,7 @@ def test_ensemble_condition():
     )
     x = x0 * ones
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(x_0) != y_0"
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
 
 
 def test_dirichlet_bvp():
@@ -80,11 +80,11 @@ def test_dirichlet_bvp():
 
     x = x0 * ones
     y = cond.enforce(net, x)
-    assert (y == y0).all(), "y(x_0) != y_0"
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
 
     x = x1 * ones
     y = cond.enforce(net, x)
-    assert (y == y1).all(), "y(x_1) != y_1"
+    assert torch.isclose(y, y1 * ones).all(), "y(x_1) != y_1"
 
 
 def test_dirichlet_bvp_2d():
