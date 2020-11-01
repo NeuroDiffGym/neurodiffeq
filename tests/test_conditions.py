@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import random
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.conditions import IVP
@@ -7,6 +8,10 @@ from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
+
+MAGIC = 43
+torch.manual_seed(MAGIC)
+np.random.seed(MAGIC)
 
 N_SAMPLES = 10
 ones = torch.ones(N_SAMPLES, 1, requires_grad=True)
