@@ -22,7 +22,7 @@ class BaseCondition:
         self.ith_unit = None
 
     def parameterize(self, output_tensor, *input_tensors):
-        r"""Re-parameterize output(s) of a network.
+        r"""Re-parameterizes output(s) of a network.
 
         :param output_tensor: Output of the neural network.
         :type output_tensor: `torch.Tensor`
@@ -155,7 +155,7 @@ class IVP(BaseCondition):
         self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
 
     def parameterize(self, output_tensor, t):
-        r"""Re-parameterize outputs such that the Dirichlet/Neumann condition is satisfied.
+        r"""Re-parameterizes outputs such that the Dirichlet/Neumann condition is satisfied.
 
         - For Dirichlet condition, the re-parameterization is
           :math:`\displaystyle x(t) = x_0 + \left(1 - e^{-(t-t_0)}\right) \mathrm{ANN}(t)`
@@ -196,7 +196,7 @@ class DirichletBVP(BaseCondition):
         self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
 
     def parameterize(self, output_tensor, t):
-        r"""Re-parameterize outputs such that the Dirichlet condition is satisfied on both ends of the domain.
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both ends of the domain.
 
         The re-parameterization is
         :math:`\displaystyle x(t)=(1-\tilde{t})x_0+\tilde{t}x_1+\left(1-e^{(1-\tilde{t})\tilde{t}}\right)\mathrm{ANN}(t)`,
@@ -252,7 +252,7 @@ class DirichletBVP2D(BaseCondition):
         self.y1, self.g1 = y_max, y_max_val
 
     def parameterize(self, output_tensor, x, y):
-        r"""Re-parameterize outputs such that the Dirichlet condition is satisfied on all four sides of the domain.
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on all four sides of the domain.
 
         The re-parameterization is
         :math:`\displaystyle u(x,y)=A(x,y)
