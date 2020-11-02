@@ -155,7 +155,9 @@ class RealFourierSeries(FunctionBasis):
 
 
 class FourierLaplacian(BasisOperator):
-    """A Laplacian operator (in polar coordinates) acting on :math:`\\sum_i R_i(r)F(\\phi)}` where :math:`F` is a Fourier component
+    r"""A Laplacian operator (in polar coordinates) acting on
+    :math:`\displaystyle\sum_{i} R_i(r)F(\phi)` where :math:`F` is a Fourier component
+
     :param max_degree: highest degree for the fourier series
     :type max_degree: int
     """
@@ -270,8 +272,16 @@ class RealSphericalHarmonics(FunctionBasis):
 
 class HarmonicsLaplacian(BasisOperator):
     r"""
-        Laplacian of spherical harmonics can be reduced in the following way. Using this method, we can avoid the :math:`\frac{1}{\sin \theta}` singularity
-        :math:`\begin{aligned} &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\ &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\ &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\ &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\ &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right) \end{aligned}`
+        Laplacian of spherical harmonics can be reduced in the following way. Using this method,
+        we can avoid the :math:`\displaystyle \frac{1}{\sin \theta}` singularity
+
+        :math:`\begin{aligned}
+        &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\
+        &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\
+        &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\
+        &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\
+        &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right)
+        \end{aligned}`
     """
 
     def __init__(self, max_degree=4):

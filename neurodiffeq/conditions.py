@@ -232,7 +232,7 @@ class DirichletBVP(BaseCondition):
 
 
 class DirichletBVP2D(BaseCondition):
-    r"""An Dirichlet boundary condition on the boundary of :math:`\left([x_0, x_1] \times [y_0, y_1]`, where
+    r"""An Dirichlet boundary condition on the boundary of :math:`[x_0, x_1] \times [y_0, y_1]`, where
 
     - :math:`u(x, y)\bigg|_{x = x_0} = f_0(y)`;
     - :math:`u(x, y)\bigg|_{x = x_1} = f_1(y)`;
