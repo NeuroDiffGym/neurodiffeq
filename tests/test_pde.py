@@ -87,22 +87,6 @@ def test_train_generator():
         )
 
 
-def test_ibvp():
-    with raises(NotImplementedError):
-        IBVP1D(
-            t_min=0, t_min_val=lambda x: 0,
-            x_min=0, x_min_val=lambda t: None, x_min_prime=lambda t: None,
-            x_max=1, x_max_val=lambda t: None, x_max_prime=lambda t: None,
-        )
-    with raises(NotImplementedError):
-        IBVP1D(
-            t_min=0, t_min_val=lambda x: 0,
-            x_min=0, x_min_val=lambda t: 0, x_min_prime=lambda t: 0,
-            x_max=1, x_max_val=lambda t: None, x_max_prime=lambda t: None,
-        )
-    print('IBVP test passed.')
-
-
 def test_laplace():
 
     laplace = lambda u, x, y: diff(u, x, order=2) + diff(u, y, order=2)

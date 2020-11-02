@@ -9,6 +9,7 @@ from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.conditions import IBVP1D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
+from pytest import raises
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -209,3 +210,23 @@ def test_ibvp_1d():
     x = x1 * ones
     t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
     assert all_close(diff(condition.enforce(net, x, t), x), q(t)), "right Neumann BC not satisfied"
+
+    # test unimplemented combination of conditions
+    with raises(NotImplementedError):
+        IBVP1D(
+            t_min=0, t_min_val=lambda x: 0,
+            x_min=0, x_min_val=None, x_min_prime=None,
+            x_max=1, x_max_val=None, x_max_prime=None,
+        )
+    with raises(NotImplementedError):
+        IBVP1D(
+            t_min=0, t_min_val=lambda x: 0,
+            x_min=0, x_min_val=lambda t: 0, x_min_prime=lambda t: 0,
+            x_max=1, x_max_val=None, x_max_prime=None,
+        )
+    with raises(NotImplementedError):
+        IBVP1D(
+            t_min=0, t_min_val=lambda x: 0,
+            x_min=0, x_min_val=None, x_min_prime=lambda t: 0,
+            x_max=1, x_max_val=None, x_max_prime=None,
+        )
