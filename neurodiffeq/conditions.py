@@ -641,11 +641,11 @@ class DirichletBVPSphericalBasis(BaseCondition):
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
     :param R_0: The value of harmonic coefficients :math:`\mathbf{R}` on the interior boundary. :math:`\mathbf{R}(r_0)=\mathbf{R}_0`.
-    :type R_0: torch.tensor
+    :type R_0: `torch.Tensor`
     :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
     :type r_1: float or None
     :param R_1: The value of harmonic coefficients :math:`\mathbf{R}` on the exterior boundary. :math:`\mathbf{R}(r_1)=\mathbf{R}_1`.
-    :type R_1: torch.tensor
+    :type R_1: `torch.Tensor`
     :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics
     :type max_degree: int
     """
@@ -711,9 +711,9 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
     :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r_0)=R_0`.
-    :type R_0: torch.tensor
+    :type R_0: `torch.Tensor`
     :param R_inf: The value of harmonic coefficients :math:`R` at infinity. :math:`\lim_{r\to+\infty}R(r)=R_\infty`.
-    :type R_inf: torch.tensor
+    :type R_inf: `torch.Tensor`
     :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
     :type order: int or float, optional
     :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics

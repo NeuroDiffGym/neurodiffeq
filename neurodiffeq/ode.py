@@ -373,12 +373,12 @@ class Solution:
         """Evaluate the solution at certain points.
 
         :param ts: the points on which the dependent variables are evaluated.
-        :type ts: `torch.tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type ts: `torch.Tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
         :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.tensor` or `numpy.array` (when there is only one dependent variable)
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(ts, torch.Tensor):
             ts = torch.tensor(ts, dtype=torch.float32)

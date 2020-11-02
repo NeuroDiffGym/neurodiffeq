@@ -23,7 +23,7 @@ PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 FLOAT_DTYPE=torch.float32
 
 def set_default_dtype(dtype):
-    r"""Set the default `dtype` of `torch.tensor` used in `neurodiffeq`.
+    r"""Set the default `dtype` of `torch.Tensor` used in `neurodiffeq`.
 
     :param dtype: `torch.float`, `torch.double`, etc
     """
@@ -446,14 +446,14 @@ class Solution:
         """Evaluate the solution at certain points.
 
         :param xs: the x-coordinates of points on which the dependent variables are evaluated.
-        :type xs: `torch.tensor` or sequence of number
+        :type xs: `torch.Tensor` or sequence of number
         :param ys: the y-coordinates of points on which the dependent variables are evaluated.
-        :type ys: `torch.tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type ys: `torch.Tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
         :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.tensor` or `numpy.array` (when there is only one dependent variable).
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable).
         """
         if not isinstance(xs, torch.Tensor):
             xs = torch.tensor(xs, dtype=FLOAT_DTYPE)

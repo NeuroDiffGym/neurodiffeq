@@ -5,17 +5,17 @@ import warnings
 
 def unsafe_diff(x, t, order=1):
     """The derivative of a variable with respect to another.
-        While there's no requirement for shapes, errors could occur in some cases.
-        See `this issue <https://github.com/odegym/neurodiffeq/issues/63#issue-719436650>`_ for details
+    While there's no requirement for shapes, errors could occur in some cases.
+    See `this issue <https://github.com/odegym/neurodiffeq/issues/63#issue-719436650>`_ for details
 
     :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type x: `torch.tensor`
+    :type x: `torch.Tensor`
     :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type t: `torch.tensor`
+    :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
     :returns: The derivative.
-    :rtype: `torch.tensor`
+    :rtype: `torch.Tensor`
     """
     ones = torch.ones_like(x)
     der, = autograd.grad(x, t, create_graph=True, grad_outputs=ones, allow_unused=True)
@@ -31,17 +31,17 @@ def unsafe_diff(x, t, order=1):
 
 def safe_diff(x, t, order=1):
     """The derivative of a variable with respect to another.
-        Both tensors must have a shape of (n_samples, 1)
-        See `this issue comment <https://github.com/odegym/neurodiffeq/issues/63#issuecomment-718007133>`_ for details
+    Both tensors must have a shape of (n_samples, 1)
+    See `this issue comment <https://github.com/odegym/neurodiffeq/issues/63#issuecomment-718007133>`_ for details
 
     :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type x: `torch.tensor`
+    :type x: `torch.Tensor`
     :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type t: `torch.tensor`
+    :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
     :returns: The derivative.
-    :rtype: `torch.tensor`
+    :rtype: `torch.Tensor`
     """
     if len(x.shape) != 2 or len(t.shape) != 2 or x.shape[1] != 1 or t.shape[1] != 1:
         raise ValueError(f"Input shapes must both be (n_samples, 1) starting from neurodiffeq v0.2.0; \n"
@@ -56,18 +56,18 @@ def safe_diff(x, t, order=1):
 
 def diff(x, t, order=1, shape_check=None):
     """The derivative of a variable with respect to another.
-        Currently, `diff` defaults to `unsafe_diff`, but in a future release, it will default to `safe_diff`
+    Currently, `diff` defaults to `unsafe_diff`, but in a future release, it will default to `safe_diff`
 
     :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type x: `torch.tensor`
+    :type x: `torch.Tensor`
     :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
-    :type t: `torch.tensor`
+    :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
     :param shape_check: Whether to perform shape checking or not, defaults to False (to be changed in v0.2.0).
     :type shape_check: bool
     :returns: The derivative.
-    :rtype: `torch.tensor`
+    :rtype: `torch.Tensor`
     """
 
     if shape_check:
