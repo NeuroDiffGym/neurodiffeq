@@ -504,3 +504,64 @@ class IBVP1D(BaseCondition):
                         diff(ux0t, x0) - diff(ux1t, x1)
                 )
         )
+
+
+# TODO: reduce duplication
+class DirichletBVPSpherical(BaseCondition):
+    r"""The Dirichlet boundary condition for the interior and exterior boundary of the sphere,
+    where the interior boundary is not necessarily a point. The conditions are:
+
+    - :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`
+    - :math:`u(r_1,\theta,\phi)=g(\theta,\phi)`
+
+    :param r_0: The radius of the interior boundary. When :math:`r_0 = 0`, the interior boundary collapses to a single point (center of the ball).
+    :type r_0: float
+    :param f: The value of :math:`u` on the interior boundary. :math:`u(r_0, \theta, \phi)=f(\theta, \phi)`.
+    :type f: callable
+    :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None.
+    :type r_1: float or None
+    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r_1, \theta, \phi)=g(\theta, \phi)`. If set to None, `r_1` must also be set to None.
+    :type g: callable or None
+    """
+
+    def __init__(self, r_0, f, r_1=None, g=None):
+        super(DirichletBVPSpherical, self).__init__()
+        if (r_1 is None) ^ (g is None):
+            raise ValueError(f'r_1 and g must be both/neither set to None; got r_1={r_1}, g={g}')
+        self.r_0, self.r_1 = r_0, r_1
+        self.f, self.g = f, g
+
+    def parameterize(self, output_tensor, r, theta, phi):
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both ends of the domain.
+
+        - If both inner and outer boundaries are specified
+          :math:`u(r_0,\theta,\phi)=f(\theta,\phi)` and
+          :math:`u(r_1,\theta,\phi)=g(\theta,\phi)`:
+
+          The re-parameterization is
+          :math:`\big(1-\tilde{r}\big)f(\theta,\phi)+\tilde{r}g(\theta,\phi)
+          +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN(r, \theta, \phi)}`
+
+        - If only one boundary is specified (inner or outer) :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`
+
+          The re-parameterization is
+          :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN(r, \theta, \phi)}`
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param r: The radii (or :math:`r`-component) of the inputs to the network.
+        :type r: `torch.Tensor`
+        :param theta: The co-latitudes (or :math:`\theta`-component) of the inputs to the network.
+        :type theta: `torch.Tensor`
+        :param phi: The longitudes (or :math:`\phi`-component) of the inputs to the network.
+        :type phi: `torch.Tensor`
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+        if self.r_1 is None:
+            return (1 - torch.exp(-torch.abs(r - self.r_0))) * output_tensor + self.f(theta, phi)
+        else:
+            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
+            return self.f(theta, phi) * (1 - r_tilde) + \
+                   self.g(theta, phi) * r_tilde + \
+                   (1. - torch.exp((1 - r_tilde) * r_tilde)) * output_tensor
