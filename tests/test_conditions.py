@@ -8,7 +8,7 @@ from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.conditions import IBVP1D
 from neurodiffeq.networks import FCNN
-from neurodiffeq.neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from pytest import raises
 
 MAGIC = 42
