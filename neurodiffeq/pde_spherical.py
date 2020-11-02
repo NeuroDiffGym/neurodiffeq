@@ -18,129 +18,28 @@ from .function_basis import RealSphericalHarmonics
 from .networks import FCNN
 from .version_utils import warn_deprecate_class
 from .generators import Generator3D, GeneratorSpherical
+from .conditions import NoCondition, DirichletBVPSpherical, InfDirichletBVPSpherical
+from .conditions import DirichletBVPSphericalBasis, InfDirichletBVPSphericalBasis
 from inspect import signature
 from copy import deepcopy
 from datetime import datetime
 
-# the name ExampleGenerator3D is deprecated
+# generators defined in this module have been move to generators.py (and renamed)
 ExampleGenerator3D = warn_deprecate_class(Generator3D)
-
-# the name ExampleGeneratorSpherical is deprecated
 ExampleGeneratorSpherical = warn_deprecate_class(GeneratorSpherical)
+
+# conditions defined in this module have been moved to conditions.py (and renamed)
+NoConditionSpherical = warn_deprecate_class(NoCondition)
+NoConditionSphericalHarmonics = warn_deprecate_class(NoCondition)
+DirichletBVPSpherical = warn_deprecate_class(DirichletBVPSpherical)
+DirichletBVPSphericalHarmonics = warn_deprecate_class(DirichletBVPSphericalBasis)
+InfDirichletBVPSpherical = warn_deprecate_class(InfDirichletBVPSpherical)
+InfDirichletBVPSphericalHarmonics = warn_deprecate_class(InfDirichletBVPSphericalBasis)
 
 
 def _nn_output_spherical_input(net, rs, thetas, phis):
     points = torch.cat((rs, thetas, phis), 1)
     return net(points)
-
-
-class BaseConditionSpherical:
-    def enforce(self, net, r, theta, phi):
-        raise NotImplementedError(f"Abstract {self.__class__.__name__} cannot be enforced")
-
-
-class NoConditionSpherical(BaseConditionSpherical):
-    def __init__(self):
-        pass
-
-    def enforce(self, net, r, theta, phi):
-        return _nn_output_spherical_input(net, r, theta, phi)
-
-
-class DirichletBVPSpherical(BaseConditionSpherical):
-    r"""Dirichlet boundary condition for the interior and exterior boundary of the sphere, where the interior boundary is not necessarily a point
-        We are solving :math:`u(r, \theta, \phi)` given :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)` and :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`
-
-    :param r_0: The radius of the interior boundary. When :math:`r_0 = 0`, the interior boundary collapses to a single point (center of the ball)
-    :type r_0: float
-    :param f: The value of :math:`u` on the interior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)`.
-    :type f: callable
-    :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None
-    :type r_1: float or None
-    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`. If set to None, `r_1` must also be set to None
-    :type g: callable or None
-    """
-
-    def __init__(self, r_0, f, r_1=None, g=None):
-        """Initializer method
-        """
-        if (r_1 is None) ^ (g is None):
-            raise ValueError(f'r_1 and g must be both/neither set to None; got r_1={r_1}, g={g}')
-        self.r_0, self.r_1 = r_0, r_1
-        self.f, self.g = f, g
-
-    def enforce(self, net, r, theta, phi):
-        r"""Enforce the output of a neural network to satisfy the boundary condition.
-
-        :param net: The neural network that approximates the ODE.
-        :type net: `torch.nn.Module`
-        :param r: The radii of points where the neural network output is evaluated.
-        :type r: `torch.tensor`
-        :param theta: The co-latitudes of points where the neural network output is evaluated. `theta` ranges :math:`[0, \pi]`
-        :type theta: `torch.tensor`
-        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges :math:`[0, 2\pi)`
-        :type phi: `torch.tensor`
-        :return: The reconstructed output which now satisfies the boundary condition.
-        :rtype: `torch.tensor`
-
-
-        .. note::
-            `enforce` is meant to be called by a solver class or a solve function
-        """
-        u = _nn_output_spherical_input(net, r, theta, phi)
-        if self.r_1 is None:
-            return (1 - torch.exp(-r + self.r_0)) * u + self.f(theta, phi)
-        else:
-            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
-            # noinspection PyTypeChecker
-            return self.f(theta, phi) * (1 - r_tilde) + \
-                   self.g(theta, phi) * r_tilde + \
-                   (1. - torch.exp((1 - r_tilde) * r_tilde)) * u
-
-
-class InfDirichletBVPSpherical(BaseConditionSpherical):
-    r"""Similar to `DirichletBVPSpherical`. The only difference is we are considering :math:`g(\theta, \phi)` as :math:`r_1 \to \infty`, so `r_1` doesn't need to be specified
-        We are solving :math:`u(t)` given :math:`u(r, \theta, \phi) \bigg|_{r = r_0} = f(\theta, \phi)` and :math:`\lim_{r \to \infty} u(r, \theta, \phi) = g(\theta, \phi)`
-
-    :param r_0: The radius of the interior boundary. When `r_0 = 0`, the interior boundary collapses to a single point (center of the ball)
-    :type r_0: float
-    :param f: The value of :math:`u` on the interior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_0} = f(\theta, \phi)`.
-    :type f: callable
-    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r, \theta, \phi)\bigg|_{r = r_1} = g(\theta, \phi)`.
-    :type g: callable
-    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} u(r, \theta, \phi) e^{-k r} = 0`, defaults to 1
-    :type order: int or float, optional
-    """
-
-    def __init__(self, r_0, f, g, order=1):
-        self.r_0 = r_0
-        self.f = f
-        self.g = g
-        self.order = order
-
-    def enforce(self, net, r, theta, phi):
-        r"""Enforce the output of a neural network to satisfy the boundary condition.
-
-        :param net: The neural network that approximates the PDE.
-        :type net: `torch.nn.Module`
-        :param r: The radii of points where the neural network output is evaluated.
-        :type r: `torch.tensor`
-        :param theta: The co-latitudes of points where the neural network output is evaluated. `theta` ranges :math:`[0, \pi]`
-        :type theta: `torch.tensor`
-        :param phi: The longitudes of points where the neural network output is evaluated. `phi` ranges :math:`[0, 2\pi)`
-        :type phi: `torch.tensor`
-        :return: The reconstructed output which now satisfies the boundary condition.
-        :rtype: `torch.tensor`
-
-
-        .. note::
-            `enforce` is meant to be called by a solver class or a solve function
-        """
-        u = _nn_output_spherical_input(net, r, theta, phi)
-        dr = r - self.r_0
-        return self.f(theta, phi) * torch.exp(-self.order * dr) + \
-               self.g(theta, phi) * torch.tanh(dr) + \
-               torch.exp(-self.order * dr) * torch.tanh(dr) * u
 
 
 class SolutionSpherical:
@@ -149,7 +48,7 @@ class SolutionSpherical:
     :param nets: The neural networks that approximate the PDE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The conditions of the PDE (system).
-    :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     """
 
     def __init__(self, nets, conditions):
@@ -211,7 +110,7 @@ def solve_spherical(
             then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
         :type pde: callable
         :param condition: The initial/boundary condition that :math:`u` should satisfy.
-        :type condition: `neurodiffeq.pde_spherical.BaseConditionSpherical`
+        :type condition: `neurodiffeq.conditions.BaseCondition`
         :param r_min: radius for inner boundary; ignored if both generators are provided; optional
         :type r_min: float
         :param r_max: radius for outer boundary; ignored if both generators are provided; optional
@@ -282,7 +181,7 @@ def solve_spherical_system(
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
         :type pde_system: callable
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
-        :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
+        :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
         :param r_min: radius for inner boundary; ignored if both generators are provided; optional
         :type r_min: float
         :param r_max: radius for outer boundary; ignored if both generators are provided; optional
@@ -323,6 +222,13 @@ def solve_spherical_system(
         """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
+    if harmonics_fn is None:
+        def enforcer(net, cond, points):
+            return cond.enforce(net, *points)
+    else:
+        def enforcer(net, cond, points):
+            return (cond.enforce(net, points[0]) * harmonics_fn(*points[1:])).sum(dim=1, keepdims=True)
+
     solver = SphericalSolver(
         pde_system=pde_system,
         conditions=conditions,
@@ -336,6 +242,7 @@ def solve_spherical_system(
         criterion=criterion,
         n_batches_train=1,
         n_batches_valid=1,
+        enforcer=enforcer,
         # deprecated arguments
         batch_size=batch_size,
         shuffle=shuffle,
@@ -359,7 +266,7 @@ class SphericalSolver:
     :param pde_system: the PDE system to solve; maps a tuple of three coordinates to a tuple of PDE residuals, both the coordinates and PDE residuals must have shape (-1, 1)
     :type pde_system: callable
     :param conditions: list of boundary conditions for each target function
-    :type conditions: list[`neurodiffeq.pde_spherical.BaseConditionSpherical`]
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     :param r_min: radius for inner boundary; ignored if train_generator and valid_generator are both set; r_min > 0; optional
     :type r_min: float
     :param r_max: radius for outer boundary; ignored if train_generator and valid_generator are both set; r_max > r_min; optional
@@ -485,7 +392,7 @@ class SphericalSolver:
         :param net: network for parameterized solution
         :type net: torch.nn.Module
         :param cond: condition (a.k.a. parameterization) for the network
-        :type cond: `neurodiffeq.pde_spherical.BaseConditionSpherical`
+        :type cond: `neurodiffeq.conditions.BaseCondition`
         :param points: a tuple of vectors, each with shape = (-1, 1)
         :type points: tuple[torch.Tensor]
         :return: function values at sampled points
@@ -864,7 +771,7 @@ class MonitorSpherical:
         :param nets: The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
         :param conditions: The initial/boundary condition of the PDE.
-        :type conditions: list [`neurodiffeq.pde_spherical.BaseConditionSpherical`]
+        :type conditions: list [`neurodiffeq.conditions.BaseCondition`]
         :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
         :param analytic_mse_history: The history of training and validation MSE against analytic solution. The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
@@ -1029,121 +936,6 @@ class MonitorSpherical:
         return self
 
 
-class BaseConditionSphericalHarmonics(BaseConditionSpherical):
-    """Base class for conditions to be applied on a network that returns spherical harmonic coefficients
-
-    :param max_degree: highest degree for spherical harmonics
-    :type max_degree: int
-    """
-
-    def __init__(self, max_degree=4):
-        self.max_degree = max_degree
-
-    # noinspection PyMethodOverriding
-    def enforce(self, net, r):
-        raise NotImplementedError(f'Abstract BVP {self.__class__.__name__} cannot be enforced')
-
-
-class NoConditionSphericalHarmonics(BaseConditionSphericalHarmonics):
-    def enforce(self, net, r):
-        return net(r)
-
-
-class DirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
-    r"""Similar to `DirichletBVPSpherical`. The only difference is this condition is enforced on a neural net that takes in :math:`r` and returns the spherical harmonic coefficients R(r);
-        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \cdot Y(\theta, \phi)`
-        We are solving :math:`R(r)` given :math:`R(r)\bigg|_{r = r_0} = R_0` and :math:`R(r)\bigg|_{r = r_1} = R_1`.
-
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
-    :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r)\bigg|_{r = r_0} = R_0`.
-    :type R_0: torch.tensor
-    :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
-    :type r_1: float or None
-    :param R_1: The value of harmonic coefficients :math:`R` on the exterior boundary. :math:`R(r)\bigg|_{r = r_1} = R_1`.
-    :type R_1: torch.tensor
-    :param max_degree: highest degree for spherical harmonics
-    :type max_degree: int
-    """
-
-    def __init__(self, r_0, R_0, r_1=None, R_1=None, max_degree=4):
-        """Initializer method
-        """
-        super(DirichletBVPSphericalHarmonics, self).__init__(max_degree=max_degree)
-        if (r_1 is None) ^ (R_1 is None):
-            raise ValueError(f'r_1 and R_1 must be both/neither set to None; got r_1={r_1}, R_1={R_1}')
-        self.r_0, self.r_1 = r_0, r_1
-        self.R_0, self.R_1 = R_0, R_1
-
-    def enforce(self, net, r):
-        r"""Enforce the output of a neural network to satisfy the boundary condition.
-
-        :param net: The neural network that approximates the coefficients for spherical harmonics.
-        :type net: `torch.nn.Module`
-        :param r: The radii of points where the neural network output is evaluated.
-        :type r: `torch.tensor`
-        :return: The modified output which now satisfies the boundary condition.
-        :rtype: `torch.tensor`
-
-
-        .. note::
-            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
-        """
-        R_raw = net(r)
-        if self.r_1 is None:
-            # noinspection PyTypeChecker
-            ret = (1 - torch.exp(-r + self.r_0)) * R_raw + self.R_0
-        else:
-            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
-            # noinspection PyTypeChecker
-            ret = self.R_0 * (1 - r_tilde) + self.R_1 * r_tilde + (1. - torch.exp((1 - r_tilde) * r_tilde)) * R_raw
-        return ret
-
-
-class InfDirichletBVPSphericalHarmonics(BaseConditionSphericalHarmonics):
-    r"""Similar to `InfDirichletBVPSpherical`. The only difference is this condition is enforced on a neural net that takes in :math:`r` and returns the spherical harmonic coefficients R(r)
-        i.e., we constrain the coefficients :math:`R(r)` of spherical harmonics instead of the inner product :math:`R(r) \cdot Y(\theta, \phi)`
-        We are solving :math:`R(r)` given :math:`R(r)\bigg|_{r = r_0} = R_0` and :math:`\lim_{r \to \infty} R(r) = R_\infty`
-
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
-    :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r)\bigg|_{r = r_0} = R_0`.
-    :type R_0: torch.tensor
-    :param R_inf: The value of harmonic coefficients :math:`R` at infinity. :math:`\lim_{r \to \infty} R(r) = R_\infty`.
-    :type R_inf: torch.tensor
-    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
-    :type order: int or float, optional
-    :param max_degree: highest degree for spherical harmonics
-    :type max_degree: int
-    """
-
-    def __init__(self, r_0, R_0, R_inf, order=1, max_degree=4):
-        super(InfDirichletBVPSphericalHarmonics, self).__init__(max_degree=max_degree)
-        self.r_0 = r_0
-        self.R_0 = R_0
-        self.R_inf = R_inf
-        self.order = order
-
-    def enforce(self, net, r):
-        r"""Enforce the output of a neural network to satisfy the boundary condition.
-
-        :param net: The neural network that approximates the coefficients for the spherical harmonics.
-        :type net: `torch.nn.Module`
-        :param r: The radii of points where the neural network output is evaluated.
-        :type r: `torch.tensor`
-        :return: The modified output which now satisfies the boundary condition.
-        :rtype: `torch.tensor`
-
-        .. note::
-            `enforce` is meant to be called by the function `solve_spherical` and `solve_spherical_system`.
-        """
-        R_raw = net(r)
-        dr = r - self.r_0
-        return self.R_0 * torch.exp(-self.order * dr) + \
-               self.R_inf * torch.tanh(dr) + \
-               torch.exp(-self.order * dr) * torch.tanh(dr) * R_raw
-
-
 class SolutionSphericalHarmonics(SolutionSpherical):
     """
     A solution to a PDE (system) in spherical coordinates
@@ -1151,7 +943,7 @@ class SolutionSphericalHarmonics(SolutionSpherical):
     :param nets: list of networks that takes in radius tensor and outputs the coefficients of spherical harmonics
     :type nets: list[`torch.nn.Module`]
     :param conditions: list of conditions to be enforced on each nets; must be of the same length as nets
-    :type conditions: list[BaseConditionSphericalHarmonics]
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
     :type harmonics_fn: callable
     :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis

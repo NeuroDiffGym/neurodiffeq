@@ -188,4 +188,4 @@ def test_additional_loss_term():
 
     ts = np.linspace(0.0, 2.0, 100)
     _, y2 = solution_squarewell(ts, as_type='np')
-    assert isclose(y2, np.zeros_like(y2), atol=0.01).all()
+    assert isclose(y2, np.zeros_like(y2), atol=0.02).all()

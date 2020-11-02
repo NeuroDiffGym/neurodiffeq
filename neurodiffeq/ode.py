@@ -9,16 +9,10 @@ import torch.optim as optim
 from .networks import FCNN
 from .generators import Generator1D
 from .version_utils import warn_deprecate_class
+from .conditions import NoCondition, IVP, DirichletBVP
 from copy import deepcopy
 
 ExampleGenerator = warn_deprecate_class(Generator1D)
-
-def _network_output(net, ts, ith_unit):
-    nn_output = net(ts)
-    if ith_unit is not None:
-        return nn_output[:, ith_unit].reshape(-1, 1)
-    else:
-        return nn_output
 
 
 def _trial_solution(single_net, nets, ts, conditions):
@@ -33,107 +27,6 @@ def _trial_solution(single_net, nets, ts, conditions):
             for con, net in zip(conditions, nets)
         ]
     return us
-
-
-class Condition:
-
-    def __init__(self):
-        self.ith_unit = None
-
-    def set_impose_on(self, ith_unit):
-        self.ith_unit = ith_unit
-
-
-class NoCondition(Condition):
-    r"""An condition class that does not impose any initial/boundary conditions
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def enforce(self, net, t):
-        r"""Return the raw input of neural network.
-
-        .. note::
-            `enforce` is meant to be called by the function `solve` and `solve_system`.
-        """
-        return _network_output(net, t, self.ith_unit)
-
-
-class IVP(Condition):
-    r"""An initial value problem.
-        For Dirichlet condition, we are solving :math:`x(t)` given :math:`x(t)\bigg|_{t = t_0} = x_0`.
-        For Neumann condition, we are solving :math:`x(t)` given :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`.
-
-    :param t_0: The initial time.
-    :type t_0: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
-    :type x_0: float
-    :param x_0_prime: The inital derivative of :math:`x` wrt :math:`t`. :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`, defaults to None.
-    :type x_0_prime: float, optional
-    """
-    def __init__(self, t_0, x_0, x_0_prime=None):
-        """Initializer method
-        """
-        super().__init__()
-        self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
-
-    def enforce(self, net, t):
-        r"""Enforce the output of a neural network to satisfy the initial condition.
-
-        :param net: The neural network that approximates the ODE.
-        :type net: `torch.nn.Module`
-        :param t: The points where the neural network output is evaluated.
-        :type t: `torch.tensor`
-        :return: The modified output which now satisfies the initial condition.
-        :rtype: `torch.tensor`
-
-        .. note::
-            `enforce` is meant to be called by the function `solve` and `solve_system`.
-        """
-        x = _network_output(net, t, self.ith_unit)
-        if self.x_0_prime is not None:
-            return self.x_0 + (t-self.t_0)*self.x_0_prime + ( (1-torch.exp(-t+self.t_0))**2 )*x
-        else:
-            return self.x_0 + (1-torch.exp(-t+self.t_0))*x
-
-
-class DirichletBVP(Condition):
-    r"""A two-point Dirichlet boundary condition.
-        We are solving :math:`x(t)` given :math:`x(t)\bigg|_{t = t_0} = x_0` and :math:`x(t)\bigg|_{t = t_1} = x_1`.
-
-    :param t_0: The initial time.
-    :type t_0: float
-    :param t_1: The final time.
-    :type t_1: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
-    :type x_0: float
-    :param x_1: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_1} = x_1`.
-    :type x_1: float
-    """
-    def __init__(self, t_0, x_0, t_1, x_1):
-        """Initializer method
-        """
-        super().__init__()
-        self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
-
-    def enforce(self, net, t):
-        r"""Enforce the output of a neural network to satisfy the boundary condition.
-
-        :param net: The neural network that approximates the ODE.
-        :type net: `torch.nn.Module`
-        :param t: The points where the neural network output is evaluated.
-        :type t: `torch.tensor`
-        :return: The modified output which now satisfies the boundary condition.
-        :rtype: `torch.tensor`
-
-
-        .. note::
-            `enforce` is meant to be called by the function `solve` and `solve_system`.
-        """
-        x = _network_output(net, t, self.ith_unit)
-        t_tilde = (t-self.t_0) / (self.t_1-self.t_0)
-        return self.x_0*(1-t_tilde) + self.x_1*t_tilde + (1-torch.exp((1-t_tilde)*t_tilde))*x
 
 
 class Monitor:
@@ -166,7 +59,7 @@ class Monitor:
         :param nets: The neural networks that approximates the ODE (system).
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
-        :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
+        :type conditions: list[`neurodiffeq.ode.BaseCondition`]
         :param history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type history: dict['train': list[float], 'valid': list[float]]
 
@@ -223,7 +116,7 @@ def solve(
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: function
     :param condition: The initial/boundary condition.
-    :type condition: `neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`
+    :type condition: `neurodiffeq.conditions.BaseCondition`
     :param net: The neural network used to approximate the solution, defaults to None.
     :type net: `torch.nn.Module`, optional
     :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
@@ -284,7 +177,7 @@ def solve_system(
         then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
     :type ode_system: function
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
-    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
     :type t_min: float
     :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
@@ -467,7 +360,7 @@ class Solution:
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
     :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.ode.IVP` or `neurodiffeq.ode.DirichletBVP` or `neurodiffeq.ode.NoCondition`]
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     """
     def __init__(self, single_net, nets, conditions):
         """Initializer method

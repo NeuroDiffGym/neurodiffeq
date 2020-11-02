@@ -44,16 +44,17 @@ def safe_diff(x, t, order=1):
     :rtype: `torch.tensor`
     """
     if len(x.shape) != 2 or len(t.shape) != 2 or x.shape[1] != 1 or t.shape[1] != 1:
-        raise ValueError("Input shape must be (n_samples, 1) starting from neurodiffeq v0.2.0; \n"
-                         "In most scenarios, consider reshaping inputs by `x = x.view(-1, 1)`\n"
-                         "For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
+        raise ValueError(f"Input shapes must both be (n_samples, 1) starting from neurodiffeq v0.2.0; \n"
+                         f"got {x.shape} (for dependent variable) and {t.shape} (for independent variable)"
+                         f"In most scenarios, consider reshaping inputs by `x = x.view(-1, 1)`\n"
+                         f"For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
     if x.shape != t.shape:
         raise ValueError(f"Input shapes must be the same shape starting from v0.2.0; got {x.shape} != {t.shape}"
                          f"For legacy usage, try `from neurodiffeq.neurodiffeq import unsafe_diff as diff`")
     return unsafe_diff(x, t, order=order)
 
 
-def diff(x, t, order=1, shape_check=False):
+def diff(x, t, order=1, shape_check=None):
     """The derivative of a variable with respect to another.
         Currently, `diff` defaults to `unsafe_diff`, but in a future release, it will default to `safe_diff`
 
@@ -72,7 +73,9 @@ def diff(x, t, order=1, shape_check=False):
     if shape_check:
         return safe_diff(x, t, order=order)
     else:
-        warnings.warn("Currently, `diff` doesn't enforce any restrictions on shapes, which will be enforced in v0.2.0"
-                      "To perform shape checking before v0.2.0, please set shape_check=True"
-                      "See https://github.com/odegym/neurodiffeq/issues/63#issue-719436650 for more details")
+        if shape_check is None:
+            warnings.warn("Currently, `diff` doesn't enforce any restrictions on shapes, "
+                          "which will be enforced in v0.2.0\n"
+                          "To perform shape checking before v0.2.0, please set shape_check=True\n"
+                          "See https://github.com/odegym/neurodiffeq/issues/63#issue-719436650 for more details")
         return unsafe_diff(x, t, order=order)

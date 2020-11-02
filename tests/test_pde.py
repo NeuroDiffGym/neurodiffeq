@@ -5,7 +5,7 @@ matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during tes
 
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
-from neurodiffeq.pde import DirichletBVP2D, IBVP1D, Condition,_network_output_2input
+from neurodiffeq.pde import DirichletBVP2D, IBVP1D, _network_output_2input
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
 from neurodiffeq.generators import PredefinedGenerator, Generator2D
 from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation, set_default_dtype
@@ -85,22 +85,6 @@ def test_train_generator():
             pde=laplace, condition=bc,
             net=net, max_epochs=3, batch_size=64
         )
-
-
-def test_ibvp():
-    with raises(NotImplementedError):
-        IBVP1D(
-            t_min=0, t_min_val=lambda x: 0,
-            x_min=0, x_min_val=lambda t: None, x_min_prime=lambda t: None,
-            x_max=1, x_max_val=lambda t: None, x_max_prime=lambda t: None,
-        )
-    with raises(NotImplementedError):
-        IBVP1D(
-            t_min=0, t_min_val=lambda x: 0,
-            x_min=0, x_min_val=lambda t: 0, x_min_prime=lambda t: 0,
-            x_max=1, x_max_val=lambda t: None, x_max_prime=lambda t: None,
-        )
-    print('IBVP test passed.')
 
 
 def test_laplace():
