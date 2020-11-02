@@ -26,7 +26,7 @@ x0, x1 = random.random(), random.random()
 y0, y1 = random.random(), random.random()
 
 
-def all_close(x_tensor, y_tensor, rtol=1e-4, atol=1e-6, equal_nan=False):
+def all_close(x_tensor, y_tensor, rtol=5e-4, atol=1e-6, equal_nan=False):
     if isinstance(y_tensor, (float, int)):
         y_tensor = torch.ones_like(x_tensor) * y_tensor
     return torch.isclose(x_tensor, y_tensor, rtol=rtol, atol=atol, equal_nan=equal_nan).all()
