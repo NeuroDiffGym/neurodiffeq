@@ -540,12 +540,13 @@ class DirichletBVPSpherical(BaseCondition):
 
           The re-parameterization is
           :math:`\big(1-\tilde{r}\big)f(\theta,\phi)+\tilde{r}g(\theta,\phi)
-          +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN(r, \theta, \phi)}`
+          +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN}(r, \theta, \phi)`
+          where :math:`\tilde{r}=\frac{r-r_0}{r_1-r_0}`
 
         - If only one boundary is specified (inner or outer) :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`
 
           The re-parameterization is
-          :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN(r, \theta, \phi)}`
+          :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r, \theta, \phi)`
 
         where :math:`\mathrm{ANN}` is the neural network.
 
@@ -622,3 +623,69 @@ class InfDirichletBVPSpherical(BaseCondition):
         return self.f(theta, phi) * torch.exp(-self.order * dr) + \
                self.g(theta, phi) * torch.tanh(dr) + \
                torch.exp(-self.order * dr) * torch.tanh(dr) * output_tensor
+
+
+# TODO: reduce duplication
+class DirichletBVPSphericalBasis(BaseCondition):
+    r"""Similar to ``neurodiffeq.conditions.DirichletBVPSpherical``.
+    The only difference is this condition is enforced on a neural net that only takes in :math:`r`
+    and returns the spherical harmonic coefficients R(r).
+    We constrain the coefficients :math:`R_k(r)` in :math:`u(r,\theta,\phi)=\sum_{k}R_k(r)Y_k(\theta,\phi)`,
+    where :math:`\{Y_k(\theta,\phi)\}_{k=1}^{K}` can be **any spherical function basis**.
+    A recommended choice is the real spherical harmonics :math:`Y_l^m{\theta,\phi}`,
+    where :math:`l` is the degree of the spherical harmonics and :math:`m` is the order of the spherical harmonics.
+
+    The boundary conditions are: :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and :math:`\mathbf{R}(r_1)=\mathbf{R}_1`,
+    where :math:`\mathbf{R}` is a vector whose components are :math:`R_l^m`
+
+    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :type r_0: float
+    :param R_0: The value of harmonic coefficients :math:`\mathbf{R}` on the interior boundary. :math:`\mathbf{R}(r_0)=\mathbf{R}_0`.
+    :type R_0: torch.tensor
+    :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
+    :type r_1: float or None
+    :param R_1: The value of harmonic coefficients :math:`\mathbf{R}` on the exterior boundary. :math:`\mathbf{R}(r_1)=\mathbf{R}_1`.
+    :type R_1: torch.tensor
+    """
+
+    def __init__(self, r_0, R_0, r_1=None, R_1=None, max_degree=4):
+        super(DirichletBVPSphericalBasis, self).__init__()
+        if (r_1 is None) ^ (R_1 is None):
+            raise ValueError(f'r_1 and R_1 must be both/neither set to None; got r_1={r_1}, R_1={R_1}')
+        self.r_0, self.r_1 = r_0, r_1
+        self.R_0, self.R_1 = R_0, R_1
+
+    def parameterize(self, output_tensor, r):
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both spherical boundaries.
+
+        - If both inner and outer boundaries are specified
+          :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R_0}` and
+          :math:`\mathbf{R}(r_1,\theta,\phi)=\mathbf{R_1}`.
+
+          The re-parameterization is
+          :math:`\big(1-\tilde{r}\big)\mathbf{R_0}+\tilde{r}\mathbf{R_1}
+          +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN}(r)`
+          where :math:`\tilde{r}=\frac{r-r_0}{r_1-r_0}`
+
+        - If only one boundary is specified (inner or outer) :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R_0}`
+
+          The re-parameterization is
+          :math:`\mathbf{R_0}+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r)`
+
+        where :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param r: The radii (or :math:`r`-component) of the inputs to the network.
+        :type r: `torch.Tensor`
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+        if self.r_1 is None:
+            ret = (1 - torch.exp(-r + self.r_0)) * output_tensor + self.R_0
+        else:
+            r_tilde = (r - self.r_0) / (self.r_1 - self.r_0)
+            ret = self.R_0 * (1 - r_tilde) + \
+                  self.R_1 * r_tilde + \
+                  (1. - torch.exp((1 - r_tilde) * r_tilde)) * output_tensor
+        return ret
