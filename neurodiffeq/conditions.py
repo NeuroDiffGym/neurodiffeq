@@ -646,9 +646,11 @@ class DirichletBVPSphericalBasis(BaseCondition):
     :type r_1: float or None
     :param R_1: The value of harmonic coefficients :math:`\mathbf{R}` on the exterior boundary. :math:`\mathbf{R}(r_1)=\mathbf{R}_1`.
     :type R_1: torch.tensor
+    :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics
+    :type max_degree: int
     """
 
-    def __init__(self, r_0, R_0, r_1=None, R_1=None):
+    def __init__(self, r_0, R_0, r_1=None, R_1=None, max_degree=None):
         super(DirichletBVPSphericalBasis, self).__init__()
         if (r_1 is None) ^ (R_1 is None):
             raise ValueError(f'r_1 and R_1 must be both/neither set to None; got r_1={r_1}, R_1={R_1}')
@@ -714,11 +716,11 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
     :type R_inf: torch.tensor
     :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
     :type order: int or float, optional
-    :param max_degree: highest degree for spherical harmonics
+    :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics
     :type max_degree: int
     """
 
-    def __init__(self, r_0, R_0, R_inf, order=1):
+    def __init__(self, r_0, R_0, R_inf, order=1, max_degree=None):
         super(InfDirichletBVPSphericalBasis, self).__init__()
         self.r_0 = r_0
         self.R_0 = R_0
