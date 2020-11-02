@@ -6,6 +6,7 @@ from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
+from neurodiffeq.conditions import DirichletBVPSpherical
 from neurodiffeq.conditions import IBVP1D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import safe_diff as diff
@@ -230,3 +231,31 @@ def test_ibvp_1d():
             x_min=0, x_min_val=None, x_min_prime=lambda t: 0,
             x_max=1, x_max_val=None, x_max_prime=None,
         )
+
+
+def test_dirichlet_bvp_spherical():
+    r0, r1 = x0, x1
+    r2 = (r0 + r1) / 2
+
+    no_condition = NoCondition()
+    # B.C. for the interior boundary (r_min)
+    net_f = FCNN(2, 1)
+    f = lambda th, ph: no_condition.enforce(net_f, th, ph)
+
+    # B.C. for the exterior boundary (r_max)
+    net_g = FCNN(2, 1)
+    g = lambda th, ph: no_condition.enforce(net_g, th, ph)
+
+    condition = DirichletBVPSpherical(r_0=r0, f=f, r_1=r1, g=g)
+
+    net = FCNN(3, 1)
+    theta = torch.rand(N_SAMPLES, 1) * np.pi
+    phi = torch.rand(N_SAMPLES, 1) * 2 * np.pi
+    r = r0 * ones
+    assert all_close(condition.enforce(net, r, theta, phi), f(theta, phi)), "inner Dirichlet BC not satisfied"
+    r = r1 * ones
+    assert all_close(condition.enforce(net, r, theta, phi), g(theta, phi)), "inner Dirichlet BC not satisfied"
+
+    condition = DirichletBVPSpherical(r_0=r2, f=f)
+    r = r2 * ones
+    assert all_close(condition.enforce(net, r, theta, phi), f(theta, phi)), "single ended BC not satisfied"
