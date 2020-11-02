@@ -6,6 +6,7 @@ from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
+from neurodiffeq.conditions import IBVP1D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import diff
 
@@ -127,3 +128,84 @@ def test_dirichlet_bvp_2d():
     x = torch.linspace(x0, x1, ones.numel(), requires_grad=True).reshape(-1, 1)
     y = y1 * ones
     assert all_close(condition.enforce(net, x, y), g1(x)), "upper boundary not satisfied"
+
+
+def test_ibvp_1d():
+    t0, t1 = random.random(), random.random()
+
+    u00, u01, u10, u11 = [random.random() for _ in range(4)]
+
+    # set the initial condition ut0(x) = u(x, t0)
+    net_ut0 = FCNN(1, 1)
+    cond_ut0 = DirichletBVP(x0, u00, x1, u10)
+    ut0 = lambda x: cond_ut0.enforce(net_ut0, x)
+
+    # set the Dirichlet boundary conditions g(t) = u(x0, t) and h(t) = u(x1, t)
+    net_g, net_h = FCNN(1, 1), FCNN(1, 1)
+    cond_g = IVP(t0, u00)
+    cond_h = IVP(t0, u10)
+    g = lambda t: cond_g.enforce(net_g, t)
+    h = lambda t: cond_h.enforce(net_h, t)
+
+    # set the Neumann boundary conditions p(t) = u'_x(x0, t) and q(t) = u'_x(x1, t)
+    x = x0 * ones
+    p0 = diff(ut0(x), x)[0, 0].item()
+    x = x1 * ones
+    q0 = diff(ut0(x), x)[0, 0].item()
+    p1, q1 = random.random(), random.random()
+    net_p, net_q = FCNN(1, 1), FCNN(1, 1)
+    cond_p = DirichletBVP(t0, p0, t1, p1)
+    cond_q = DirichletBVP(t0, q0, t1, q1)
+    p = lambda t: cond_p.enforce(net_p, t)
+    q = lambda t: cond_q.enforce(net_q, t)
+
+    # initialize a random network
+    net = FCNN(2, 1)
+
+    # test Dirichlet-Dirichlet condition
+    condition = IBVP1D(x0, x1, t0, ut0, x_min_val=g, x_max_val=h)
+    x = torch.linspace(x0, x1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    t = t0 * ones
+    assert all_close(condition.enforce(net, x, t), ut0(x)), "initial condition not satisfied"
+    x = x0 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(condition.enforce(net, x, t), g(t)), "left Dirichlet BC not satisfied"
+    x = x1 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(condition.enforce(net, x, t), h(t)), "right Dirichlet BC not satisfied"
+
+    # test Dirichlet-Neumann condition
+    condition = IBVP1D(x0, x1, t0, ut0, x_min_val=g, x_max_prime=q)
+    x = torch.linspace(x0, x1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    t = t0 * ones
+    assert all_close(condition.enforce(net, x, t), ut0(x)), "initial condition not satisfied"
+    x = x0 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(condition.enforce(net, x, t), g(t)), "left Dirichlet BC not satisfied"
+    x = x1 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(diff(condition.enforce(net, x, t), x), q(t)), "right Neumann BC not satisfied"
+
+    # test Neumann-Dirichlet condition
+    condition = IBVP1D(x0, x1, t0, ut0, x_min_prime=p, x_max_val=h)
+    x = torch.linspace(x0, x1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    t = t0 * ones
+    assert all_close(condition.enforce(net, x, t), ut0(x)), "initial condition not satisfied"
+    x = x0 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(diff(condition.enforce(net, x, t), x), p(t)), "left Neumann BC not satisfied"
+    x = x1 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(condition.enforce(net, x, t), h(t)), "right Dirichlet BC not satisfied"
+
+    # test Neumann-Neumann condition
+    condition = IBVP1D(x0, x1, t0, ut0, x_min_prime=p, x_max_prime=q)
+    x = torch.linspace(x0, x1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    t = t0 * ones
+    assert all_close(condition.enforce(net, x, t), ut0(x)), "initial condition not satisfied"
+    x = x0 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(diff(condition.enforce(net, x, t), x), p(t)), "left Neumann BC not satisfied"
+    x = x1 * ones
+    t = torch.linspace(t0, t1, N_SAMPLES, requires_grad=True).view(-1, 1)
+    assert all_close(diff(condition.enforce(net, x, t), x), q(t)), "right Neumann BC not satisfied"
