@@ -636,7 +636,7 @@ class DirichletBVPSphericalBasis(BaseCondition):
     where :math:`l` is the degree of the spherical harmonics and :math:`m` is the order of the spherical harmonics.
 
     The boundary conditions are: :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and :math:`\mathbf{R}(r_1)=\mathbf{R}_1`,
-    where :math:`\mathbf{R}` is a vector whose components are :math:`R_l^m`
+    where :math:`\mathbf{R}` is a vector whose components are :math:`R_k`
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
@@ -648,7 +648,7 @@ class DirichletBVPSphericalBasis(BaseCondition):
     :type R_1: torch.tensor
     """
 
-    def __init__(self, r_0, R_0, r_1=None, R_1=None, max_degree=4):
+    def __init__(self, r_0, R_0, r_1=None, R_1=None):
         super(DirichletBVPSphericalBasis, self).__init__()
         if (r_1 is None) ^ (R_1 is None):
             raise ValueError(f'r_1 and R_1 must be both/neither set to None; got r_1={r_1}, R_1={R_1}')
@@ -659,18 +659,18 @@ class DirichletBVPSphericalBasis(BaseCondition):
         r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both spherical boundaries.
 
         - If both inner and outer boundaries are specified
-          :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R_0}` and
-          :math:`\mathbf{R}(r_1,\theta,\phi)=\mathbf{R_1}`.
+          :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R}_0` and
+          :math:`\mathbf{R}(r_1,\theta,\phi)=\mathbf{R}_1`.
 
           The re-parameterization is
-          :math:`\big(1-\tilde{r}\big)\mathbf{R_0}+\tilde{r}\mathbf{R_1}
+          :math:`\big(1-\tilde{r}\big)\mathbf{R}_0+\tilde{r}\mathbf{R}_1
           +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN}(r)`
           where :math:`\tilde{r}=\frac{r-r_0}{r_1-r_0}`
 
         - If only one boundary is specified (inner or outer) :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R_0}`
 
           The re-parameterization is
-          :math:`\mathbf{R_0}+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r)`
+          :math:`\mathbf{R}_0+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r)`
 
         where :math:`\mathrm{ANN}` is the neural network.
 
@@ -689,3 +689,65 @@ class DirichletBVPSphericalBasis(BaseCondition):
                   self.R_1 * r_tilde + \
                   (1. - torch.exp((1 - r_tilde) * r_tilde)) * output_tensor
         return ret
+
+
+# TODO: reduce duplication
+class InfDirichletBVPSphericalBasis(BaseCondition):
+    r"""Similar to ``neurodiffeq.conditions.InfDirichletBVPSpherical``.
+    The only difference is this condition is enforced on a neural net that only takes in :math:`r`
+    and returns the spherical harmonic coefficients R(r).
+    We constrain the coefficients :math:`R_k(r)` in :math:`u(r,\theta,\phi)=\sum_{k}R_k(r)Y_k(\theta,\phi)`,
+    where :math:`\{Y_k(\theta,\phi)\}_{k=1}^{K}` can be **any spherical function basis**.
+    A recommended choice is the real spherical harmonics :math:`Y_l^m{\theta,\phi}`,
+    where :math:`l` is the degree of the spherical harmonics and :math:`m` is the order of the spherical harmonics.
+
+    The boundary conditions are:
+    :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and
+    :math:`\lim_{r_0\to+\infty}\mathbf{R}(r)=\mathbf{R}_1`,
+    where :math:`\mathbf{R}` is a vector whose components are :math:`R_k`
+
+    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :type r_0: float
+    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r_0)=R_0`.
+    :type R_0: torch.tensor
+    :param R_inf: The value of harmonic coefficients :math:`R` at infinity. :math:`\lim_{r\to+\infty}R(r)=R_\infty`.
+    :type R_inf: torch.tensor
+    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
+    :type order: int or float, optional
+    :param max_degree: highest degree for spherical harmonics
+    :type max_degree: int
+    """
+
+    def __init__(self, r_0, R_0, R_inf, order=1):
+        super(InfDirichletBVPSphericalBasis, self).__init__()
+        self.r_0 = r_0
+        self.R_0 = R_0
+        self.R_inf = R_inf
+        self.order = order
+
+    def parameterize(self, output_tensor, r):
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied at both :math:`r_0` and infinity.
+
+        The re-parameterization is
+
+        :math:`\begin{align}
+        u(r,\theta,\phi)=
+        &e^{-k(r-r_0)}\mathbf{R}_0\\
+        &+\tanh{\big(r-r_0\big)}\mathbf{R}_1\\
+        &+e^{-k(r-r_0)}\tanh{\big(r-r_0\big)}\mathrm{ANN}(r)
+        \end{align}`,
+
+        where :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param r: The radii (or :math:`r`-component) of the inputs to the network.
+        :type r: `torch.Tensor`
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+        dr = r - self.r_0
+        return self.R_0 * torch.exp(-self.order * dr) + \
+               self.R_inf * torch.tanh(dr) + \
+               torch.exp(-self.order * dr) * torch.tanh(dr) * output_tensor
+
