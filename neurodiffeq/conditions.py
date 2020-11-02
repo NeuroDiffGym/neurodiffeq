@@ -29,7 +29,7 @@ class BaseCondition:
         :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
         :type input_tensors: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
 
         .. note:: 
@@ -145,7 +145,7 @@ class NoCondition(BaseCondition):
         :type output_tensor: `torch.Tensor`
         :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
         :type input_tensors: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
         return output_tensor
@@ -183,7 +183,7 @@ class IVP(BaseCondition):
         :type output_tensor: `torch.Tensor`
         :param t: Input to the neural network; i.e., sampled time-points; i.e., independent variables.
         :type t: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
         if self.x_0_prime is None:
@@ -221,7 +221,7 @@ class DirichletBVP(BaseCondition):
         :type output_tensor: `torch.Tensor`
         :param t: Input to the neural network; i.e., sampled time-points or another independent variable.
         :type t: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
 
@@ -291,7 +291,7 @@ class DirichletBVP2D(BaseCondition):
         :type x: `torch.Tensor`
         :param y: :math:`y`-coordinates of inputs to the neural network; i.e., the sampled :math:`y`-coordinates
         :type y: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
         x_tilde = (x - self.x0) / (self.x1 - self.x0)
@@ -448,7 +448,7 @@ class IBVP1D(BaseCondition):
         :type t: `torch.Tensor`
         :param additional_tensors: additional tensors that will be passed by ``enforce``
         :type additional_tensors: `torch.Tensor`
-        :return: the re-parameterized output of the network
+        :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
 
