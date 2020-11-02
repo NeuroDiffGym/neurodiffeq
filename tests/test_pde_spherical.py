@@ -359,24 +359,26 @@ def test_spherical_harmonics():
 
 
 def test_spherical_laplcian():
+    N_FLOAT = np.float64
+    T_FLOAT = torch.float64
     n_samples = 10
-    r_value = np.random.rand(n_samples, 1)
-    theta_value = np.random.rand(n_samples, 1)
-    phi_value = np.random.rand(n_samples, 1)
-    r_net = FCNN(n_input_units=1, n_output_units=25)
+    r_value = np.random.rand(n_samples, 1).astype(N_FLOAT)
+    theta_value = np.random.rand(n_samples, 1).astype(N_FLOAT)
+    phi_value = np.random.rand(n_samples, 1).astype(N_FLOAT)
+    r_net = FCNN(n_input_units=1, n_output_units=25).to(T_FLOAT)
 
     # compute laplacians using spherical harmonics property
-    r1 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
-    theta1 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
-    phi1 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    r1 = torch.tensor(r_value, dtype=T_FLOAT, requires_grad=True)
+    theta1 = torch.tensor(theta_value, dtype=T_FLOAT, requires_grad=True)
+    phi1 = torch.tensor(phi_value, dtype=T_FLOAT, requires_grad=True)
     R1 = r_net(r1)
     harmonics_laplacian = HarmonicsLaplacian(max_degree=4)
     lap1 = harmonics_laplacian(R1, r1, theta1, phi1)
 
     # compute laplacians using brute force
-    r2 = torch.tensor(r_value, dtype=torch.float32).requires_grad_(True)
-    theta2 = torch.tensor(theta_value, dtype=torch.float32).requires_grad_(True)
-    phi2 = torch.tensor(phi_value, dtype=torch.float32).requires_grad_(True)
+    r2 = torch.tensor(r_value, dtype=T_FLOAT, requires_grad=True)
+    theta2 = torch.tensor(theta_value, dtype=T_FLOAT, requires_grad=True)
+    phi2 = torch.tensor(phi_value, dtype=T_FLOAT, requires_grad=True)
     R2 = r_net(r2)
     spherical_fn = RealSphericalHarmonics(max_degree=4)
     harmonics = spherical_fn(theta2, phi2)
