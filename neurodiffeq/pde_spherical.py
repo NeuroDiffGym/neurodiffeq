@@ -323,6 +323,13 @@ def solve_spherical_system(
         """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
+    if harmonics_fn is None:
+        def enforcer(net, cond, points):
+            return cond.enforce(net, *points)
+    else:
+        def enforcer(net, cond, points):
+            return (cond.enforce(net, points[0]) * harmonics_fn(*points[1:])).sum(dim=1, keepdims=True)
+
     solver = SphericalSolver(
         pde_system=pde_system,
         conditions=conditions,
@@ -336,6 +343,7 @@ def solve_spherical_system(
         criterion=criterion,
         n_batches_train=1,
         n_batches_valid=1,
+        enforcer=enforcer,
         # deprecated arguments
         batch_size=batch_size,
         shuffle=shuffle,
