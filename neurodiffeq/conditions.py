@@ -532,7 +532,7 @@ class DirichletBVPSpherical(BaseCondition):
         self.f, self.g = f, g
 
     def parameterize(self, output_tensor, r, theta, phi):
-        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both ends of the domain.
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both spherical boundaries.
 
         - If both inner and outer boundaries are specified
           :math:`u(r_0,\theta,\phi)=f(\theta,\phi)` and
@@ -546,6 +546,8 @@ class DirichletBVPSpherical(BaseCondition):
 
           The re-parameterization is
           :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN(r, \theta, \phi)}`
+
+        where :math:`\mathrm{ANN}` is the neural network.
 
         :param output_tensor: Output of the neural network.
         :type output_tensor: `torch.Tensor`
@@ -565,3 +567,58 @@ class DirichletBVPSpherical(BaseCondition):
             return self.f(theta, phi) * (1 - r_tilde) + \
                    self.g(theta, phi) * r_tilde + \
                    (1. - torch.exp((1 - r_tilde) * r_tilde)) * output_tensor
+
+
+# TODO: reduce duplication
+class InfDirichletBVPSpherical(BaseCondition):
+    r"""Similar to ``neurodiffeq.conditions.DirichletBVPSpherical``. but with :math:`r_1\to+\infty`. Specifically,
+
+    - :math:`\displaystyle u(r_0,\theta,\phi)=f(\theta,\phi)`,
+    - :math:`\lim_{r\to+\infty}u(r,\theta,\phi)=g(\theta,\phi)`.
+
+    :param r_0: The radius of the interior boundary. When :math:`r_0=0`, the interior boundary collapses to a single point (center of the ball).
+    :type r_0: float
+    :param f: The value of :math:`u` on the interior boundary. :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`.
+    :type f: callable
+    :param g: The value of :math:`u` at infinity. :math:`\lim_{r\to+\infty}u(r,\theta,\phi)=g(\theta,\phi)`.
+    :type g: callable
+    :param order: The smallest :math:`k` such that :math:`\lim_{r\to+\infty}u(r,\theta,\phi)e^{-kr}=0`, defaults to 1.
+    :type order: int or float, optional
+    """
+
+    def __init__(self, r_0, f, g, order=1):
+        super(InfDirichletBVPSpherical, self).__init__()
+        self.r_0 = r_0
+        self.f = f
+        self.g = g
+        self.order = order
+
+    def parameterize(self, output_tensor, r, theta, phi):
+        r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied both at :math:`r_0` and infinity.
+        The re-parameterization is
+
+        :math:`\begin{align}
+        u(r,\theta,\phi)=
+        &e^{-k(r-r_0)}f(\theta,\phi)\\
+        &+\tanh{\big(r-r_0\big)}g(\theta,\phi)\\
+        &+e^{-k(r-r_0)}\tanh{\big(r-r_0\big)}\mathrm{ANN}(r,\theta,\phi)
+        \end{align}`,
+
+        where :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param r: The radii (or :math:`r`-component) of the inputs to the network.
+        :type r: `torch.Tensor`
+        :param theta: The co-latitudes (or :math:`\theta`-component) of the inputs to the network.
+        :type theta: `torch.Tensor`
+        :param phi: The longitudes (or :math:`\phi`-component) of the inputs to the network.
+        :type phi: `torch.Tensor`
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+
+        dr = r - self.r_0
+        return self.f(theta, phi) * torch.exp(-self.order * dr) + \
+               self.g(theta, phi) * torch.tanh(dr) + \
+               torch.exp(-self.order * dr) * torch.tanh(dr) * output_tensor
