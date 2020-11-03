@@ -76,11 +76,11 @@ class SolutionSpherical:
             `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(rs, torch.Tensor):
-            rs = torch.tensor(rs, dtype=torch.float32)
+            rs = torch.tensor(rs)
         if not isinstance(thetas, torch.Tensor):
-            thetas = torch.tensor(thetas, dtype=torch.float32)
+            thetas = torch.tensor(thetas)
         if not isinstance(phis, torch.Tensor):
-            phis = torch.tensor(phis, dtype=torch.float32)
+            phis = torch.tensor(phis)
         original_shape = rs.shape
         rs = rs.reshape(-1, 1)
         thetas = thetas.reshape(-1, 1)

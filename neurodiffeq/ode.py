@@ -381,7 +381,7 @@ class Solution:
             `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(ts, torch.Tensor):
-            ts = torch.tensor(ts, dtype=torch.float32)
+            ts = torch.tensor(ts)
         original_shape = ts.shape
         ts = ts.reshape(-1, 1)
         if as_type not in ('tf', 'np'):
