@@ -8,7 +8,7 @@ import torch.optim as optim
 
 from .networks import FCNN
 from .generators import Generator1D
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .conditions import NoCondition, IVP, DirichletBVP
 from copy import deepcopy
 

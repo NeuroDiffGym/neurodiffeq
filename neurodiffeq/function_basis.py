@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 from torch import sin, cos
 from .neurodiffeq import safe_diff as diff
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from scipy.special import legendre
 from abc import ABC, abstractmethod
 

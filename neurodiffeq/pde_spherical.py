@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .generators import Generator3D, GeneratorSpherical
 from .conditions import NoCondition, DirichletBVPSpherical, InfDirichletBVPSpherical
 from .conditions import DirichletBVPSphericalBasis, InfDirichletBVPSphericalBasis

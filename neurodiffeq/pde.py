@@ -11,7 +11,7 @@ import matplotlib.tri as tri
 from .networks import FCNN
 from .neurodiffeq import safe_diff as diff
 from .generators import Generator2D, PredefinedGenerator
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .conditions import IrregularBoundaryCondition
 from .conditions import NoCondition, DirichletBVP2D, IBVP1D
 from copy import deepcopy
