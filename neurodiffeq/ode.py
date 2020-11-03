@@ -60,7 +60,7 @@ class Monitor:
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
         :type conditions: list[`neurodiffeq.ode.BaseCondition`]
-        :param history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :param history: The history of training loss and validation loss. The 'train_loss' entry is a list of training loss and 'valid_loss' entry is a list of validation loss.
         :type history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
