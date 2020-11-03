@@ -19,17 +19,6 @@ from copy import deepcopy
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
 PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 
-# make a function to set global state
-FLOAT_DTYPE=torch.float32
-
-def set_default_dtype(dtype):
-    r"""Set the default `dtype` of `torch.Tensor` used in `neurodiffeq`.
-
-    :param dtype: `torch.float`, `torch.double`, etc
-    """
-    global FLOAT_DTYPE
-    FLOAT_DTYPE=dtype
-    torch.set_default_dtype(FLOAT_DTYPE)
 
 # Calculate the output of a neural network with 2 input.
 # In the case where the neural network has multiple output unit, 
@@ -456,9 +445,9 @@ class Solution:
             `torch.Tensor` or `numpy.array` (when there is only one dependent variable).
         """
         if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor(xs, dtype=FLOAT_DTYPE)
+            xs = torch.tensor(xs)
         if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor(ys, dtype=FLOAT_DTYPE)
+            ys = torch.tensor(ys)
         original_shape = xs.shape
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
         if as_type not in ('tf', 'np'):
