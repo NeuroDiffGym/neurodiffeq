@@ -26,9 +26,9 @@ def set_tensor_type(device=None, float_bits=32):
         device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
         type_string = f"torch.{tensor_str}"
-    elif device == ["cuda", "gpu"]:
+    elif device in ["cuda", "gpu"]:
         type_string = f"torch.cuda.{tensor_str}"
     else:
-        raise ValueError(f"Unknown device {device}; device must be either 'cuda' or 'cpu'")
+        raise ValueError(f"Unknown device '{device}'; device must be either 'cuda' or 'cpu'")
 
     torch.set_default_tensor_type(type_string)
