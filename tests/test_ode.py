@@ -5,7 +5,7 @@ from scipy.integrate import odeint
 import matplotlib
 matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
-from neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor

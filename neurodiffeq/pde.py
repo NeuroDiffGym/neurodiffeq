@@ -9,7 +9,7 @@ import matplotlib.animation as animation
 import matplotlib.tri as tri
 
 from .networks import FCNN
-from .neurodiffeq import diff
+from .neurodiffeq import safe_diff as diff
 from .generators import Generator2D, PredefinedGenerator
 from .version_utils import warn_deprecate_class
 from .conditions import IrregularBoundaryCondition

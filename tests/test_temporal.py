@@ -1,7 +1,7 @@
 from math import pi as PI
 import torch
 from torch import nn, optim
-from neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN
 from neurodiffeq.temporal import generator_1dspatial, generator_temporal
 from neurodiffeq.temporal import generator_2dspatial_segment, generator_2dspatial_rectangle
