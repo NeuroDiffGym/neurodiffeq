@@ -13,7 +13,7 @@ class BaseGenerator:
         self.size = None
 
     def get_examples(self) -> List[torch.Tensor]:
-        pass
+        pass  # pragma: no cover
 
     @staticmethod
     def check_generator(obj):

@@ -25,13 +25,13 @@ class LegendrePolynomial:
 class FunctionBasis(ABC):
     @abstractmethod
     def __call__(self, *args, **kwargs):
-        pass
+        pass # pragma: no cover
 
 
 class BasisOperator(ABC):
     @abstractmethod
     def __call__(self, *args, **kwargs):
-        pass
+        pass # pragma: no cover
 
 
 class CustomBasis(FunctionBasis):

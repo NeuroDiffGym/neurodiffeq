@@ -35,7 +35,7 @@ class BaseCondition:
         .. note:: 
             This method is **abstract** for BaseCondition
         """
-        raise ValueError(f"Abstract {self.__class__.__name__} cannot be parameterized")
+        raise ValueError(f"Abstract {self.__class__.__name__} cannot be parameterized")  # pragma: no cover
 
     def enforce(self, net, *coordinates):
         r"""Enforces this condition on a network.
@@ -754,4 +754,3 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
         return self.R_0 * torch.exp(-self.order * dr) + \
                self.R_inf * torch.tanh(dr) + \
                torch.exp(-self.order * dr) * torch.tanh(dr) * output_tensor
-
