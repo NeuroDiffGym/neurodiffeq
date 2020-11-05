@@ -4,13 +4,13 @@ import warnings
 
 
 def unsafe_diff(x, t, order=1):
-    """The derivative of a variable with respect to another.
+    r"""The derivative of a variable with respect to another.
     While there's no requirement for shapes, errors could occur in some cases.
     See `this issue <https://github.com/odegym/neurodiffeq/issues/63#issue-719436650>`_ for details
 
-    :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param x: The :math:`x` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type x: `torch.Tensor`
-    :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param t: The :math:`t` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
@@ -30,13 +30,13 @@ def unsafe_diff(x, t, order=1):
 
 
 def safe_diff(x, t, order=1):
-    """The derivative of a variable with respect to another.
+    r"""The derivative of a variable with respect to another.
     Both tensors must have a shape of (n_samples, 1)
     See `this issue comment <https://github.com/odegym/neurodiffeq/issues/63#issuecomment-718007133>`_ for details
 
-    :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param x: The :math:`x` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type x: `torch.Tensor`
-    :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param t: The :math:`t` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
@@ -55,12 +55,12 @@ def safe_diff(x, t, order=1):
 
 
 def diff(x, t, order=1, shape_check=None):
-    """The derivative of a variable with respect to another.
-    Currently, `diff` defaults to `unsafe_diff`, but in a future release, it will default to `safe_diff`
+    r"""The derivative of a variable with respect to another.
+    Currently, ``diff`` defaults to ``unsafe_diff``, but in a future release, it will default to ``safe_diff``
 
-    :param x: The :math:`x` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param x: The :math:`x` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type x: `torch.Tensor`
-    :param t: The :math:`t` in :math:`\\displaystyle\\frac{\\partial x}{\\partial t}`.
+    :param t: The :math:`t` in :math:`\displaystyle\frac{\partial x}{\partial t}`.
     :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int

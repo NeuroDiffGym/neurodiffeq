@@ -129,6 +129,7 @@ def _get_real_fourier_term(degree, sine=True):
 
 class RealFourierSeries(FunctionBasis):
     """
+
     :param max_degree: highest degree for the fourier series
     :type max_degree: int
     """
@@ -168,7 +169,7 @@ class FourierLaplacian(BasisOperator):
         self.laplacian_coefficients = torch.tensor(laplacian_coefficients, dtype=torch.float)
 
     def __call__(self, R, r, phi):
-        """calculates laplacian (in polar coordinates) of :math:`\\sum_i R_i(r)F_i(\\phi)`
+        r"""calculates laplacian (in polar coordinates) of :math:`\sum_i R_i(r)F_i(\phi)`
         :param R: coefficients of fourier series; should depend on r in general; must be of shape (n_samples, 2 * max_degree + 1)
         :type R: torch.Tensor
         :param r: radius corresponding to `R`, must be of shape (n_samples, 1)
@@ -193,7 +194,7 @@ class FourierLaplacian(BasisOperator):
 # TODO: change hard coding to dynamic computation
 # List of real spherical harmonics (normalized) with degree l<=4; see following link
 # https://en.wikipedia.org/wiki/Table_of_spherical_harmonics
-# Note that the normalization term doesn't include the factor :math:`\\sqrt{\\frac{1}{\\pi}}`
+# Note that the normalization term doesn't include the factor :math:`\sqrt{\frac{1}{\pi}}`
 # Correctness of these lambda functions are tested in `test_pde_spherical`
 
 # l = 0
@@ -253,7 +254,7 @@ class RealSphericalHarmonics(FunctionBasis):
             raise NotImplementedError(f'max_degree = {max_degree} not implemented for {self.__class__.__name__} yet')
 
     def __call__(self, theta, phi):
-        """ compute the value of each spherical harmonic component evaluated at each point
+        """Compute the value of each spherical harmonic component evaluated at each point.
 
         :param theta: theta in spherical coordinates, must have shape (-1, 1)
         :type theta: `torch.Tensor`
@@ -271,17 +272,16 @@ class RealSphericalHarmonics(FunctionBasis):
 
 
 class HarmonicsLaplacian(BasisOperator):
-    r"""
-        Laplacian of spherical harmonics can be reduced in the following way. Using this method,
-        we can avoid the :math:`\displaystyle \frac{1}{\sin \theta}` singularity
+    r"""Laplacian of spherical harmonics can be reduced in the following way. Using this method,
+    we can avoid the :math:`\displaystyle \frac{1}{\sin \theta}` singularity
 
-        :math:`\begin{aligned}
-        &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\
-        &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\
-        &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\
-        &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\
-        &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right)
-        \end{aligned}`
+    :math:`\begin{aligned}
+    &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\
+    &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\
+    &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\
+    &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\
+    &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right)
+    \end{aligned}`
     """
 
     def __init__(self, max_degree=4):

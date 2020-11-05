@@ -64,7 +64,7 @@ class BaseCondition:
 
         .. note::
             This method is deprecated and retained for backward compatibility only. Users interested in enforcing
-            conditions on multi-output networks should consider using a ``neurodiffeq.neurodiffeq.EnsembleCondition``.
+            conditions on multi-output networks should consider using a ``neurodiffeq.conditions.EnsembleCondition``.
         """
 
         warnings.warn(f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future")
@@ -154,12 +154,12 @@ class NoCondition(BaseCondition):
 class IVP(BaseCondition):
     r"""An initial value problem of one of the following forms:
 
-    - Dirichlet condition: :math:`x(t)\bigg|_{t = t_0} = x_0`.
+    - Dirichlet condition: :math:`x(t_0)=x_0`.
     - Neumann condition: :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`.
 
     :param t_0: The initial time.
     :type t_0: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
+    :param x_0: The initial value of :math:`x`. :math:`x(t_0)=x_0`.
     :type x_0: float
     :param x_0_prime: The initial derivative of :math:`x` w.r.t. :math:`t`. :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`, defaults to None.
     :type x_0_prime: float, optional
@@ -194,15 +194,15 @@ class IVP(BaseCondition):
 
 class DirichletBVP(BaseCondition):
     r"""A double-ended Dirichlet boundary condition:
-    :math:`x(t)\bigg|_{t = t_0} = x_0` and :math:`x(t)\bigg|_{t = t_1} = x_1`.
+    :math:`x(t_0)=x_0` and :math:`x(t_1)=x_1`.
 
     :param t_0: The initial time.
     :type t_0: float
     :param t_1: The final time.
     :type t_1: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_0} = x_0`.
+    :param x_0: The initial value of :math:`x`. :math:`x(t_0)=x_0`.
     :type x_0: float
-    :param x_1: The initial value of :math:`x`. :math:`x(t)\bigg|_{t = t_1} = x_1`.
+    :param x_1: The initial value of :math:`x`. :math:`x(t_1)=x_1`.
     :type x_1: float
     """
 
@@ -234,10 +234,10 @@ class DirichletBVP(BaseCondition):
 class DirichletBVP2D(BaseCondition):
     r"""An Dirichlet boundary condition on the boundary of :math:`[x_0, x_1] \times [y_0, y_1]`, where
 
-    - :math:`u(x, y)\bigg|_{x = x_0} = f_0(y)`;
-    - :math:`u(x, y)\bigg|_{x = x_1} = f_1(y)`;
-    - :math:`u(x, y)\bigg|_{y = y_0} = g_0(x)`;
-    - :math:`u(x, y)\bigg|_{y = y_1} = g_1(x)`.
+    - :math:`u(x_0, y) = f_0(y)`;
+    - :math:`u(x_1, y) = f_1(y)`;
+    - :math:`u(x, y_0) = g_0(x)`;
+    - :math:`u(x, y_1) = g_1(x)`.
 
     :param x_min: The lower bound of x, the :math:`x_0`.
     :type x_min: float
@@ -271,12 +271,12 @@ class DirichletBVP2D(BaseCondition):
 
         The re-parameterization is
         :math:`\displaystyle u(x,y)=A(x,y)
-        +\tilde{x}\left(1-\tilde{x}\right)\tilde{y}\left(1-\tilde{y}\right)\mathrm{ANN}(x,y)`, where
+        +\tilde{x}\big(1-\tilde{x}\big)\tilde{y}\big(1-\tilde{y}\big)\mathrm{ANN}(x,y)`, where
 
         :math:`\displaystyle \begin{align*}
-        A(x,y)=&\left(1-\tilde{x}\right)f_0(y)+\tilde{x}f_1(y) \\
-        &+\left(1-\tilde{y}\right)\left(g_0(x)-\left(1-\tilde{x}\right)g_0(x_0)+\tilde{x}g_0(x_1)\right) \\
-        &+\tilde{y}\left(g_1(x)-\left(1-\tilde{x}\right)g_1(x_0)+\tilde{x}g_1(x_1)\right)
+        A(x,y)=&\big(1-\tilde{x}\big)f_0(y)+\tilde{x}f_1(y) \\
+        &+\big(1-\tilde{y}\big)\Big(g_0(x)-\big(1-\tilde{x}\big)g_0(x_0)+\tilde{x}g_0(x_1)\Big) \\
+        &+\tilde{y}\Big(g_1(x)-\big(1-\tilde{x}\big)g_1(x_0)+\tilde{x}g_1(x_1)\Big)
         \end{align*}`
 
         :math:`\displaystyle\tilde{x}=\frac{x-x_0}{x_1-x_0}`,
@@ -309,9 +309,11 @@ class IBVP1D(BaseCondition):
     r"""An initial & boundary condition on a 1-D range where :math:`x\in[x_0, x_1]` and time starts at :math:`t_0`.
     The conditions should have the following parts:
 
-    - :math:`u(x,t_0)=u_0(x)`;
-    - :math:`u(x_0,t)=g(t)` or :math:`u'_x(x_0,t)=p(t)`;
-    - :math:`u(x_1,t)=h(t)` or :math:`u'_x(x_1,t)=q(t)`.
+    - :math:`u(x,t_0)=u_0(x)`,
+    - :math:`u(x_0,t)=g(t)` or :math:`u'_x(x_0,t)=p(t)`,
+    - :math:`u(x_1,t)=h(t)` or :math:`u'_x(x_1,t)=q(t)`,
+
+    where :math:`\displaystyle u'_x=\frac{\partial u}{\partial x}`.
 
     :param x_min: The lower bound of x, the :math:`x_0`.
     :type x_min: float
@@ -541,12 +543,12 @@ class DirichletBVPSpherical(BaseCondition):
           The re-parameterization is
           :math:`\big(1-\tilde{r}\big)f(\theta,\phi)+\tilde{r}g(\theta,\phi)
           +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN}(r, \theta, \phi)`
-          where :math:`\tilde{r}=\frac{r-r_0}{r_1-r_0}`
+          where :math:`\displaystyle\tilde{r}=\frac{r-r_0}{r_1-r_0}`;
 
         - If only one boundary is specified (inner or outer) :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`
 
           The re-parameterization is
-          :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r, \theta, \phi)`
+          :math:`f(\theta,\phi)+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r, \theta, \phi)`;
 
         where :math:`\mathrm{ANN}` is the neural network.
 
@@ -631,12 +633,12 @@ class DirichletBVPSphericalBasis(BaseCondition):
     The only difference is this condition is enforced on a neural net that only takes in :math:`r`
     and returns the spherical harmonic coefficients R(r).
     We constrain the coefficients :math:`R_k(r)` in :math:`u(r,\theta,\phi)=\sum_{k}R_k(r)Y_k(\theta,\phi)`,
-    where :math:`\{Y_k(\theta,\phi)\}_{k=1}^{K}` can be **any spherical function basis**.
-    A recommended choice is the real spherical harmonics :math:`Y_l^m{\theta,\phi}`,
+    where :math:`\big\{Y_k(\theta,\phi)\big\}_{k=1}^{K}` can be **any spherical function basis**.
+    A recommended choice is the real spherical harmonics :math:`Y_l^m(\theta,\phi)`,
     where :math:`l` is the degree of the spherical harmonics and :math:`m` is the order of the spherical harmonics.
 
     The boundary conditions are: :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and :math:`\mathbf{R}(r_1)=\mathbf{R}_1`,
-    where :math:`\mathbf{R}` is a vector whose components are :math:`R_k`
+    where :math:`\mathbf{R}` is a vector whose components are :math:`\big\{R_k\big\}_{k=1}^{K}`
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
@@ -667,12 +669,12 @@ class DirichletBVPSphericalBasis(BaseCondition):
           The re-parameterization is
           :math:`\big(1-\tilde{r}\big)\mathbf{R}_0+\tilde{r}\mathbf{R}_1
           +\Big(1-e^{\tilde{r}(1-{\tilde{r}})}\Big)\mathrm{ANN}(r)`
-          where :math:`\tilde{r}=\frac{r-r_0}{r_1-r_0}`
+          where :math:`\displaystyle\tilde{r}=\frac{r-r_0}{r_1-r_0}`;
 
         - If only one boundary is specified (inner or outer) :math:`\mathbf{R}(r_0,\theta,\phi)=\mathbf{R_0}`
 
           The re-parameterization is
-          :math:`\mathbf{R}_0+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r)`
+          :math:`\mathbf{R}_0+\Big(1-e^{-|r-r_0|}\Big)\mathrm{ANN}(r)`;
 
         where :math:`\mathrm{ANN}` is the neural network.
 
@@ -699,14 +701,14 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
     The only difference is this condition is enforced on a neural net that only takes in :math:`r`
     and returns the spherical harmonic coefficients R(r).
     We constrain the coefficients :math:`R_k(r)` in :math:`u(r,\theta,\phi)=\sum_{k}R_k(r)Y_k(\theta,\phi)`,
-    where :math:`\{Y_k(\theta,\phi)\}_{k=1}^{K}` can be **any spherical function basis**.
-    A recommended choice is the real spherical harmonics :math:`Y_l^m{\theta,\phi}`,
+    where :math:`\big\{Y_k(\theta,\phi)\big\}_{k=1}^{K}` can be **any spherical function basis**.
+    A recommended choice is the real spherical harmonics :math:`Y_l^m(\theta,\phi)`,
     where :math:`l` is the degree of the spherical harmonics and :math:`m` is the order of the spherical harmonics.
 
     The boundary conditions are:
     :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and
     :math:`\lim_{r_0\to+\infty}\mathbf{R}(r)=\mathbf{R}_1`,
-    where :math:`\mathbf{R}` is a vector whose components are :math:`R_k`
+    where :math:`\mathbf{R}` is a vector whose components are :math:`\big\{R_k\big\}_{k=1}^{K}`.
 
     :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
     :type r_0: float
