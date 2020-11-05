@@ -71,3 +71,10 @@ API Reference
     :inherited-members:
     :members:
 
+`neurodiffeq.utils`
+------------------------------------------------------
+.. automodule:: neurodiffeq.utils
+    :show-inheritance:
+    :inherited-members:
+    :members:
+
