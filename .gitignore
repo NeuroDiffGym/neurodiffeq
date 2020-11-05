@@ -66,6 +66,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Dash docset
+docs/dash/
+
 # PyBuilder
 target/
 
