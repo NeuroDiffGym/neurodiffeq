@@ -3,6 +3,9 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("requirements.txt", "r") as fh:
+    requirements = [line.strip() for line in fh.read().split('\n') if line.strip() != '']
+
 setuptools.setup(
     name="neurodiffeq",
     version="0.1.1",
@@ -30,4 +33,5 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    install_requires=requirements,
 )
