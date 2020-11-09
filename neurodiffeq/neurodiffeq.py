@@ -54,7 +54,7 @@ def safe_diff(x, t, order=1):
     return unsafe_diff(x, t, order=order)
 
 
-def diff(x, t, order=1, shape_check=None):
+def diff(x, t, order=1, shape_check=True):
     r"""The derivative of a variable with respect to another.
     Currently, ``diff`` defaults to ``unsafe_diff``, but in a future release, it will default to ``safe_diff``
 
@@ -64,7 +64,7 @@ def diff(x, t, order=1, shape_check=None):
     :type t: `torch.Tensor`
     :param order: The order of the derivative, defaults to 1.
     :type order: int
-    :param shape_check: Whether to perform shape checking or not, defaults to False (to be changed in v0.2.0).
+    :param shape_check: Whether to perform shape checking or not, defaults to True (since v0.2.0).
     :type shape_check: bool
     :returns: The derivative.
     :rtype: `torch.Tensor`
