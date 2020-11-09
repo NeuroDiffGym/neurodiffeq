@@ -3,12 +3,12 @@ from numpy import isclose
 import matplotlib
 matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
 
-from neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN
-from neurodiffeq.pde import DirichletBVP2D, IBVP1D, _network_output_2input
+from neurodiffeq.pde import DirichletBVP2D, IBVP1D
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
 from neurodiffeq.generators import PredefinedGenerator, Generator2D
-from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation, set_default_dtype
+from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation
 
 from pytest import raises
 

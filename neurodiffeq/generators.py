@@ -13,7 +13,7 @@ class BaseGenerator:
         self.size = None
 
     def get_examples(self) -> List[torch.Tensor]:
-        pass
+        pass  # pragma: no cover
 
     @staticmethod
     def check_generator(obj):
@@ -304,9 +304,9 @@ class PredefinedGenerator(BaseGenerator):
     """A generator for generating training points. Here the training points are fixed and predefined.
 
     :param xs: The x-dimension of the trianing points
-    :type xs: `torch.tensor`
+    :type xs: `torch.Tensor`
     :param ys: The y-dimension of the training points
-    :type ys: `torch.tensor`
+    :type ys: `torch.Tensor`
     """
 
     def __init__(self, *xs):
@@ -325,7 +325,7 @@ class PredefinedGenerator(BaseGenerator):
         """Returns the training points. Points are fixed and predefined.
 
             :returns: The predefined training points
-            :rtype: tuple[`torch.tensor`]
+            :rtype: tuple[`torch.Tensor`]
         """
         return self.xs
 

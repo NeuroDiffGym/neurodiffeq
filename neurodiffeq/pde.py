@@ -9,9 +9,9 @@ import matplotlib.animation as animation
 import matplotlib.tri as tri
 
 from .networks import FCNN
-from .neurodiffeq import diff
+from .neurodiffeq import safe_diff as diff
 from .generators import Generator2D, PredefinedGenerator
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .conditions import IrregularBoundaryCondition
 from .conditions import NoCondition, DirichletBVP2D, IBVP1D
 from copy import deepcopy
@@ -19,17 +19,6 @@ from copy import deepcopy
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
 PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 
-# make a function to set global state
-FLOAT_DTYPE=torch.float32
-
-def set_default_dtype(dtype):
-    r"""Set the default `dtype` of `torch.tensor` used in `neurodiffeq`.
-
-    :param dtype: `torch.float`, `torch.double`, etc
-    """
-    global FLOAT_DTYPE
-    FLOAT_DTYPE=dtype
-    torch.set_default_dtype(FLOAT_DTYPE)
 
 # Calculate the output of a neural network with 2 input.
 # In the case where the neural network has multiple output unit, 
@@ -446,19 +435,19 @@ class Solution:
         """Evaluate the solution at certain points.
 
         :param xs: the x-coordinates of points on which the dependent variables are evaluated.
-        :type xs: `torch.tensor` or sequence of number
+        :type xs: `torch.Tensor` or sequence of number
         :param ys: the y-coordinates of points on which the dependent variables are evaluated.
-        :type ys: `torch.tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type ys: `torch.Tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
         :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.tensor` or `numpy.array` (when there is only one dependent variable).
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable).
         """
         if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor(xs, dtype=FLOAT_DTYPE)
+            xs = torch.tensor(xs)
         if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor(ys, dtype=FLOAT_DTYPE)
+            ys = torch.tensor(ys)
         original_shape = xs.shape
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
         if as_type not in ('tf', 'np'):

@@ -5,3 +5,4 @@ nbsphinx
 sphinx_rtd_theme
 recommonmark
 pandoc
+doc2dash

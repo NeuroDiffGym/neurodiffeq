@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
 from math import erf, sqrt
 from pytest import raises
-from neurodiffeq import diff
+from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.generators import GeneratorSpherical, Generator3D
 from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
 from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics

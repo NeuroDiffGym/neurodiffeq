@@ -8,7 +8,7 @@ import torch.optim as optim
 
 from .networks import FCNN
 from .generators import Generator1D
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .conditions import NoCondition, IVP, DirichletBVP
 from copy import deepcopy
 
@@ -60,7 +60,7 @@ class Monitor:
         :type nets: list[`torch.nn.Module`]
         :param conditions: The initial/boundary conditions of the ODE (system).
         :type conditions: list[`neurodiffeq.ode.BaseCondition`]
-        :param history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :param history: The history of training loss and validation loss. The 'train_loss' entry is a list of training loss and 'valid_loss' entry is a list of validation loss.
         :type history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
@@ -373,15 +373,15 @@ class Solution:
         """Evaluate the solution at certain points.
 
         :param ts: the points on which the dependent variables are evaluated.
-        :type ts: `torch.tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type ts: `torch.Tensor` or sequence of number
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
         :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.tensor` or `numpy.array` (when there is only one dependent variable)
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(ts, torch.Tensor):
-            ts = torch.tensor(ts, dtype=torch.float32)
+            ts = torch.tensor(ts)
         original_shape = ts.shape
         ts = ts.reshape(-1, 1)
         if as_type not in ('tf', 'np'):

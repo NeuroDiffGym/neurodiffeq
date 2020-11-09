@@ -111,7 +111,5 @@ def test_zero_order_spherical_harmonics_laplacian():
     lap2 = laplacian2(coeffs2, r2, theta2, phi2)
     assert lap2.requires_grad, "lap2 seems detached from graph"
 
-    lap1 = lap1.detach().cpu().numpy()
-    lap2 = lap2.detach().cpu().numpy()
-    assert isclose(lap2, lap1).all(), \
-        f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {np.max(abs(lap1 - lap2))}"
+    assert torch.isclose(lap2, lap1, rtol=1e-3, atol=1e-5).all(), \
+        f"lap1 = {lap1}\nlap2 = {lap2}\ndelta = {lap1 - lap2}\nmax_delta = {(lap1 - lap2).abs().max().item()}"

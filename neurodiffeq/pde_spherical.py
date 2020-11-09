@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
-from .version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class
 from .generators import Generator3D, GeneratorSpherical
 from .conditions import NoCondition, DirichletBVPSpherical, InfDirichletBVPSpherical
 from .conditions import DirichletBVPSphericalBasis, InfDirichletBVPSphericalBasis
@@ -64,23 +64,23 @@ class SolutionSpherical:
         """Evaluate the solution at certain points.
 
         :param rs: The radii of points where the neural network output is evaluated.
-        :type rs: `torch.tensor`
+        :type rs: `torch.Tensor`
         :param thetas: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
-        :type thetas: `torch.tensor`
+        :type thetas: `torch.Tensor`
         :param phis: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
-        :type phis: `torch.tensor`
-        :param as_type: Whether the returned value is a `torch.tensor` ('tf') or `numpy.array` ('np').
+        :type phis: `torch.Tensor`
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
         :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.tensor` or `numpy.array` (when there is only one dependent variable)
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """
         if not isinstance(rs, torch.Tensor):
-            rs = torch.tensor(rs, dtype=torch.float32)
+            rs = torch.tensor(rs)
         if not isinstance(thetas, torch.Tensor):
-            thetas = torch.tensor(thetas, dtype=torch.float32)
+            thetas = torch.tensor(thetas)
         if not isinstance(phis, torch.Tensor):
-            phis = torch.tensor(phis, dtype=torch.float32)
+            phis = torch.tensor(phis)
         original_shape = rs.shape
         rs = rs.reshape(-1, 1)
         thetas = thetas.reshape(-1, 1)

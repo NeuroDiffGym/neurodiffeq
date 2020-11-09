@@ -71,8 +71,10 @@ class Resnet(nn.Module):
 
 
 class MonomialNN(nn.Module):
-    """A network that expands its input to a given list of monomials
+    """A network that expands its input to a given list of monomials.
+
     Its output shape will be (n_samples, n_input_units * n_degrees)
+
     :param degrees: max degree to be included, or a list of degrees that will be used
     :type degrees: int or list[int] or tuple[int]
     """
