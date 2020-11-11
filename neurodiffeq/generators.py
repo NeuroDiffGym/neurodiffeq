@@ -216,7 +216,7 @@ class GeneratorSpherical(BaseGenerator):
     def __init__(self, size, r_min=0., r_max=1., method='equally-spaced-noisy'):
         super(GeneratorSpherical, self).__init__()
         if r_min < 0 or r_max < r_min:
-            raise ValueError(f"Illegal range [f{r_min}, {r_max}]")
+            raise ValueError(f"Illegal range [{r_min}, {r_max}]")
 
         if method == 'equally-spaced-noisy':
             lower = r_min ** 2
