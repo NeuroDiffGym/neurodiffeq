@@ -5,6 +5,7 @@ from neurodiffeq.networks import FCNN
 from neurodiffeq.networks import Resnet
 from neurodiffeq.networks import MonomialNN
 from neurodiffeq.networks import SinActv
+from neurodiffeq.networks import Swish
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -66,3 +67,17 @@ def test_monomial_nn():
         for i, d in enumerate(degrees):
             x_d = y[:, i * n_features_in: (i + 1) * n_features_in]
             assert (x_d - x ** d).abs().max() < 1e-3
+
+
+def test_swish():
+    x = torch.rand(10, 5)
+
+    f = Swish()
+    assert len(list(f.parameters())) == 0
+    assert torch.isclose(f(x), x * torch.sigmoid(x)).all()
+
+    beta = 3.0
+    f = Swish(beta, trainable=True)
+    assert len(list(f.parameters())) == 1
+    assert list(f.parameters())[0].shape == ()
+    assert torch.isclose(f(x), x * torch.sigmoid(beta * x)).all()
