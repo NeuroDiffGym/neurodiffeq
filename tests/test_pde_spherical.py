@@ -358,7 +358,7 @@ def test_spherical_harmonics():
     assert torch.max(abs_diff) <= 1e-5, f"difference too large, check again:\n {abs_diff.max()}"
 
 
-def test_spherical_laplcian():
+def test_spherical_laplacian():
     N_FLOAT = np.float64
     T_FLOAT = torch.float64
     n_samples = 10
