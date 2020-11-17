@@ -114,7 +114,7 @@ def solve(
 
     :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
-    :type ode: function
+    :type ode: callable
     :param condition: The initial/boundary condition.
     :type condition: `neurodiffeq.conditions.BaseCondition`
     :param net: The neural network used to approximate the solution, defaults to None.
@@ -134,10 +134,10 @@ def solve(
     :param criterion: The loss function to use for training, defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
     :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode`
-    :type additional_loss_term: function
+    :type additional_loss_term: callable
     :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
         The input functions should be the same as `ode` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, function]
+    :type metrics: dict[string, callable]
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -175,7 +175,7 @@ def solve_system(
 
     :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent i-th variable and :math:`t` is the independent variable,
         then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
-    :type ode_system: function
+    :type ode_system: callable
     :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
     :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
@@ -197,10 +197,10 @@ def solve_system(
     :param criterion: The loss function to use for training, defaults to None and sum of square of the output of `ode_system` will be used.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
     :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode_system`
-    :type additional_loss_term: function
+    :type additional_loss_term: callable
     :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
         The input functions should be the same as `ode_system` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, function]
+    :type metrics: dict[string, callable]
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
