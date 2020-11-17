@@ -390,6 +390,6 @@ class Solution:
         us = _trial_solution(self.single_net, self.nets, ts, self.conditions)
         us = [u.reshape(original_shape) for u in us]
         if as_type == 'np':
-            us = [u.detach().cpu().numpy().flatten() for u in us]
+            us = [u.detach().cpu().numpy() for u in us]
 
         return us if len(self.conditions) > 1 else us[0]
