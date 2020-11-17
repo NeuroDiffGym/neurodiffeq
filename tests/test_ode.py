@@ -10,6 +10,7 @@ from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor
+from neurodiffeq.ode import Solution
 from neurodiffeq.generators import Generator1D
 
 import torch
@@ -144,3 +145,41 @@ def test_additional_loss_term():
     assert len(loss_history[keys[0]]) == len(loss_history[keys[1]])
 
 
+def test_solution():
+    t0, x0 = np.random.rand() + 0, np.random.rand() + 0
+    t1, x1 = np.random.rand() + 1, np.random.rand() + 1
+    N_SAMPLES = 100
+
+    def get_solution(use_single: bool) -> Solution:
+        conditions = [IVP(t0, x0), IVP(t1, x1)]
+        if use_single:
+            net = FCNN(1, 2)
+            for i, cond in enumerate(conditions):
+                cond.set_impose_on(i)
+            return Solution(net, None, conditions)
+        else:
+            nets = [FCNN(1, 1), FCNN(1, 1)]
+            return Solution(None, nets, conditions)
+
+    def check_output(xs, shape, type, msg=""):
+        msg += " "
+        assert isinstance(xs, (list, tuple)), msg + "returned type is not a list"
+        assert len(xs) == 2, msg + "returned length is not 2"
+        assert isinstance(xs[0], type) and isinstance(xs[1], type), msg + f"returned element is not {type}"
+        assert xs[0].shape == shape and xs[1].shape == shape, msg + f"returned element shape is not {shape}"
+        assert xs[0][0] == x0, msg + f"first condition is not properly imposed"
+        assert xs[1][-1] == x1, msg + f"second condition is not properly imposed"
+
+    for use_single in [True, False]:
+        solution = get_solution(use_single=use_single)
+        ts = torch.linspace(t0, t1, N_SAMPLES)
+        xs = solution(ts)
+        check_output(xs, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        xs = solution(ts, as_type='np')
+        check_output(xs, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
+
+        ts = ts.reshape(-1, 1)
+        xs = solution(ts)
+        check_output(xs, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        xs = solution(ts, as_type='np')
+        check_output(xs, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
