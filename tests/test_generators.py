@@ -243,6 +243,12 @@ def test_transform_generator():
     assert _check_iterable_equal(y, y_expected)
     assert _check_iterable_equal(z, z_expected)
 
+    transform_generator = TransformGenerator(generator, transform=lambda x, y, z: (torch.sin(x), y, -z))
+    x, y, z = transform_generator.get_examples()
+    assert _check_shape_and_grad(transform_generator, size, x, y, z)
+    assert _check_iterable_equal(x, x_expected)
+    assert _check_iterable_equal(y, y_expected)
+    assert _check_iterable_equal(z, z_expected)
 
 def test_ensemble_generator():
     size = 100
