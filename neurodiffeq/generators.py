@@ -337,22 +337,37 @@ class TransformGenerator(BaseGenerator):
     :type generator: BaseGenerator
     :param transforms: a list of transformations to be applied on the sample vectors; identity transformation can be replaced with None
     :type transforms: list[callable]
+    :param transform: a callable that transforms the output(s) of base generator to another (tuple of) coordinate(s)
+    :type transform: callable
     """
 
-    def __init__(self, generator, transforms):
+    def __init__(self, generator, transforms=None, transform=None):
         super(TransformGenerator, self).__init__()
         self.generator = generator
         self.size = generator.size
-        self.transforms = [
-            (lambda x: x) if t is None else t
-            for t in transforms
-        ]
+        if transforms is not None and transform is not None:
+            raise ValueError("transform and transforms cannout be both specified")
+        if transforms is not None:
+            self.trans = [
+                (lambda x: x) if t is None else t
+                for t in transforms
+            ]
+        elif transform is not None:
+            self.trans = transform
+        else:
+            self.trans = lambda x: x
 
     def get_examples(self):
         xs = self.generator.get_examples()
         if isinstance(xs, torch.Tensor):
-            return self.transforms[0](xs)
-        return tuple(t(x) for t, x in zip(self.transforms, xs))
+            if callable(self.trans):
+                return self.trans(xs)
+            else:
+                return self.trans[0](xs)
+        if callable(self.trans):
+            return self.trans(*xs)
+        else:
+            return tuple(t(x) for t, x in zip(self.trans, xs))
 
 
 class EnsembleGenerator(BaseGenerator):
