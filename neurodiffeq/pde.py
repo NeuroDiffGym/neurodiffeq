@@ -176,6 +176,7 @@ class IBVP1D(Condition):
             self, x_min, x_max, t_min, t_min_val,
             x_min_val=None, x_min_prime=None,
             x_max_val=None, x_max_prime=None,
+            t_max = None
 
     ):
         r"""Initializer method
@@ -187,6 +188,7 @@ class IBVP1D(Condition):
         self.x_min, self.x_min_val, self.x_min_prime = x_min, x_min_val, x_min_prime
         self.x_max, self.x_max_val, self.x_max_prime = x_max, x_max_val, x_max_prime
         self.t_min, self.t_min_val = t_min, t_min_val
+        self.t_max = t_max
         n_conditions = sum(c is None for c in [x_min_val, x_min_prime, x_max_val, x_max_prime])
         if n_conditions != 2:
             raise NotImplementedError('Sorry, this boundary condition is not implemented.')
@@ -214,7 +216,11 @@ class IBVP1D(Condition):
         Axt = self.t_min_val(x) + \
             x_tilde     * (self.x_max_val(t) - self.x_max_val(t_ones_min)) + \
             (1-x_tilde) * (self.x_min_val(t) - self.x_min_val(t_ones_min))
+        # if self.t_max is not None:
+        #     return Axt + x_tilde * (1 - x_tilde) * (t_tilde/self.t_max) * uxt
+        # else:
         return Axt + x_tilde * (1 - x_tilde) * (1 - torch.exp(-t_tilde)) * uxt
+        #return self.t_min_val(x) + (1 - torch.exp(-t_tilde))*uxt
 
     # When we have Dirichlet boundary condition on the left end of the domain
     # and Neumann boundary condition on the right end of the domain:
@@ -553,12 +559,25 @@ def solve2D_system(
     def calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term):
         us = _trial_solution_2input(net, nets, xs, ys, conditions)
         Fuxys = pde_system(*us, xs, ys)
+
         loss = sum(
             criterion(Fuxy, torch.zeros_like(xs))
             for Fuxy in Fuxys
         )
         if additional_loss_term is not None:
             loss += additional_loss_term(*us, xs, ys)
+
+        # add the boundary loss
+        # x_min, x_max = xy_min[0], xy_max[0]
+        # x_mins = x_min*torch.ones(64).reshape((64,1))
+        # x_maxs = x_max*torch.ones(64).reshape((64, 1))
+        # ts = torch.linspace(xy_min[1], xy_max[1], 64).reshape((64,1))
+        #
+        # us_xmin = _trial_solution_2input(net, nets, x_mins, ts, conditions)[0]
+        # us_xmax = _trial_solution_2input(net, nets, x_maxs, ts, conditions)[0]
+        # loss += 1000*criterion(us_xmin, -1.*torch.ones_like(us_xmin))
+        # loss += 1000*criterion(us_xmax, torch.ones_like(us_xmax))
+
         return loss
 
     # caclulate the metrics
@@ -628,7 +647,7 @@ def solve2D_system(
         if return_best and valid_loss_epoch < valid_loss_epoch_min:
             valid_loss_epoch_min = valid_loss_epoch
             solution_min = Solution(single_net, nets, conditions)
-
+        print(epoch)
     if return_best:
         solution = solution_min
     else:

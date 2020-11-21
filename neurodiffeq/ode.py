@@ -215,7 +215,7 @@ def solve(
         optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
-        return_best=False
+        return_best=False, analytical = None,  lr_scheduler = None
 ):
     """Train a neural network to solve an ODE.
 
@@ -266,7 +266,7 @@ def solve(
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
         optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics, batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
-        return_best=return_best
+        return_best=return_best, analytical = analytical, lr_scheduler = lr_scheduler
     )
 
 
@@ -276,7 +276,7 @@ def solve_system(
         optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False,
-        return_best=False,
+        return_best=False, analytical = None, lr_scheduler = None
 ):
     """Train a neural network to solve an ODE.
 
@@ -341,6 +341,8 @@ def solve_system(
 
             optimizer.zero_grad()
             train_loss_batch.backward()
+            if lr_scheduler is not None:
+                lr_scheduler(optimizer).step()
             optimizer.step()
 
             batch_start += batch_size
@@ -360,6 +362,16 @@ def solve_system(
 
         valid_metrics_epoch = calculate_metrics(valid_examples_t, net, nets, conditions, metrics)
         return valid_loss_epoch, valid_metrics_epoch
+
+    def error_analytical(valid_generator, analytical, net, nets, conditions):
+        valid_examples_t = valid_generator.get_examples()
+        valid_examples_t = valid_examples_t.reshape((-1, 1))
+        u_nn = _trial_solution(net, nets, valid_examples_t, conditions)[0]
+        u_ana = analytical(valid_examples_t)
+
+        N = len(valid_examples_t)
+
+        return 1.0 / N * np.sum((u_ana - u_nn).detach().numpy() ** 2)
 
     def calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term):
         us = _trial_solution(net, nets, ts, conditions)
@@ -414,6 +426,7 @@ def solve_system(
     history = {}
     history['train_loss'] = []
     history['valid_loss'] = []
+    history['error_anal'] = []
     for metric_name, _ in metrics.items():
         history['train__' + metric_name] = []
         history['valid__' + metric_name] = []
@@ -431,6 +444,9 @@ def solve_system(
 
         valid_loss_epoch, valid_metrics_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term,)
         history['valid_loss'].append(valid_loss_epoch)
+
+        error_anal_epoch = error_analytical(valid_generator, analytical, single_net, nets, conditions)
+        history['error_anal'].append(error_anal_epoch)
         for metric_name, metric_value in valid_metrics_epoch.items():
             history['valid__'+metric_name].append(metric_value)
 
