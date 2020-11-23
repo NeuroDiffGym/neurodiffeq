@@ -16,6 +16,6 @@ from .generators import TransformGenerator
 
 warnings.warn(
     f"The module name `neurodiffeq.generator` is deprecated, please use `neurodiffeq.generators` (with 's') instead",
-    category=DeprecationWarning,
+    category=FutureWarning,
     stacklevel=2,
 )

@@ -43,10 +43,10 @@ class FCNN(nn.Module):
                 hidden_units = tuple(n_hidden_units for _ in range(n_hidden_layers + 1))
                 warn(f"`n_hidden_units` and `n_hidden_layers` are deprecated, "
                      f"pass `hidden_units={hidden_units}` instead",
-                     DeprecationWarning)
+                     FutureWarning)
             else:
                 warn(f"Ignoring `n_hidden_units` and `n_hidden_layers` in favor of `hidden_units={hidden_units}`",
-                     DeprecationWarning)
+                     FutureWarning)
 
         # If none of {n_hidden_units, n_hidden_layers, hidden_layers} are specified, use (32, 32) by default
         if hidden_units is None:

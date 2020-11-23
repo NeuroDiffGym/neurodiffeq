@@ -15,7 +15,7 @@ As universal function approximators, artificial neural networks have been shown 
 
 ## Install via pip
 
-Like most standard libraries, `neurodiffeq` in hosted on PyPI. To install the latest stable relesase, simply use the `pip` (or `pip3`) tool.
+Like most standard libraries, `neurodiffeq` is hosted on [PyPI](https://pypi.org/project/neurodiffeq/). To install the latest stable relesase, simply use the `pip` (or `pip3`) tool.
 
 ```sh
 pip install neurodiffeq 
