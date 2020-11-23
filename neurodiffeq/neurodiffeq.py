@@ -19,12 +19,12 @@ def unsafe_diff(u, t, order=1):
     ones = torch.ones_like(u)
     der, = autograd.grad(u, t, create_graph=True, grad_outputs=ones, allow_unused=True)
     if der is None:
-        return torch.zeros_like(t).requires_grad_(True)
+        return torch.zeros_like(t, requires_grad=True)
     for i in range(1, order):
         ones = torch.ones_like(der)
         der, = autograd.grad(der, t, create_graph=True, grad_outputs=ones, allow_unused=True)
         if der is None:
-            return torch.zeros_like(t).requires_grad_(True)
+            return torch.zeros_like(t, requires_grad=True)
     return der
 
 
@@ -56,7 +56,7 @@ def safe_diff(u, t, order=1):
 def diff(u, t, order=1, shape_check=True):
     r"""The derivative of a variable with respect to another. ``diff`` defaults to the behaviour of ``safe_diff``.
 
-    :param u: The :math:`x` in :math:`\displaystyle\frac{\partial u}{\partial t}`.
+    :param u: The :math:`u` in :math:`\displaystyle\frac{\partial u}{\partial t}`.
     :type u: `torch.Tensor`
     :param t: The :math:`t` in :math:`\displaystyle\frac{\partial u}{\partial t}`.
     :type t: `torch.Tensor`
