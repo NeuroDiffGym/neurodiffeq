@@ -321,7 +321,7 @@ class SphericalSolver:
         self.r_max = r_max
         if nets is None:
             self.nets = [
-                FCNN(n_input_units=3, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh)
+                FCNN(n_input_units=3, hidden_units=(32, 32), actv=nn.Tanh)
                 for _ in range(self.n_funcs)
             ]
         else:
