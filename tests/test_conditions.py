@@ -112,6 +112,25 @@ def test_dirichlet_bvp():
     assert all_close(y, y1), "y(x_1) != y_1"
 
 
+def test_bvp_legacy_signature():
+    with warns(FutureWarning):
+        DirichletBVP(t_0=0, t_1=0, x_0=0, x_1=0)
+    with warns(FutureWarning):
+        DirichletBVP(t_0=0, x_0=0, t_1=0, x_1=0)
+    with warns(FutureWarning):
+        DirichletBVP(0, 2, t_1=0, x_1=0)
+    with warns(FutureWarning):
+        DirichletBVP(t_0=0, x_0=0, t_1=0, u_1=0)
+    with warns(FutureWarning):
+        DirichletBVP(t_0=0, u_0=0, t_1=0, x_1=0)
+    with raises(KeyError):
+        DirichletBVP(t_0=0, u_0=0, x_0=0, t_1=0, x_1=0)
+    with raises(KeyError):
+        DirichletBVP(t_0=0, x_0=0, t_1=0, x_1=0, u_1=0)
+    with raises(KeyError):
+        DirichletBVP(t_0=0, u_0=0, x_0=0, t_1=0, x_1=0, u_1=0)
+
+
 def test_dirichlet_bvp_2d():
     # fix u(x, y) at the four corners (x0, y0), (x0, y1), (x1, y0), (x1, y1),
     u00, u01, u10, u11 = [random.random() for _ in range(4)]
