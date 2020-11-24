@@ -35,7 +35,9 @@ Alternatively, you can install the library manually to get early access to our n
 
 # Getting Started
 
-For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on [ReadTheDocs](https://readthedocs.org)
+For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on [ReadTheDocs](https://readthedocs.org).
+
+In case ReadTheDocs' service is down (which rarely happens), you can refer to our self-hosted [documentation site](https://neurodiffeq.com) as a backup option.
 
 # Contributing
 
