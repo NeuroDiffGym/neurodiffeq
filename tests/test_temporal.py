@@ -152,9 +152,8 @@ def test_single_network_approximator_1dspatial_temporal():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
         single_network=fcnn,
@@ -216,9 +215,8 @@ def test_single_network_approximator_2dspatial():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatial(
         single_network=fcnn,
@@ -285,9 +283,8 @@ def test_single_network_approximator_2dspatial_temporal():
     fcnn = FCNN(
         n_input_units=3,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
         single_network=fcnn,
@@ -348,9 +345,8 @@ def test_monitor_1dspatial_temporal():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
         single_network=fcnn,
@@ -410,9 +406,8 @@ def test_monitor_2dspatial():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatial(
         single_network=fcnn,
@@ -488,9 +483,8 @@ def test_monitor_2dspatial_temporal():
     fcnn = FCNN(
         n_input_units=3,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
         single_network=fcnn,
@@ -551,9 +545,8 @@ def test__train_1dspatial_temporal():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
         single_network=fcnn,
@@ -605,9 +598,8 @@ def test__valid_1dspatial_temporal():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
         single_network=fcnn,
@@ -678,9 +670,8 @@ def test__solve_1dspatial_temporal():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator1DSpatialTemporal(
         single_network=fcnn,
@@ -745,9 +736,8 @@ def test__train_2dspatial():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatial(
         single_network=fcnn,
@@ -807,9 +797,8 @@ def test__valid_2dspatial():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatial(
         single_network=fcnn,
@@ -879,9 +868,8 @@ def test__train_2dspatial_temporal():
     fcnn = FCNN(
         n_input_units=3,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
         single_network=fcnn,
@@ -953,9 +941,8 @@ def test__valid_2dspatial_temporal():
     fcnn = FCNN(
         n_input_units=3,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
         single_network=fcnn,
@@ -1040,9 +1027,8 @@ def test__solve_2dspatial_temporal():
     fcnn = FCNN(
         n_input_units=3,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatialTemporal(
         single_network=fcnn,
@@ -1112,9 +1098,8 @@ def test__solve_2dspatial():
     fcnn = FCNN(
         n_input_units=2,
         n_output_units=1,
-        n_hidden_units=32,
-        n_hidden_layers=1,
-        actv=nn.Tanh
+        hidden_units=(32, 32),
+        actv=nn.Tanh,
     )
     fcnn_approximator = SingleNetworkApproximator2DSpatial(
         single_network=fcnn,

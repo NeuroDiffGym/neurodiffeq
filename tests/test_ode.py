@@ -145,8 +145,8 @@ def test_lotka_volterra():
         IVP(t_0=0.0, x_0=1.0)
     ]
     nets_lv = [
-        FCNN(n_hidden_units=32, n_hidden_layers=1, actv=SinActv),
-        FCNN(n_hidden_units=32, n_hidden_layers=1, actv=SinActv)
+        FCNN(hidden_units=(32, 32), actv=SinActv),
+        FCNN(hidden_units=(32, 32), actv=SinActv),
     ]
     solution_lv, _ = solve_system(ode_system=lotka_volterra, conditions=init_vals_lv,
                                   t_min=0.0, t_max=12, nets=nets_lv, max_epochs=12000,
