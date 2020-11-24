@@ -1,6 +1,7 @@
 sphinx
 mock
 ipython
+nbconvert
 nbsphinx
 sphinx_rtd_theme
 recommonmark
