@@ -13,7 +13,7 @@ from neurodiffeq.conditions import InfDirichletBVPSphericalBasis
 from neurodiffeq.conditions import IBVP1D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import safe_diff as diff
-from pytest import raises
+from pytest import raises, warns, deprecated_call
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -58,6 +58,19 @@ def test_ivp():
     y = cond.enforce(net, x)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+
+def test_ivp_legacy_signature():
+    with warns(FutureWarning):
+        IVP(0, x_0=1)
+    with warns(FutureWarning):
+        IVP(0, 1, x_0_prime=2)
+    with warns(FutureWarning):
+        IVP(0, x_0=1, x_0_prime=2)
+    with raises(KeyError):
+        IVP(0, x_0=1, u_0=2)
+    with raises(KeyError):
+        IVP(0, x_0_prime=1, u_0_prime=2)
 
 
 def test_ensemble_condition():
@@ -323,4 +336,3 @@ def test_inf_dirichlet_bvp_spherical_basis():
     assert all_close(condition.enforce(net, r), R0), "inner Dirichlet BC not satisfied"
     r = r_inf * ones
     assert all_close(condition.enforce(net, r), R_inf), "Infinity Dirichlet BC not satisfied"
-
