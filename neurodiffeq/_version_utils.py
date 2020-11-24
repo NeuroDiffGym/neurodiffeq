@@ -11,7 +11,7 @@ def warn_deprecate_class(new_class):
     """
 
     def old_class_getter(*args, **kwargs):
-        warnings.warn(f"This class name is deprecated, use {new_class} instead")
+        warnings.warn(f"This class name is deprecated, use {new_class} instead", FutureWarning)
         return new_class(*args, **kwargs)
 
     return old_class_getter
