@@ -1,27 +1,30 @@
 import numpy as np
+import random
 from numpy import isclose
 import matplotlib
-matplotlib.use('Agg') # use a non-GUI backend, so plots are not shown during testing
+
+matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
 
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN
 from neurodiffeq.pde import DirichletBVP2D, IBVP1D
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
-from neurodiffeq.generators import PredefinedGenerator, Generator2D
 from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation
 from neurodiffeq.pde import Solution
+from neurodiffeq.generators import PredefinedGenerator, Generator2D
+from neurodiffeq.conditions import DirichletBVP2D, DirichletBVP
 
 from pytest import raises
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 torch.manual_seed(42)
 np.random.seed(42)
 
 
 def test_monitor():
-
     laplace = lambda u, x, y: diff(u, x, order=2) + diff(u, y, order=2)
     bc = DirichletBVP2D(
         x_min=0, x_min_val=lambda y: torch.sin(np.pi * y),
@@ -87,10 +90,9 @@ def test_train_generator():
 
 
 def test_laplace():
-
     laplace = lambda u, x, y: diff(u, x, order=2) + diff(u, y, order=2)
     bc = DirichletBVP2D(
-        x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),
+        x_min=0, x_min_val=lambda y: torch.sin(np.pi * y),
         x_max=1, x_max_val=lambda y: 0,
         y_min=0, y_min_val=lambda x: 0,
         y_max=1, y_max_val=lambda x: 0
@@ -110,6 +112,7 @@ def test_laplace():
         assert key in loss_history
         assert isinstance(loss_history[key], list)
     assert len(loss_history[keys[0]]) == len(loss_history[keys[1]])
+
 
 # def test_pde_system():
 #     def _network_output_2input(net, xs, ys, ith_unit):
@@ -227,7 +230,6 @@ def test_laplace():
 #     assert isclose(p_ana, p_net, atol=0.01).all()
 
 def test_arbitrary_boundary():
-
     def solution_analytical_problem_c(x, y):
         return np.log(1 + x ** 2 + y ** 2)
 
@@ -392,7 +394,7 @@ def test_arbitrary_boundary():
     # nabla^2 psi(x, y) = (e^(-x))(x-2+y^3+6y)
     def de_problem_c(u, x, y):
         return diff(u, x, order=2) + diff(u, y, order=2) + torch.exp(u) - 1.0 - x ** 2 - y ** 2 - 4.0 / (
-                    1.0 + x ** 2 + y ** 2) ** 2
+                1.0 + x ** 2 + y ** 2) ** 2
 
     # fully connected network with one hidden layer (100 hidden units with ELU activation)
     net = FCNN(n_input_units=2, hidden_units=(100, 100), actv=nn.ELU)
@@ -422,3 +424,91 @@ def test_arbitrary_boundary():
     normal_derivative = to_np(nxs * diff(us, xs) + nys * diff(us, ys)).flatten()
     true_normal_derivative = np.array([p.val for p in neumann_control_points_problem_c])
     assert isclose(normal_derivative, true_normal_derivative, atol=1e-2).all()
+
+
+def test_solution():
+    x_grids = 7
+    y_grids = 11
+    xy_grids = (x_grids, y_grids)
+    N_SAMPLES = x_grids * y_grids
+    x0, y0 = random.random(), random.random()
+    x1, y1 = random.random() + 1, random.random() + 1
+    generator = Generator2D(xy_grids, xy_min=(x0, y0), xy_max=(x1, y1), method='equally-spaced')
+
+    u00, u01, u10, u11 = random.random(), random.random(), random.random(), random.random()
+    v00, v01, v10, v11 = random.random(), random.random(), random.random(), random.random()
+
+    def get_single_boundary_func(z0, w0, z1, w1):
+        net = FCNN(1, 1)
+        condition = DirichletBVP(z0, w0, z1, w1)
+
+        def boundary_func(z):
+            return condition.enforce(net, z)
+
+        return boundary_func
+
+    def get_all_boundary_funcs(w00, w01, w10, w11):
+        wx0 = get_single_boundary_func(y0, w00, y1, w01)
+        wx1 = get_single_boundary_func(y0, w10, y1, w11)
+        wy0 = get_single_boundary_func(x0, w00, x1, w10)
+        wy1 = get_single_boundary_func(x0, w01, x1, w11)
+        return wx0, wx1, wy0, wy1
+
+    ux0, ux1, uy0, uy1 = get_all_boundary_funcs(u00, u01, u10, u11)
+    vx0, vx1, vy0, vy1 = get_all_boundary_funcs(v00, v01, v10, v11)
+
+    def get_solution(use_single: bool) -> Solution:
+        conditions = [
+            DirichletBVP2D(x0, ux0, x1, ux1, y0, uy0, y1, uy1),
+            DirichletBVP2D(x0, vx0, x1, vx1, y0, vy0, y1, vy1),
+        ]
+        if use_single:
+            net = FCNN(2, 2)
+            for i, cond in enumerate(conditions):
+                cond.set_impose_on(i)
+            return Solution(net, None, conditions)
+        else:
+            nets = [FCNN(2, 1), FCNN(2, 1)]
+            return Solution(None, nets, conditions)
+
+    def check_output(uv, shape, type, msg=""):
+        msg += " "
+        assert isinstance(uv, (list, tuple)), msg + "returned type is not a list"
+        assert len(uv) == 2, msg + "returned length is not 2"
+        assert isinstance(uv[0], type) and isinstance(uv[1], type), msg + f"returned element is not {type}"
+        u, v = uv
+        assert u.shape == shape and v.shape == shape, msg + f"returned element shape is not {shape}"
+        u, v = u.reshape(*xy_grids), v.reshape(*xy_grids)
+        x = torch.linspace(x0, x1, steps=x_grids, requires_grad=True).reshape(-1, 1)
+        y = torch.linspace(y0, y1, steps=y_grids, requires_grad=True).reshape(-1, 1)
+
+        if type == torch.Tensor:
+            check_close = lambda a, b: torch.isclose(a, b).all()
+        elif type == np.ndarray:
+            check_close = lambda a, b: np.isclose(a, b.cpu().detach().numpy()).all
+        else:
+            raise ValueError(f"Unrecognized type={type}")
+
+        assert check_close(u[0, :], torch.flatten(ux0(y))), msg + "u on x0 not satisfied"
+        assert check_close(u[-1, :], torch.flatten(ux1(y))), msg + "u on x1 not satisfied"
+        assert check_close(u[:, 0], torch.flatten(uy0(x))), msg + "u on y0 not satisfied"
+        assert check_close(u[:, -1], torch.flatten(uy1(x))), msg + "u on y1 not satisfied"
+
+        assert check_close(v[0, :], torch.flatten(vx0(y))), msg + "v on x0 not satisfied"
+        assert check_close(v[-1, :], torch.flatten(vx1(y))), msg + "v on x1 not satisfied"
+        assert check_close(v[:, 0], torch.flatten(vy0(x))), msg + "v on y0 not satisfied"
+        assert check_close(v[:, -1], torch.flatten(vy1(x))), msg + "v on y1 not satisfied"
+
+    for use_single in [True, False]:
+        solution = get_solution(use_single=use_single)
+        xs, ys = generator.get_examples()
+        us = solution(xs, ys)
+        check_output(us, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        us = solution(xs, ys, as_type='np')
+        check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
+
+        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
+        us = solution(xs, ys)
+        check_output(us, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        us = solution(xs, ys, as_type='np')
+        check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
