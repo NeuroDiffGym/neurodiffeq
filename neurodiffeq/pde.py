@@ -172,7 +172,7 @@ def solve2D(
 
     :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` where :math:`u` is the dependent variable and :math:`x` and :math:`y` are the independent variables,
         then `pde` should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
-    :type pde: function
+    :type pde: callable
     :param condition: The initial/boundary condition.
     :type condition: `neurodiffeq.conditions.BaseCondition`
     :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator and valid_generator are not specified, defaults to None
@@ -192,10 +192,10 @@ def solve2D(
     :param criterion: The loss function to use for training, defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
     :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
-    :type additional_loss_term: function
+    :type additional_loss_term: callable
     :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
         The input functions should be the same as `pde` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, function]
+    :type metrics: dict[string, callable]
     :param batch_size: The size of the mini-batch to use, defaults to 16.
     :type batch_size: int, optional
     :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -230,9 +230,9 @@ def solve2D_system(
 ):
     r"""Train a neural network to solve a PDE with 2 independent variables.
 
-        :param pde_system: The PDEsystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0` where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
+        :param pde_system: The PDE system to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0` where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
             then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
-        :type pde_system: function
+        :type pde_system: callable
         :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
         :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
         :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator or valid_generator are not specified, defaults to None
@@ -254,10 +254,10 @@ def solve2D_system(
         :param criterion: The loss function to use for training, defaults to None.
         :type criterion: `torch.nn.modules.loss._Loss`, optional
         :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
-        :type additional_loss_term: function
+        :type additional_loss_term: callable
         :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
             The input functions should be the same as `pde_system` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-        :type metrics: dict[string, function]
+        :type metrics: dict[string, callable]
         :param batch_size: The size of the mini-batch to use, defaults to 16.
         :type batch_size: int, optional
         :param max_epochs: The maximum number of epochs to train, defaults to 1000.
@@ -470,7 +470,7 @@ def make_animation(solution, xs, ts):
     r"""Create animation of 1-D time-dependent problems.
 
     :param solution: solution function returned by `solve2D` (for a 1-D time-dependent problem).
-    :type solution: function
+    :type solution: callable
     :param xs: The locations to evaluate solution.
     :type xs: `numpy.array`
     :param ts: The time points to evaluate solution.

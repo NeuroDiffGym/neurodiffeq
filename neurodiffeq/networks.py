@@ -146,3 +146,26 @@ class SinActv(nn.Module):
 
     def forward(self, input_):
         return torch.sin(input_)
+
+
+class Swish(nn.Module):
+    r"""The swish activation function: :math:`\mathrm{swish}(x)=x\sigma(\beta x)=\frac{x}{1+e^{-\beta x}}`.
+
+    :param beta: The :math:`\beta` parameter in the swish activation.
+    :type beta: float
+    :param trainable: Whether scalar :math:`\beta` can be trained
+    :type trainable: bool
+    """
+
+    def __init__(self, beta=1.0, trainable=False):
+        super(Swish, self).__init__()
+
+        beta = float(beta)
+        self.trainable = trainable
+        if trainable:
+            self.beta = nn.Parameter(torch.tensor(beta))
+        else:
+            self.beta = beta
+
+    def forward(self, x):
+        return x * torch.sigmoid(self.beta * x)

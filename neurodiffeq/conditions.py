@@ -68,7 +68,10 @@ class BaseCondition:
             conditions on multi-output networks should consider using a ``neurodiffeq.conditions.EnsembleCondition``.
         """
 
-        warnings.warn(f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future")
+        warnings.warn(
+            f"`{self.__class__.__name__}.set_impose_on` is deprecated and will be removed in the future",
+            DeprecationWarning,
+        )
         self.ith_unit = ith_unit
 
 

@@ -8,8 +8,10 @@ from math import erf, sqrt
 from pytest import raises
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.generators import GeneratorSpherical, Generator3D
-from neurodiffeq.pde_spherical import NoConditionSpherical, DirichletBVPSpherical, InfDirichletBVPSpherical
-from neurodiffeq.pde_spherical import DirichletBVPSphericalHarmonics, InfDirichletBVPSphericalHarmonics
+from neurodiffeq.conditions import NoCondition
+from neurodiffeq.conditions import DirichletBVPSpherical
+from neurodiffeq.conditions import InfDirichletBVPSpherical
+from neurodiffeq.conditions import DirichletBVPSphericalBasis
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
@@ -91,7 +93,7 @@ def test_inf_dirichlet_bvp_spherical():
 
 def test_train_generator_spherical():
     pde = laplacian_spherical
-    condition = NoConditionSpherical()
+    condition = NoCondition()
     train_generator = GeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
     r, th, ph = train_generator.get_examples()
     assert (0. < r.min()) and (r.max() < 1.)
@@ -231,7 +233,7 @@ def test_electric_potential_gaussian_charged_density():
         sol[:, 0:1] = 2 * analytic_solution(r, th, ph)
         return sol
 
-    condition2 = DirichletBVPSphericalHarmonics(r_0=r_0, R_0=R_0, r_1=r_1, R_1=R_1, max_degree=max_degree)
+    condition2 = DirichletBVPSphericalBasis(r_0=r_0, R_0=R_0, r_1=r_1, R_1=R_1, max_degree=max_degree)
     monitor2 = MonitorSphericalHarmonics(r_0, r_1, check_every=50, max_degree=max_degree)
     net2 = FCNN(n_input_units=1, n_output_units=(max_degree + 1) ** 2)
     harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
@@ -358,7 +360,7 @@ def test_spherical_harmonics():
     assert torch.max(abs_diff) <= 1e-5, f"difference too large, check again:\n {abs_diff.max()}"
 
 
-def test_spherical_laplcian():
+def test_spherical_laplacian():
     N_FLOAT = np.float64
     T_FLOAT = torch.float64
     n_samples = 10
