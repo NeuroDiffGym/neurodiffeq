@@ -20,8 +20,8 @@ np.random.seed(42)
 
 
 def test_monitor():
-    exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = IVP(t_0=0.0, x_0=1.0)
+    exponential = lambda u, t: diff(u, t) - u
+    init_val_ex = IVP(t_0=0.0, u_0=1.0)
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            max_epochs=3,
@@ -29,8 +29,8 @@ def test_monitor():
 
 
 def test_train_generator():
-    exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = IVP(t_0=0.0, x_0=1.0)
+    exponential = lambda u, t: diff(u, t) - u
+    init_val_ex = IVP(t_0=0.0, u_0=1.0)
 
     train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='uniform')
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
@@ -74,12 +74,12 @@ def test_train_generator():
 
 
 def test_ode():
-    def mse(x, t):
-        true_x = torch.sin(t)
-        return torch.mean((x - true_x) ** 2)
+    def mse(u, t):
+        true_u = torch.sin(t)
+        return torch.mean((u - true_u) ** 2)
 
-    exponential = lambda x, t: diff(x, t) - x
-    init_val_ex = IVP(t_0=0.0, x_0=1.0)
+    exponential = lambda u, t: diff(u, t) - u
+    init_val_ex = IVP(t_0=0.0, u_0=1.0)
     solution_ex, loss_history = solve(ode=exponential, condition=init_val_ex,
                                       t_min=0.0, t_max=2.0, shuffle=False,
                                       max_epochs=10, return_best=True, metrics={'mse': mse})
@@ -94,11 +94,11 @@ def test_ode():
 
 
 def test_ode_system():
-    parametric_circle = lambda x1, x2, t: [diff(x1, t) - x2,
-                                           diff(x2, t) + x1]
+    parametric_circle = lambda u1, u2, t: [diff(u1, t) - u2,
+                                           diff(u2, t) + u1]
     init_vals_pc = [
-        IVP(t_0=0.0, x_0=0.0),
-        IVP(t_0=0.0, x_0=1.0)
+        IVP(t_0=0.0, u_0=0.0),
+        IVP(t_0=0.0, u_0=1.0)
     ]
 
     solution_pc, loss_history = solve_system(ode_system=parametric_circle,
@@ -126,8 +126,8 @@ def test_additional_loss_term():
         return torch.sum(y2 ** 2)
 
     boundary_conditions = [
-        DirichletBVP(t_0=0, x_0=0, t_1=2, x_1=0),
-        DirichletBVP(t_0=0, x_0=0, t_1=2, x_1=0),
+        DirichletBVP(t_0=0, u_0=0, t_1=2, u_1=0),
+        DirichletBVP(t_0=0, u_0=0, t_1=2, u_1=0),
     ]
 
     solution_squarewell, loss_history = solve_system(
@@ -146,12 +146,12 @@ def test_additional_loss_term():
 
 
 def test_solution():
-    t0, x0 = np.random.rand() + 0, np.random.rand() + 0
-    t1, x1 = np.random.rand() + 1, np.random.rand() + 1
+    t0, u0 = np.random.rand() + 0, np.random.rand() + 0
+    t1, u1 = np.random.rand() + 1, np.random.rand() + 1
     N_SAMPLES = 100
 
     def get_solution(use_single: bool) -> Solution:
-        conditions = [IVP(t0, x0), IVP(t1, x1)]
+        conditions = [IVP(t0, u0), IVP(t1, u1)]
         if use_single:
             net = FCNN(1, 2)
             for i, cond in enumerate(conditions):
@@ -161,25 +161,25 @@ def test_solution():
             nets = [FCNN(1, 1), FCNN(1, 1)]
             return Solution(None, nets, conditions)
 
-    def check_output(xs, shape, type, msg=""):
+    def check_output(us, shape, type, msg=""):
         msg += " "
-        assert isinstance(xs, (list, tuple)), msg + "returned type is not a list"
-        assert len(xs) == 2, msg + "returned length is not 2"
-        assert isinstance(xs[0], type) and isinstance(xs[1], type), msg + f"returned element is not {type}"
-        assert xs[0].shape == shape and xs[1].shape == shape, msg + f"returned element shape is not {shape}"
-        assert xs[0][0] == x0, msg + f"first condition is not properly imposed"
-        assert xs[1][-1] == x1, msg + f"second condition is not properly imposed"
+        assert isinstance(us, (list, tuple)), msg + "returned type is not a list"
+        assert len(us) == 2, msg + "returned length is not 2"
+        assert isinstance(us[0], type) and isinstance(us[1], type), msg + f"returned element is not {type}"
+        assert us[0].shape == shape and us[1].shape == shape, msg + f"returned element shape is not {shape}"
+        assert us[0][0] == u0, msg + f"first condition is not properly imposed"
+        assert us[1][-1] == u1, msg + f"second condition is not properly imposed"
 
     for use_single in [True, False]:
         solution = get_solution(use_single=use_single)
         ts = torch.linspace(t0, t1, N_SAMPLES)
-        xs = solution(ts)
-        check_output(xs, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        xs = solution(ts, as_type='np')
-        check_output(xs, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(ts)
+        check_output(us, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        us = solution(ts, as_type='np')
+        check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
 
         ts = ts.reshape(-1, 1)
-        xs = solution(ts)
-        check_output(xs, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        xs = solution(ts, as_type='np')
-        check_output(xs, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(ts)
+        check_output(us, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
+        us = solution(ts, as_type='np')
+        check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
