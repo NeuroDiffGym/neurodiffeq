@@ -1,7 +1,9 @@
 import torch
 import torch.autograd as autograd
+from ._version_utils import deprecated_alias
 
 
+@deprecated_alias(x='u')
 def unsafe_diff(u, t, order=1):
     r"""The derivative of a variable with respect to another.
     While there's no requirement for shapes, errors could occur in some cases.
@@ -28,6 +30,7 @@ def unsafe_diff(u, t, order=1):
     return der
 
 
+@deprecated_alias(x='u')
 def safe_diff(u, t, order=1):
     r"""The derivative of a variable with respect to another.
     Both tensors must have a shape of (n_samples, 1)
@@ -53,6 +56,7 @@ def safe_diff(u, t, order=1):
     return unsafe_diff(u, t, order=order)
 
 
+@deprecated_alias(x='u')
 def diff(u, t, order=1, shape_check=True):
     r"""The derivative of a variable with respect to another. ``diff`` defaults to the behaviour of ``safe_diff``.
 
