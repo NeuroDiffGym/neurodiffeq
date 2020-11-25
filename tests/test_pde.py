@@ -7,7 +7,6 @@ matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during te
 
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN
-from neurodiffeq.pde import DirichletBVP2D, IBVP1D
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
 from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation
 from neurodiffeq.pde import Solution
