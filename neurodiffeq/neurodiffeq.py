@@ -22,11 +22,15 @@ def unsafe_diff(u, t, order=1):
     der, = autograd.grad(u, t, create_graph=True, grad_outputs=ones, allow_unused=True)
     if der is None:
         return torch.zeros_like(t, requires_grad=True)
+    else:
+        der.requires_grad_()
     for i in range(1, order):
         ones = torch.ones_like(der)
         der, = autograd.grad(der, t, create_graph=True, grad_outputs=ones, allow_unused=True)
         if der is None:
             return torch.zeros_like(t, requires_grad=True)
+        else:
+            der.requires_grad_()
     return der
 
 
