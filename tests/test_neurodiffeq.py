@@ -94,3 +94,13 @@ def test_higher_order_derivatives():
     u, t = get_data(flatten_u=False, flatten_t=False, f=torch.exp)
     for order in range(1, 10):
         assert torch.isclose(diff(u, t, order=order), u).all()
+
+
+def test_legacy_siganature():
+    u, t = get_data(flatten_u=False, flatten_t=False)
+    with pytest.warns(FutureWarning):
+        diff(x=u, t=t)
+    with pytest.warns(FutureWarning):
+        safe_diff(x=u, t=t)
+    with pytest.warns(FutureWarning):
+        unsafe_diff(x=u, t=t)
