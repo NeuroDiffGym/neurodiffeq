@@ -278,8 +278,12 @@ def solve_system(
         raise RuntimeError('Only one of net and nets should be specified')
     # defaults to use a single neural network
     if (not single_net) and (not nets):
-        single_net = FCNN(n_input_units=1, n_output_units=len(conditions), n_hidden_units=32, n_hidden_layers=1,
-                   actv=nn.Tanh)
+        single_net = FCNN(
+            n_input_units=1,
+            n_output_units=len(conditions),
+            hidden_units=(32, 32),
+            actv=nn.Tanh,
+        )
     if single_net:
         # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):

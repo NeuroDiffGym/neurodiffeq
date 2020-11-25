@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import warnings
 from .neurodiffeq import safe_diff as diff
+from ._version_utils import deprecated_alias
 
 
 class BaseCondition:
@@ -154,29 +155,30 @@ class NoCondition(BaseCondition):
 class IVP(BaseCondition):
     r"""An initial value problem of one of the following forms:
 
-    - Dirichlet condition: :math:`x(t_0)=x_0`.
-    - Neumann condition: :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`.
+    - Dirichlet condition: :math:`u(t_0)=u_0`.
+    - Neumann condition: :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0} = u_0'`.
 
     :param t_0: The initial time.
     :type t_0: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t_0)=x_0`.
-    :type x_0: float
-    :param x_0_prime: The initial derivative of :math:`x` w.r.t. :math:`t`. :math:`\displaystyle\frac{\partial x}{\partial t}\bigg|_{t = t_0} = x_0'`, defaults to None.
-    :type x_0_prime: float, optional
+    :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`.
+    :type u_0: float
+    :param u_0_prime: The initial derivative of :math:`u` w.r.t. :math:`t`. :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0} = u_0'`, defaults to None.
+    :type u_0_prime: float, optional
     """
 
-    def __init__(self, t_0, x_0, x_0_prime=None):
+    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
+    def __init__(self, t_0, u_0=None, u_0_prime=None):
         super().__init__()
-        self.t_0, self.x_0, self.x_0_prime = t_0, x_0, x_0_prime
+        self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
 
     def parameterize(self, output_tensor, t):
         r"""Re-parameterizes outputs such that the Dirichlet/Neumann condition is satisfied.
 
         - For Dirichlet condition, the re-parameterization is
-          :math:`\displaystyle x(t) = x_0 + \left(1 - e^{-(t-t_0)}\right) \mathrm{ANN}(t)`
+          :math:`\displaystyle u(t) = u_0 + \left(1 - e^{-(t-t_0)}\right) \mathrm{ANN}(t)`
           where :math:`\mathrm{ANN}` is the neural network.
         - For Neumann condition, the re-parameterization is
-          :math:`\displaystyle x(t) = x_0 + (t-t_0) x'_0 + \left(1 - e^{-(t-t_0)}\right)^2 \mathrm{ANN}(t)`
+          :math:`\displaystyle u(t) = u_0 + (t-t_0) u'_0 + \left(1 - e^{-(t-t_0)}\right)^2 \mathrm{ANN}(t)`
           where :math:`\mathrm{ANN}` is the neural network.
 
         :param output_tensor: Output of the neural network.
@@ -186,35 +188,36 @@ class IVP(BaseCondition):
         :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
-        if self.x_0_prime is None:
-            return self.x_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
+        if self.u_0_prime is None:
+            return self.u_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
         else:
-            return self.x_0 + (t - self.t_0) * self.x_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
+            return self.u_0 + (t - self.t_0) * self.u_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
 
 
 class DirichletBVP(BaseCondition):
     r"""A double-ended Dirichlet boundary condition:
-    :math:`x(t_0)=x_0` and :math:`x(t_1)=x_1`.
+    :math:`u(t_0)=u_0` and :math:`u(t_1)=u_1`.
 
     :param t_0: The initial time.
     :type t_0: float
+    :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`.
+    :type u_0: float
     :param t_1: The final time.
     :type t_1: float
-    :param x_0: The initial value of :math:`x`. :math:`x(t_0)=x_0`.
-    :type x_0: float
-    :param x_1: The initial value of :math:`x`. :math:`x(t_1)=x_1`.
-    :type x_1: float
+    :param u_1: The initial value of :math:`u`. :math:`u(t_1)=u_1`.
+    :type u_1: float
     """
 
-    def __init__(self, t_0, x_0, t_1, x_1):
+    @deprecated_alias(x_0='u_0', x_1='u_1')
+    def __init__(self, t_0, u_0, t_1, u_1):
         super().__init__()
-        self.t_0, self.x_0, self.t_1, self.x_1 = t_0, x_0, t_1, x_1
+        self.t_0, self.u_0, self.t_1, self.u_1 = t_0, u_0, t_1, u_1
 
     def parameterize(self, output_tensor, t):
         r"""Re-parameterizes outputs such that the Dirichlet condition is satisfied on both ends of the domain.
 
         The re-parameterization is
-        :math:`\displaystyle x(t)=(1-\tilde{t})x_0+\tilde{t}x_1+\left(1-e^{(1-\tilde{t})\tilde{t}}\right)\mathrm{ANN}(t)`,
+        :math:`\displaystyle u(t)=(1-\tilde{t})u_0+\tilde{t}u_1+\left(1-e^{(1-\tilde{t})\tilde{t}}\right)\mathrm{ANN}(t)`,
         where :math:`\displaystyle \tilde{t} = \frac{t-t_0}{t_1-t_0}` and :math:`\mathrm{ANN}` is the neural network.
 
         :param output_tensor: Output of the neural network.
@@ -226,8 +229,8 @@ class DirichletBVP(BaseCondition):
         """
 
         t_tilde = (t - self.t_0) / (self.t_1 - self.t_0)
-        return self.x_0 * (1 - t_tilde) \
-               + self.x_1 * t_tilde \
+        return self.u_0 * (1 - t_tilde) \
+               + self.u_1 * t_tilde \
                + (1 - torch.exp((1 - t_tilde) * t_tilde)) * output_tensor
 
 

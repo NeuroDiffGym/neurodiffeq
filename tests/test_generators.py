@@ -1,7 +1,7 @@
 import sys
 import torch
 import numpy as np
-from pytest import raises
+from pytest import raises, warns, deprecated_call
 # atomic-ish generator classes
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
@@ -399,3 +399,24 @@ def test_batch_generator():
         # update answer for next iteration
         answer_x = (answer_x + batch_size) % size
         answer_y = (answer_y + batch_size) % size
+
+
+def test_legacy_module():
+    with warns(FutureWarning):
+        import neurodiffeq.generator
+
+    from neurodiffeq.ode import ExampleGenerator
+    from neurodiffeq.pde import ExampleGenerator2D, PredefinedExampleGenerator2D
+    from neurodiffeq.pde_spherical import ExampleGenerator3D, ExampleGeneratorSpherical
+    with warns(FutureWarning):
+        ExampleGenerator(100)
+    with warns(FutureWarning):
+        ExampleGenerator2D()
+    with warns(FutureWarning):
+        x = torch.rand(10)
+        y = torch.rand(10)
+        PredefinedExampleGenerator2D(x, y)
+    with warns(FutureWarning):
+        ExampleGenerator3D()
+    with warns(FutureWarning):
+        ExampleGeneratorSpherical(100)

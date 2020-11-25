@@ -1,9 +1,6 @@
 # neurodiffeq
 
-[![Build Status](https://travis-ci.org/odegym/neurodiffeq.svg?branch=master)](https://travis-ci.org/odegym/neurodiffeq)
-[![codecov](https://codecov.io/gh/odegym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/odegym/neurodiffeq)
-[![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest)
-[![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
+[![PyPI version](https://badge.fury.io/py/neurodiffeq.svg)](https://badge.fury.io/py/neurodiffeq) ![GitHub issues](https://img.shields.io/github/issues/odegym/neurodiffeq?color=green) [![Build Status](https://travis-ci.org/odegym/neurodiffeq.svg?branch=master)](https://travis-ci.org/odegym/neurodiffeq) [![codecov](https://codecov.io/gh/odegym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/odegym/neurodiffeq) [![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest) [![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
 
 # Introduction
 
@@ -15,7 +12,7 @@ As universal function approximators, artificial neural networks have been shown 
 
 ## Install via pip
 
-Like most standard libraries, `neurodiffeq` in hosted on PyPI. To install the latest stable relesase, simply use the `pip` (or `pip3`) tool.
+Like most standard libraries, `neurodiffeq` is hosted on [PyPI](https://pypi.org/project/neurodiffeq/). To install the latest stable relesase, simply use the `pip` (or `pip3`) tool.
 
 ```sh
 pip install neurodiffeq 
@@ -35,7 +32,9 @@ Alternatively, you can install the library manually to get early access to our n
 
 # Getting Started
 
-For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on [ReadTheDocs](https://readthedocs.org)
+For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on [ReadTheDocs](https://readthedocs.org).
+
+In case ReadTheDocs' service is down (which rarely happens), you can refer to our self-hosted [documentation site](https://neurodiffeq.com) as a backup option.
 
 # Contributing
 

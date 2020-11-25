@@ -30,7 +30,7 @@ def test_monitor():
         y_max=1, y_max_val=lambda x: 0
     )
 
-    net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1)
+    net = FCNN(n_input_units=2, hidden_units=(32, 32))
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3,
@@ -49,7 +49,7 @@ def test_train_generator():
         y_max=1, y_max_val=lambda x: 0
     )
 
-    net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1)
+    net = FCNN(n_input_units=2, hidden_units=(32, 32))
     solution_neural_net_laplace, _ = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3,
@@ -96,7 +96,7 @@ def test_laplace():
         y_max=1, y_max_val=lambda x: 0
     )
 
-    net = FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1)
+    net = FCNN(n_input_units=2, hidden_units=(32, 32))
     solution_neural_net_laplace, loss_history = solve2D(
         pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
         net=net, max_epochs=3,
@@ -199,7 +199,7 @@ def test_laplace():
 #     conditions = [bc_on_u, bc_on_v, bc_on_p]
 #
 #     nets = [
-#         FCNN(n_input_units=2, n_hidden_units=32, n_hidden_layers=1, actv=nn.Softplus)
+#         FCNN(n_input_units=2, hidden_units=(32, 32), actv=nn.Softplus)
 #         for _ in range(3)
 #     ]
 #
@@ -395,7 +395,7 @@ def test_arbitrary_boundary():
                     1.0 + x ** 2 + y ** 2) ** 2
 
     # fully connected network with one hidden layer (100 hidden units with ELU activation)
-    net = FCNN(n_input_units=2, n_hidden_units=100, n_hidden_layers=1, actv=nn.ELU)
+    net = FCNN(n_input_units=2, hidden_units=(100, 100), actv=nn.ELU)
     adam = optim.Adam(params=net.parameters(), lr=0.001)
 
     # train on 28 X 28 grid
