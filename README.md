@@ -16,8 +16,6 @@ As universal function approximators, artificial neural networks have been shown 
 
 # Installation
 
-<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/VDLwyFD-sXQ" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-
 ## Install via pip
 
 Like most standard libraries, `neurodiffeq` is hosted on [PyPI](https://pypi.org/project/neurodiffeq/). To install the latest stable relesase, simply use the `pip` (or `pip3`) tool.
