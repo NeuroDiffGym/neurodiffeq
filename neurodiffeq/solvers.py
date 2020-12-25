@@ -492,7 +492,7 @@ class BaseSolution(ABC):
             for con, net in zip(self.conditions, self.nets)
         ]
         if to_numpy:
-            us = [u.detach().cpu().numpy().flatten() for u in us]
+            us = [u.detach().cpu().numpy() for u in us]
 
         return us if len(self.nets) > 1 else us[0]
 
