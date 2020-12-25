@@ -509,7 +509,7 @@ class BaseSolution(ABC):
         return us if len(self.nets) > 1 else us[0]
 
 
-class SphericalSolver(BaseSolver):
+class SolverSpherical(BaseSolver):
     r"""A solver class for solving PDEs in spherical coordinates
 
     :param pde_system:
@@ -604,7 +604,7 @@ class SphericalSolver(BaseSolver):
 
         self.r_min, self.r_max = r_min, r_max
 
-        super(SphericalSolver, self).__init__(
+        super(SolverSpherical, self).__init__(
             diff_eqs=pde_system,
             conditions=conditions,
             nets=nets,

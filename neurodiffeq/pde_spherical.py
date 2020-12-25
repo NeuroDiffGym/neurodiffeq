@@ -20,7 +20,7 @@ from ._version_utils import warn_deprecate_class
 from .generators import Generator3D, GeneratorSpherical
 from .conditions import NoCondition, DirichletBVPSpherical, InfDirichletBVPSpherical
 from .conditions import DirichletBVPSphericalBasis, InfDirichletBVPSphericalBasis
-from .solvers import SphericalSolver
+from .solvers import SolverSpherical
 from copy import deepcopy
 from datetime import datetime
 
@@ -35,6 +35,9 @@ DirichletBVPSpherical = warn_deprecate_class(DirichletBVPSpherical)
 DirichletBVPSphericalHarmonics = warn_deprecate_class(DirichletBVPSphericalBasis)
 InfDirichletBVPSpherical = warn_deprecate_class(InfDirichletBVPSpherical)
 InfDirichletBVPSphericalHarmonics = warn_deprecate_class(InfDirichletBVPSphericalBasis)
+
+# old solver name is deprecated
+SphericalSolver = warn_deprecate_class(SolverSpherical)
 
 
 def solve_spherical(
@@ -249,7 +252,7 @@ def solve_spherical_system(
         def enforcer(net, cond, points):
             return (cond.enforce(net, points[0]) * harmonics_fn(*points[1:])).sum(dim=1, keepdims=True)
 
-    solver = SphericalSolver(
+    solver = SolverSpherical(
         pde_system=pde_system,
         conditions=conditions,
         r_min=r_min,
