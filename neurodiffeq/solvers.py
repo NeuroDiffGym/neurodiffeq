@@ -447,18 +447,30 @@ class BaseSolver(ABC):
 class BaseSolution(ABC):
     r"""A solution to a PDE/ODE (system).
 
-    :param nets: The neural networks that approximate the PDE/ODE solution.
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: The conditions enforced on the PDE/ODE solution.
+    :param nets:
+        The neural networks that approximate the PDE/ODE solution.
+
+        - If ``nets`` is a list of ``torch.nn.Module``, it should have the same length with ``conditions``
+        - If ``nets`` is a single ``torch.nn.Module``, it should have as many output units as length of ``conditions``
+
+    :type nets: list[`torch.nn.Module`] or `torch.nn.Module`
+    :param conditions:
+        A list of conditions that should be enforced on the PDE/ODE solution.
+        ``conditions`` should have a length equal to the number of dependent variables in the ODE/PDE system.
     :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     """
 
     def __init__(self, nets, conditions):
-        self.nets = nets
+        if isinstance(nets, nn.Module):
+            # This is for backward compatibility with the `single_net` option
+            # The same torch.nn.Module instance is repeated to form a list of the same length as `conditions`
+            self.nets = [nets] * len(conditions)
+        else:
+            self.nets = nets
         self.conditions = conditions
 
     @abstractmethod
-    def _compute_u(self, net, con, *coords):
+    def _compute_u(self, net, condition, *coords):
         pass
 
     @deprecated_alias(as_type='to_numpy')
