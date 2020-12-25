@@ -356,7 +356,7 @@ class BaseSolver(ABC):
             A solution object which can be called.
             To evaluate the solution on certain points,
             you should pass the coordinates vector(s) to the returned solution.
-        :rtype: callable
+        :rtype: BaseSolution
         """
         pass
 
@@ -434,4 +434,9 @@ class BaseSolver(ABC):
         """
         return 0.0
 
+
+class BaseSolution(ABC):
+    @abstractmethod
+    def __call__(self, *coords, to_numpy=False):
+        pass
 
