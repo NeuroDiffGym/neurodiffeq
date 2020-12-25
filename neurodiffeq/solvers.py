@@ -445,6 +445,15 @@ class BaseSolver(ABC):
 class BaseSolution(ABC):
     @abstractmethod
     def __call__(self, *coords, to_numpy=False):
+        r"""Evaluate the solution at certain points.
+
+        :param to_numpy:
+            If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
+            Defaults to False.
+        :type to_numpy: bool
+        :return: Dependent variables evaluated at given points.
+        :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
+        """
         pass
 
 
