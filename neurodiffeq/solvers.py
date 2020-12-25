@@ -603,6 +603,7 @@ class SolverSpherical(BaseSolver):
             valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
 
         self.r_min, self.r_max = r_min, r_max
+        self.enforcer = enforcer
 
         super(SolverSpherical, self).__init__(
             diff_eqs=pde_system,
@@ -620,8 +621,6 @@ class SolverSpherical(BaseSolver):
             shuffle=shuffle,
             batch_size=batch_size,
         )
-
-        self.enforcer = enforcer
 
     def _auto_enforce(self, net, cond, *coordinates):
         r"""Enforce condition on network with inputs. If self.enforcer is set, use it.
