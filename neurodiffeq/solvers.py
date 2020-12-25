@@ -1,12 +1,14 @@
 import torch
 import warnings
 import torch.nn as nn
+from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
 from torch.optim import Adam
 from neurodiffeq.networks import FCNN
 from neurodiffeq._version_utils import deprecated_alias
+from neurodiffeq.generators import GeneratorSpherical
 from neurodiffeq.function_basis import RealSphericalHarmonics
 
 
@@ -455,6 +457,199 @@ class BaseSolution(ABC):
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
         pass
+
+
+class SphericalSolver(BaseSolver):
+    r"""A solver class for solving PDEs in spherical coordinates
+
+    :param pde_system:
+        The PDE system to solve, which maps a tuple of three coordinates to a tuple of PDE residuals,
+        both the coordinates and PDE residuals must have shape (n_samples, 1).
+    :type pde_system: callable
+    :param conditions:
+        List of boundary conditions for each target function.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param r_min:
+        Radius for inner boundary (:math:`r_0>0`).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type r_min: float, optional
+    :param r_max:
+        Radius for outer boundary (:math:`r_1>r_0`).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type r_max: float, optional
+    :param nets:
+        List of neural networks for parameterized solution.
+        If provided, length of ``nets`` must equal that of ``conditions``
+    :type nets: list[torch.nn.Module], optional
+    :param train_generator:
+        Generator for sampling training points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``train_generator`` must be specified if ``r_min`` and ``r_max`` are not set.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        Generator for sampling validation points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``valid_generator`` must be specified if ``r_min`` and ``r_max`` are not set.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param analytic_solutions:
+        Analytical solutions to be compared with neural net solutions.
+        It maps a tuple of three coordinates to a tuple of function values.
+        Output shape should match that of ``nets``.
+    :type analytic_solutions: callable, optional
+    :param optimizer:
+        Optimizer to be used for training.
+        Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+    :type optimizer: ``torch.nn.optim.Optimizer``, optional
+    :param criterion:
+        Function that maps a PDE residual tensor (of shape (-1, 1)) to a scalar loss.
+    :type criterion: callable, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
+    :param enforcer:
+        A function of signature
+        ``enforcer(net: nn.Module, cond: neurodiffeq.conditions.BaseCondition,
+        coords: Tuple[torch.Tensor]) -> torch.Tensor``
+        that returns the dependent variable value evaluated on the batch.
+    :type enforcer: callable
+    :param n_output_units:
+        Number of output units for each neural network.
+        Ignored if ``nets`` is specified.
+        Defaults to 1.
+    :type n_output_units: int, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+    """
+
+    def __init__(self, pde_system, conditions, r_min=None, r_max=None,
+                 nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
+                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
+                 n_output_units=1,
+                 # deprecated arguments are listed below
+                 shuffle=False, batch_size=None):
+
+        if train_generator is None or valid_generator is None:
+            if r_min is None or r_max is None:
+                raise ValueError(f"Either generator is not provided, r_min and r_max should be both provided: "
+                                 f"got r_min={r_min}, r_max={r_max}, train_generator={train_generator}, "
+                                 f"valid_generator={valid_generator}")
+
+        if train_generator is None:
+            train_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
+
+        if valid_generator is None:
+            valid_generator = GeneratorSpherical(512, r_min, r_max, method='equally-spaced-noisy')
+
+        self.r_min, self.r_max = r_min, r_max
+
+        super(SphericalSolver, self).__init__(
+            diff_eqs=pde_system,
+            conditions=conditions,
+            nets=nets,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
+            analytic_solutions=analytic_solutions,
+            optimizer=optimizer,
+            criterion=criterion,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            n_input_units=3,
+            n_output_units=n_output_units,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
+
+        self.enforcer = enforcer
+
+    def _auto_enforce(self, net, cond, *coordinates):
+        r"""Enforce condition on network with inputs. If self.enforcer is set, use it.
+        Otherwise, fill cond.enforce() with as many arguments as needed.
+
+        :param net: Network for parameterized solution.
+        :type net: torch.nn.Module
+        :param cond: Condition (a.k.a. parameterization) for the network.
+        :type cond: `neurodiffeq.conditions.BaseCondition`
+        :param coordinates: A tuple of vectors, each with shape = (-1, 1).
+        :type coordinates: tuple[torch.Tensor]
+        :return: Function values at sampled points.
+        :rtype: torch.Tensor
+        """
+        if self.enforcer:
+            return self.enforcer(net, cond, coordinates)
+
+        n_params = len(signature(cond.enforce).parameters)
+        coordinates = coordinates[:n_params - 1]
+        return cond.enforce(net, *coordinates)
+
+    def compute_func_val(self, net, cond, *coordinates):
+        r"""Enforce condition on network with inputs. If self.enforcer is set, use it.
+        Otherwise, fill cond.enforce() with as many arguments as needed.
+
+        :param net: Network for parameterized solution.
+        :type net: torch.nn.Module
+        :param cond: Condition (a.k.a. parameterization) for the network.
+        :type cond: `neurodiffeq.conditions.BaseCondition`
+        :param coordinates: A tuple of vectors, each with shape = (-1, 1).
+        :type coordinates: tuple[torch.Tensor]
+        :return: Function values at sampled points.
+        :rtype: torch.Tensor
+        """
+        return self._auto_enforce(net, cond, *coordinates)
+
+    def get_solution(self, copy=True, best=True, harmonics_fn=None):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :param harmonics_fn:
+            If set, use it as function basis for returned solution.
+        :type harmonics_fn: callable
+        :return: The solution after training.
+        :rtype: ``neurodiffeq.solvers.BaseSolution``
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        if harmonics_fn:
+            return SolutionSphericalHarmonics(nets, conditions, harmonics_fn=harmonics_fn)
+        else:
+            return SolutionSpherical(nets, conditions)
+
+    def _get_internal_variables(self):
+        available_variables = self._get_internal_variables()
+        available_variables.update({
+            'r_min': self.r_min,
+            'r_max': self.r_max,
+            'enforcer': self.enforcer,
+        })
+        return available_variables
 
 
 class SolutionSpherical(BaseSolution):
