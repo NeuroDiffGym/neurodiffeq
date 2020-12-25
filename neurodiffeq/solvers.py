@@ -7,6 +7,7 @@ from copy import deepcopy
 from torch.optim import Adam
 from neurodiffeq.networks import FCNN
 from neurodiffeq._version_utils import deprecated_alias
+from neurodiffeq.function_basis import RealSphericalHarmonics
 
 
 class BaseSolver(ABC):
@@ -440,3 +441,88 @@ class BaseSolution(ABC):
     def __call__(self, *coords, to_numpy=False):
         pass
 
+
+class SolutionSpherical(BaseSolution):
+    """A solution to a PDE (system) in spherical coordinates
+
+    :param nets: The neural networks that approximate the PDE.
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: The conditions of the PDE (system).
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    """
+
+    def __init__(self, nets, conditions):
+        """Initializer method
+        """
+        self.nets = deepcopy(nets)
+        self.conditions = deepcopy(conditions)
+
+    def _compute_u(self, net, condition, rs, thetas, phis):
+        return condition.enforce(net, rs, thetas, phis)
+
+    def __call__(self, rs, thetas, phis, as_type='tf'):
+        """Evaluate the solution at certain points.
+
+        :param rs: The radii of points where the neural network output is evaluated.
+        :type rs: `torch.Tensor`
+        :param thetas: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
+        :type thetas: `torch.Tensor`
+        :param phis: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
+        :type phis: `torch.Tensor`
+        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
+        :type as_type: str
+        :return: dependent variables are evaluated at given points.
+        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
+            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
+        """
+        if not isinstance(rs, torch.Tensor):
+            rs = torch.tensor(rs)
+        if not isinstance(thetas, torch.Tensor):
+            thetas = torch.tensor(thetas)
+        if not isinstance(phis, torch.Tensor):
+            phis = torch.tensor(phis)
+        original_shape = rs.shape
+        rs = rs.reshape(-1, 1)
+        thetas = thetas.reshape(-1, 1)
+        phis = phis.reshape(-1, 1)
+        if as_type not in ('tf', 'np'):
+            raise ValueError("The valid return types are 'tf' and 'np'.")
+
+        vs = [
+            self._compute_u(net, con, rs, thetas, phis).reshape(original_shape)
+            for con, net in zip(self.conditions, self.nets)
+        ]
+        if as_type == 'np':
+            vs = [v.detach().cpu().numpy().flatten() for v in vs]
+
+        return vs if len(self.nets) > 1 else vs[0]
+
+
+class SolutionSphericalHarmonics(SolutionSpherical):
+    r"""A solution to a PDE (system) in spherical coordinates.
+
+    :param nets: List of networks that takes in radius tensor and outputs the coefficients of spherical harmonics.
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: List of conditions to be enforced on each nets; must be of the same length as nets.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param harmonics_fn: Mapping from :math:`\theta` and :math:`\phi` to basis functions, e.g., spherical harmonics.
+    :type harmonics_fn: callable
+    :param max_degree: **DEPRECATED and SUPERSEDED** by ``harmonics_fn``. Highest used for the harmonic basis.
+    :type max_degree: int
+    """
+
+    def __init__(self, nets, conditions, max_degree=None, harmonics_fn=None):
+        super(SolutionSphericalHarmonics, self).__init__(nets, conditions)
+        if (harmonics_fn is None) and (max_degree is None):
+            raise ValueError("harmonics_fn should be specified")
+
+        if max_degree is not None:
+            warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
+            self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+
+        if harmonics_fn is not None:
+            self.harmonics_fn = harmonics_fn
+
+    def _compute_u(self, net, condition, rs, thetas, phis):
+        products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
+        return torch.sum(products, dim=1)
