@@ -13,7 +13,7 @@ from neurodiffeq.function_basis import RealSphericalHarmonics
 
 
 class BaseSolver(ABC):
-    """A class for solving ODE/PDE systems.
+    r"""A class for solving ODE/PDE systems.
 
     :param diff_eqs:
         The differential equation system to solve, which maps a tuple of coordinates to a tuple of ODE/PDE residuals.
@@ -138,7 +138,7 @@ class BaseSolver(ABC):
 
     @property
     def global_epoch(self):
-        """Global epoch count, always equal to the length of train loss history.
+        r"""Global epoch count, always equal to the length of train loss history.
 
         :return: Number of training epochs that have been run.
         :rtype: int
@@ -146,7 +146,7 @@ class BaseSolver(ABC):
         return len(self.loss['train'])
 
     def compute_func_val(self, net, cond, *coordinates):
-        """Compute the function value evaluated on the points specified by ``coordinates``.
+        r"""Compute the function value evaluated on the points specified by ``coordinates``.
 
         :param net: The network to be parameterized and evaluated.
         :type net: torch.nn.Module
@@ -160,7 +160,7 @@ class BaseSolver(ABC):
         return cond.enforce(net, *coordinates)
 
     def _update_history(self, value, metric_type, key):
-        """Append a value to corresponding history list.
+        r"""Append a value to corresponding history list.
 
         :param value: Value to be appended.
         :type value: float
@@ -178,15 +178,15 @@ class BaseSolver(ABC):
             raise KeyError(f'history type = {metric_type} not understood')
 
     def _update_train_history(self, value, metric_type):
-        """Append a value to corresponding training history list."""
+        r"""Append a value to corresponding training history list."""
         self._update_history(value, metric_type, key='train')
 
     def _update_valid_history(self, value, metric_type):
-        """Append a value to corresponding validation history list."""
+        r"""Append a value to corresponding validation history list."""
         self._update_history(value, metric_type, key='valid')
 
     def _generate_batch(self, key):
-        """Generate the next batch, register in self._batch_examples and return the batch.
+        r"""Generate the next batch, register in self._batch_examples and return the batch.
 
         :param key:
             {'train', 'valid'};
@@ -202,11 +202,11 @@ class BaseSolver(ABC):
         return self._batch_examples[key]
 
     def _generate_train_batch(self):
-        """Generate the next training batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next training batch, register in ``self._batch_examples`` and return."""
         return self._generate_batch('train')
 
     def _generate_valid_batch(self):
-        """Generate the next validation batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next validation batch, register in ``self._batch_examples`` and return."""
         return self._generate_batch('valid')
 
     def _do_optimizer_step(self):
@@ -222,7 +222,7 @@ class BaseSolver(ABC):
         self.optimizer.step()
 
     def _run_epoch(self, key):
-        """Run an epoch on train/valid points, update history, and perform an optimization step if key=='train'.
+        r"""Run an epoch on train/valid points, update history, and perform an optimization step if key=='train'.
 
         :param key: {'train', 'valid'}; phase of the epoch
         :type key: str
@@ -277,15 +277,15 @@ class BaseSolver(ABC):
             self._update_history(epoch_analytic_mse, 'analytic_mse', key)
 
     def run_train_epoch(self):
-        """Run a training epoch, update history, and perform gradient descent."""
+        r"""Run a training epoch, update history, and perform gradient descent."""
         self._run_epoch('train')
 
     def run_valid_epoch(self):
-        """Run a validation epoch and update history."""
+        r"""Run a validation epoch and update history."""
         self._run_epoch('valid')
 
     def _update_best(self):
-        """Update ``self.lowest_loss`` and ``self.best_nets``
+        r"""Update ``self.lowest_loss`` and ``self.best_nets``
         if current validation loss is lower than ``self.lowest_loss``
         """
         current_loss = self.loss['valid'][-1]
@@ -345,7 +345,7 @@ class BaseSolver(ABC):
 
     @abstractmethod
     def get_solution(self, copy=True, best=True):
-        """Get a (callable) solution object. See this usage example:
+        r"""Get a (callable) solution object. See this usage example:
 
         .. code-block:: python3
 
@@ -370,7 +370,7 @@ class BaseSolver(ABC):
         pass
 
     def _get_internal_variables(self):
-        """Get a dict of all available internal variables.
+        r"""Get a dict of all available internal variables.
 
         :return:
             All available interal parameters,
@@ -400,7 +400,7 @@ class BaseSolver(ABC):
 
     @deprecated_alias(param_names='var_names')
     def get_internals(self, var_names, return_type='list'):
-        """Return internal variable(s) of the solver
+        r"""Return internal variable(s) of the solver
 
         - If var_names == 'all', return all internal variables as a dict.
         - If var_names is single str, return the corresponding variables.
@@ -445,7 +445,7 @@ class BaseSolver(ABC):
 
 
 class BaseSolution(ABC):
-    """A solution to a PDE/ODE (system).
+    r"""A solution to a PDE/ODE (system).
 
     :param nets: The neural networks that approximate the PDE/ODE solution.
     :type nets: list[`torch.nn.Module`]
