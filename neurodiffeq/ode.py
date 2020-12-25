@@ -32,11 +32,15 @@ def _trial_solution(single_net, nets, ts, conditions):
 class Monitor:
     """A monitor for checking the status of the neural network during training.
 
-    :param t_min: The lower bound of time domain that we want to monitor.
+    :param t_min:
+        The lower bound of time domain that we want to monitor.
     :type t_min: float
-    :param t_max: The upper bound of time domain that we want to monitor.
+    :param t_max:
+        The upper bound of time domain that we want to monitor.
     :type t_max: float
-    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
+    :param check_every:
+        The frequency of checking the neural network represented by the number of epochs between two checks.
+        Defaults to 100.
     :type check_every: int, optional
     """
     def __init__(self, t_min, t_max, check_every=100):
@@ -54,13 +58,18 @@ class Monitor:
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1))
 
     def check(self, single_net, nets, conditions, history):
-        r"""Draw 2 plots: One shows the shape of the current solution. The other shows the history training loss and validation loss.
+        r"""Draw 2 plots: One shows the shape of the current solution.
+        The other shows the history training loss and validation loss.
 
-        :param nets: The neural networks that approximates the ODE (system).
+        :param nets:
+            The neural networks that approximates the ODE (system).
         :type nets: list[`torch.nn.Module`]
-        :param conditions: The initial/boundary conditions of the ODE (system).
+        :param conditions:
+            The initial/boundary conditions of the ODE (system).
         :type conditions: list[`neurodiffeq.ode.BaseCondition`]
-        :param history: The history of training loss and validation loss. The 'train_loss' entry is a list of training loss and 'valid_loss' entry is a list of validation loss.
+        :param history:
+            The history of training loss and validation loss.
+            The 'train_loss' entry is a list of training loss and 'valid_loss' entry is a list of validation loss.
         :type history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
@@ -112,53 +121,93 @@ def solve(
 ):
     r"""Train a neural network to solve an ODE.
 
-    :param ode: The ODE to solve. If the ODE is :math:`F(x, t) = 0` where :math:`x` is the dependent variable and :math:`t` is the independent variable,
+    :param ode:
+        The ODE to solve.
+        If the ODE is :math:`F(x, t) = 0`
+        where :math:`x` is the dependent variable and :math:`t` is the independent variable,
         then `ode` should be a function that maps :math:`(x, t)` to :math:`F(x, t)`.
     :type ode: callable
-    :param condition: The initial/boundary condition.
+    :param condition:
+        The initial/boundary condition.
     :type condition: `neurodiffeq.conditions.BaseCondition`
-    :param net: The neural network used to approximate the solution, defaults to None.
+    :param net:
+        The neural network used to approximate the solution.
+        Defaults to None.
     :type net: `torch.nn.Module`, optional
-    :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
+    :param t_min:
+        The lower bound of the domain (t) on which the ODE is solved,
+        only needed when train_generator or valid_generator are not specified.
+        Defaults to None
     :type t_min: float
-    :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
+    :param t_max:
+        The upper bound of the domain (t) on which the ODE is solved,
+        only needed when train_generator or valid_generator are not specified.
+        Defaults to None
     :type t_max: float
-    :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.generator.Generator1D`, optional
-    :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+    :param train_generator:
+        The example generator to generate 1-D training points.
+        Default to None.
+    :type train_generator: `neurodiffeq.generators.Generator1D`, optional
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
+        Defaults to True.
     :type shuffle: bool, optional
-    :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.generator.Generator1D`, optional
-    :param optimizer: The optimization method to use for training, defaults to None.
+    :param valid_generator:
+        The example generator to generate 1-D validation points.
+        Default to None.
+    :type valid_generator: `neurodiffeq.generators.Generator1D`, optional
+    :param optimizer:
+        The optimization method to use for training.
+        Defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
-    :param criterion: The loss function to use for training, defaults to None.
+    :param criterion:
+        The loss function to use for training.
+        Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode`
+    :param additional_loss_term:
+        Extra terms to add to the loss function besides the part specified by `criterion`.
+        The input of `additional_loss_term` should be the same as `ode`.
     :type additional_loss_term: callable
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `ode` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `ode` and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, callable]
-    :param batch_size: The size of the mini-batch to use, defaults to 16.
+    :param batch_size:
+        The size of the mini-batch to use.
+        Defaults to 16.
     :type batch_size: int, optional
-    :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+    :param max_epochs:
+        The maximum number of epochs to train.
+        Defaults to 1000.
     :type max_epochs: int, optional
-    :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+    :param monitor:
+        The monitor to check the status of neural network during training.
+        Defaults to None.
     :type monitor: `neurodiffeq.ode.Monitor`, optional
-    :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+    :param return_internal:
+        Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function.
+        Defaults to False.
     :type return_internal: bool, optional
-    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :param return_best:
+        Whether to return the nets that achieved the lowest validation loss.
+        Defaults to False.
     :type return_best: bool, optional
-    :return: The solution of the ODE. The history of training loss and validation loss.
+    :return:
+        The solution of the ODE.
+        The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
-    :rtype: tuple[`neurodiffeq.ode.Solution`, dict]; or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+    :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
     nets = None if not net else [net]
     return solve_system(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics, batch_size=batch_size,
-        max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
+        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics,
+        batch_size=batch_size, max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
 
@@ -173,47 +222,91 @@ def solve_system(
 ):
     r"""Train a neural network to solve an ODE.
 
-    :param ode_system: The ODE system to solve. If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0` where :math:`x_i` is the dependent i-th variable and :math:`t` is the independent variable,
-        then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
+    :param ode_system:
+        The ODE system to solve.
+        If the ODE system consists of equations :math:`F_i(x_1, x_2, ..., x_n, t) = 0`
+        where :math:`x_i` is the dependent i-th variable and :math:`t` is the independent variable,
+        then `ode_system` should be a function that maps :math:`(x_1, x_2, ..., x_n, t)` to a list
+        where the i-th entry is :math:`F_i(x_1, x_2, ..., x_n, t)`.
     :type ode_system: callable
-    :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
+    :param conditions:
+        The initial/boundary conditions.
+        The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
     :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    :param t_min: The lower bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
-    :type t_min: float
-    :param t_max: The upper bound of the domain (t) on which the ODE is solved, only needed when train_generator or valid_generator are not specified, defaults to None
+    :param t_min:
+        The lower bound of the domain (t) on which the ODE is solved,
+        only needed when train_generator or valid_generator are not specified.
+        Defaults to None
+    :type t_min: float.
+    :param t_max:
+        The upper bound of the domain (t) on which the ODE is solved,
+        only needed when train_generator or valid_generator are not specified.
+        Defaults to None.
     :type t_max: float
-    :param single_net: The single neural network used to approximate the solution. Only one of `single_net` and `nets` should be specified, defaults to None
+    :param single_net:
+        The single neural network used to approximate the solution.
+        Only one of `single_net` and `nets` should be specified.
+        Defaults to None
     :param single_net: `torch.nn.Module`, optional
-    :param nets: The neural networks used to approximate the solution, defaults to None.
+    :param nets:
+        The neural networks used to approximate the solution.
+        Defaults to None.
     :type nets: list[`torch.nn.Module`], optional
-    :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.generator.Generator1D`, optional
-    :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+    :param train_generator:
+        The example generator to generate 1-D training points.
+        Default to None.
+    :type train_generator: `neurodiffeq.generators.Generator1D`, optional
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
+        Defaults to True.
     :type shuffle: bool, optional
-    :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.generator.Generator1D`, optional
-    :param optimizer: The optimization method to use for training, defaults to None.
+    :param valid_generator:
+        The example generator to generate 1-D validation points.
+        Default to None.
+    :type valid_generator: `neurodiffeq.generators.Generator1D`, optional
+    :param optimizer:
+        The optimization method to use for training.
+        Defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
-    :param criterion: The loss function to use for training, defaults to None and sum of square of the output of `ode_system` will be used.
+    :param criterion:
+        The loss function to use for training.
+        Defaults to None and sum of square of the output of `ode_system` will be used.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `ode_system`
+    :param additional_loss_term:
+        Extra terms to add to the loss function besides the part specified by `criterion`.
+        The input of `additional_loss_term` should be the same as `ode_system`.
     :type additional_loss_term: callable
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `ode_system` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `ode_system` and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, callable]
-    :param batch_size: The size of the mini-batch to use, defaults to 16.
+    :param batch_size:
+        The size of the mini-batch to use.
+        Defaults to 16.
     :type batch_size: int, optional
-    :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+    :param max_epochs:
+        The maximum number of epochs to train.
+        Defaults to 1000.
     :type max_epochs: int, optional
-    :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+    :param monitor:
+        The monitor to check the status of nerual network during training.
+        Defaults to None.
     :type monitor: `neurodiffeq.ode.Monitor`, optional
-    :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+    :param return_internal:
+        Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function.
+        Defaults to False.
     :type return_internal: bool, optional
-    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :param return_best:
+        Whether to return the nets that achieved the lowest validation loss.
+        Defaults to False.
     :type return_best: bool, optional
-    :return: The solution of the ODE. The history of training loss and validation loss.
+    :return:
+        The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
-    :rtype: tuple[`neurodiffeq.ode.Solution`, dict]; or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+    :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
 
     ########################################### subroutines ###########################################
@@ -239,7 +332,10 @@ def solve_system(
             batch_start += batch_size
             batch_end += batch_size
 
-        train_loss_epoch = calculate_loss(train_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
+        train_loss_epoch = calculate_loss(
+            train_examples_t, net, nets, ode_system,
+            conditions, criterion, additional_loss_term
+        )
         train_loss_epoch = train_loss_epoch.item()
 
         train_metrics_epoch = calculate_metrics(train_examples_t, net, nets, conditions, metrics)
@@ -248,7 +344,10 @@ def solve_system(
     def valid(valid_generator, net, nets, ode_system, conditions, criterion, additional_loss_term):
         valid_examples_t = valid_generator.get_examples()
         valid_examples_t = valid_examples_t.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(valid_examples_t, net, nets, ode_system, conditions, criterion, additional_loss_term)
+        valid_loss_epoch = calculate_loss(
+            valid_examples_t, net, nets, ode_system,
+            conditions, criterion, additional_loss_term
+        )
         valid_loss_epoch = valid_loss_epoch.item()
 
         valid_metrics_epoch = calculate_metrics(valid_examples_t, net, nets, conditions, metrics)
@@ -320,13 +419,18 @@ def solve_system(
         solution_min = None
 
     for epoch in range(max_epochs):
-        train_loss_epoch, train_metrics_epoch = train(train_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle,
-                                 optimizer)
+        train_loss_epoch, train_metrics_epoch = train(
+            train_generator, single_net, nets, ode_system, conditions,
+            criterion, additional_loss_term, shuffle, optimizer
+        )
         history['train_loss'].append(train_loss_epoch)
         for metric_name, metric_value in train_metrics_epoch.items():
             history['train__'+metric_name].append(metric_value)
 
-        valid_loss_epoch, valid_metrics_epoch = valid(valid_generator, single_net, nets, ode_system, conditions, criterion, additional_loss_term,)
+        valid_loss_epoch, valid_metrics_epoch = valid(
+            valid_generator, single_net, nets, ode_system, conditions,
+            criterion, additional_loss_term,
+        )
         history['valid_loss'].append(valid_loss_epoch)
         for metric_name, metric_value in valid_metrics_epoch.items():
             history['valid__'+metric_name].append(metric_value)
@@ -359,7 +463,7 @@ def solve_system(
 
 
 class Solution:
-    r"""A solution to an ODE (system)
+    r"""A solution to an ODE (system).
 
     :param nets: The neural networks that approximates the ODE.
     :type nets: list[`torch.nn.Module`]
@@ -376,11 +480,11 @@ class Solution:
     def __call__(self, ts, as_type='tf'):
         """Evaluate the solution at certain points.
 
-        :param ts: the points on which the dependent variables are evaluated.
+        :param ts: The points on which the dependent variables are evaluated.
         :type ts: `torch.Tensor` or sequence of number
         :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
         :type as_type: str
-        :return: dependent variables are evaluated at given points.
+        :return: Dependent variables are evaluated at given points.
         :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
             `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
         """

@@ -104,52 +104,90 @@ def solve_spherical(
         optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
         monitor=None, return_internal=False, return_best=False, harmonics_fn=None,
 ):
-    """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve one PDE with spherical inputs in 3D space
+    r"""[**DEPRECATED**, use SphericalSolver class instead]
+    Train a neural network to solve one PDE with spherical inputs in 3D space.
 
-        :param pde: The PDE to solve. If the PDE is :math:`F(u, r,\\theta, \\phi) = 0` where :math:`u` is the dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
-            then `pde` should be a function that maps :math:`(u, r, \\theta, \\phi)` to :math:`F(u, r,\\theta, \\phi)`
-        :type pde: callable
-        :param condition: The initial/boundary condition that :math:`u` should satisfy.
-        :type condition: `neurodiffeq.conditions.BaseCondition`
-        :param r_min: radius for inner boundary; ignored if both generators are provided; optional
-        :type r_min: float
-        :param r_max: radius for outer boundary; ignored if both generators are provided; optional
-        :type r_max: float
-        :param net: The neural network used to approximate the solution, defaults to None.
-        :type net: `torch.nn.Module`, optional
-        :param train_generator: The example generator to generate 3-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
-        :param valid_generator: The example generator to generate 3-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
-        :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
-        :type shuffle: bool, optional
-        :param analytic_solution: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to u
-        :type analytic_solution: callable
-        :param optimizer: The optimization method to use for training, defaults to None.
-        :type optimizer: `torch.optim.Optimizer`, optional
-        :param criterion: The loss function to use for training, defaults to None.
-        :type criterion: `torch.nn.modules.loss._Loss`, optional
-        :param batch_size: The size of the mini-batch to use, defaults to 16.
-        :type batch_size: int, optional
-        :param max_epochs: The maximum number of epochs to train, defaults to 1000.
-        :type max_epochs: int, optional
-        :param monitor: The monitor to check the status of neural network during training, defaults to None.
-        :type monitor: `neurodiffeq.pde_spherical.MonitorSpherical`, optional
-        :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
-        :type return_internal: bool, optional
-        :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
-        :type return_best: bool, optional
-        :param harmonics_fn: function basis (spherical harmonics for example) if solving coefficients of a function basis; used when returning solution
-        :type harmonics_fn: callable
-        :return: The solution of the PDE. The history of training loss and validation loss.
-            Optionally, MSE against analytic solution, the nets, conditions, training generator, validation generator, optimizer and loss function.
-            The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
+    :param pde:
+        The PDE to solve.
+        If the PDE is :math:`F(u, r,\theta, \phi) = 0`, where :math:`u` is the dependent variable
+        and :math:`r`, :math:`\theta` and :math:`\phi` are the independent variables,
+        then `pde` should be a function that maps :math:`(u, r, \theta, \phi)` to :math:`F(u, r,\theta, \phi)`.
+    :type pde: callable
+    :param condition:
+        The initial/boundary condition that :math:`u` should satisfy.
+    :type condition: `neurodiffeq.conditions.BaseCondition`
+    :param r_min:
+        Radius for inner boundary; ignored if both generators are provided.
+    :type r_min: float, optional
+    :param r_max:
+        Radius for outer boundary; ignored if both generators are provided.
+    :type r_max: float, optional
+    :param net:
+        The neural network used to approximate the solution.
+        Defaults to None.
+    :type net: `torch.nn.Module`, optional
+    :param train_generator:
+        The example generator to generate 3-D training points.
+        Default to None.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        The example generator to generate 3-D validation points.
+        Default to None.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
+        Defaults to True.
+    :type shuffle: bool, optional
+    :param analytic_solution:
+        Analytic solution to the pde system, used for testing purposes.
+        It should map (``rs``, ``thetas``, ``phis``) to u.
+    :type analytic_solution: callable
+    :param optimizer:
+        The optimization method to use for training.
+        Defaults to None.
+    :type optimizer: `torch.optim.Optimizer`, optional
+    :param criterion:
+        The loss function to use for training.
+        Defaults to None.
+    :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param batch_size:
+        The size of the mini-batch to use.
+        Defaults to 16.
+    :type batch_size: int, optional
+    :param max_epochs:
+        The maximum number of epochs to train.
+        Defaults to 1000.
+    :type max_epochs: int, optional
+    :param monitor:
+        The monitor to check the status of neural network during training.
+        Defaults to None.
+    :type monitor: `neurodiffeq.pde_spherical.MonitorSpherical`, optional
+    :param return_internal:
+        Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function.
+        Defaults to False.
+    :type return_internal: bool, optional
+    :param return_best:
+        Whether to return the nets that achieved the lowest validation loss.
+        Defaults to False.
+    :type return_best: bool, optional
+    :param harmonics_fn:
+        Function basis (spherical harmonics for example) if solving coefficients of a function basis.
+        Used when returning the solution.
+    :type harmonics_fn: callable
+    :return:
+        The solution of the PDE. The history of training loss and validation loss.
+        Optionally, MSE against analytic solution, the nets, conditions, training generator,
+        validation generator, optimizer and loss function.
+        The solution is a function that has the signature `solution(xs, ys, as_type)`.
+    :rtype:
+        tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
+        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
 
 
-        .. note::
-            This function is deprecated, use a `SphericalSolver` instead
-        """
+    .. note::
+        This function is deprecated, use a `SphericalSolver` instead
+    """
 
     warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
     pde_sytem = lambda u, r, theta, phi: [pde(u, r, theta, phi)]
@@ -175,51 +213,94 @@ def solve_spherical_system(
         optimizer=None, criterion=None, batch_size=None,
         max_epochs=1000, monitor=None, return_internal=False, return_best=False, harmonics_fn=None
 ):
-    """[DEPRECATED, use SphericalSolver class instead] Train a neural network to solve a PDE system with spherical inputs in 3D space
+    r"""[**DEPRECATED**, use SphericalSolver class instead]
+    Train a neural network to solve a PDE system with spherical inputs in 3D space
 
-        :param pde_system: The PDEs ystem to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, r,\\theta, \\phi) = 0` where :math:`u_i` is the i-th dependent variable and :math:`r`, :math:`\\theta` and :math:`\\phi` are the independent variables,
-            then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \\theta, \\phi)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \\theta, \\phi)`.
-        :type pde_system: callable
-        :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
-        :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-        :param r_min: radius for inner boundary; ignored if both generators are provided; optional
-        :type r_min: float
-        :param r_max: radius for outer boundary; ignored if both generators are provided; optional
-        :type r_max: float
-        :param nets: The neural networks used to approximate the solution, defaults to None.
-        :type nets: list[`torch.nn.Module`], optionalnerate 3-D training points, default to None.
-        :param train_generator: The example generator to generate 3-D training points, default to None.
-        :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
-        :param valid_generator: The example generator to generate 3-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`, optional
-        :param shuffle: deprecated and ignored; shuffling should be implemented in genrators
-        :type shuffle: bool, optional
-        :param analytic_solutions: analytic solution to the pde system, used for testing purposes; should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n]
-        :type analytic_solutions: callable
-        :param optimizer: The optimization method to use for training, defaults to None.
-        :type optimizer: `torch.optim.Optimizer`, optional
-        :param criterion: The loss function to use for training, defaults to None.
-        :type criterion: `torch.nn.modules.loss._Loss`, optional
-        :param batch_size: The size of the mini-batch to use, defaults to 16.
-        :type batch_size: int, optional
-        :param max_epochs: The maximum number of epochs to train, defaults to 1000.
-        :type max_epochs: int, optional
-        :param monitor: The monitor to check the status of neural network during training, defaults to None.
-        :type monitor: `neurodiffeq.pde_spherical.MonitorSpherical`, optional
-        :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
-        :type return_internal: bool, optional
-        :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
-        :type return_best: bool, optional
-        :param harmonics_fn: function basis (spherical harmonics for example) if solving coefficients of a function basis; used when returning solution
-        :type harmonics_fn: callable
-        :return: The solution of the PDE. The history of training loss and validation loss.
-            Optionally, MSE against analytic solutions, the nets, conditions, training generator, validation generator, optimizer and loss function.
-            The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        :rtype: tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]; or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
+    :param pde_system:
+        The PDEs ystem to solve.
+        If the PDE is :math:`F_i(u_1, u_2, ..., u_n, r,\theta, \phi) = 0`
+        where :math:`u_i` is the i-th dependent variable
+        and :math:`r`, :math:`\theta` and :math:`\phi` are the independent variables,
+        then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, r, \theta, \phi)`
+        to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, r, \theta, \phi)`.
+    :type pde_system: callable
+    :param conditions:
+        The initial/boundary conditions.
+        The ith entry of the conditions is the condition that :math:`u_i` should satisfy.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param r_min:
+        Radius for inner boundary.
+        Ignored if both generators are provided.
+    :type r_min: float, optional
+    :param r_max:
+        Radius for outer boundary.
+        Ignored if both generators are provided.
+    :type r_max: float, optional
+    :param nets:
+        The neural networks used to approximate the solution.
+        Defaults to None.
+    :type nets: list[`torch.nn.Module`], optional
+    :param train_generator:
+        The example generator to generate 3-D training points.
+        Default to None.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        The example generator to generate 3-D validation points.
+        Default to None.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param shuffle:
+        **[DEPRECATED and IGNORED]** Don't use this.
+        Shuffling should be performed by generators.
+    :type shuffle: bool, optional
+    :param analytic_solutions:
+        Analytic solution to the pde system, used for testing purposes.
+        It should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n].
+    :type analytic_solutions: callable
+    :param optimizer:
+        The optimization method to use for training.
+        Defaults to None.
+    :type optimizer: `torch.optim.Optimizer`, optional
+    :param criterion:
+        The loss function to use for training.
+        Defaults to None.
+    :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param batch_size:
+        The size of the mini-batch to use.
+        Defaults to 16.
+    :type batch_size: int, optional
+    :param max_epochs:
+        The maximum number of epochs to train.
+        Defaults to 1000.
+    :type max_epochs: int, optional
+    :param monitor:
+        The monitor to check the status of neural network during training.
+        Defaults to None.
+    :type monitor: `neurodiffeq.pde_spherical.MonitorSpherical`, optional
+    :param return_internal:
+        Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function.
+        Defaults to False.
+    :type return_internal: bool, optional
+    :param return_best:
+        Whether to return the nets that achieved the lowest validation loss.
+        Defaults to False.
+    :type return_best: bool, optional
+    :param harmonics_fn:
+        Function basis (spherical harmonics for example) if solving coefficients of a function basis.
+        Used when returning solution.
+    :type harmonics_fn: callable
+    :return:
+        The solution of the PDE. The history of training loss and validation loss.
+        Optionally, MSE against analytic solutions, the nets, conditions,
+        training generator, validation generator, optimizer and loss function.
+        The solution is a function that has the signature `solution(xs, ys, as_type)`.
+    :rtype:
+        tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
+        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
 
-        .. note::
-            This function is deprecated, use a `SphericalSolver` instead
-        """
+    .. note::
+        This function is deprecated, use a `SphericalSolver` instead
+    """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
     if harmonics_fn is None:
@@ -274,9 +355,9 @@ class SphericalSolver:
     :param nets: list of neural networks for parameterized solution; if provided, length must equal that of conditions; optional
     :type nets: list[torch.nn.Module]
     :param train_generator: generator for sampling training points, must provide a .get_examples() method and a .size field; optional
-    :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`
     :param valid_generator: generator for sampling validation points, must provide a .get_examples() method and a .size field; optional
-    :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`
     :param analytic_solutions: analytical solutions to be compared with neural net solutions; maps a tuple of three coordinates to a tuple of function values; output shape shoule match that of networks; optional
     :type analytic_solutions: callable
     :param optimizer: optimizer to be used for training; optional
@@ -453,12 +534,13 @@ class SphericalSolver:
 
     def _do_optimizer_step(self):
         r"""Optimization procedures after gradients have been computed. Usually, self.optimizer.step() is sufficient.
-            At times, user can overwrite this method to perform gradient clipping, etc. Here is an example:
-        >>> import itertools
-        >>> class MySolver(SphericalSolver)
-        >>>     def _do_optimizer_step(self):
-        >>>         nn.utils.clip_grad_norm_(itertools.chain([net.parameters() for net in self.nets]), 1.0, 'inf')
-        >>>         self.optimizer.step()
+            At times, user can overwrite this method to perform gradient clipping, etc. Here is an example::
+
+                import itertools
+                class MySolver(SphericalSolver)
+                    def _do_optimizer_step(self):
+                        nn.utils.clip_grad_norm_(itertools.chain([net.parameters() for net in self.nets]), 1.0, 'inf')
+                        self.optimizer.step()
         """
         self.optimizer.step()
 
@@ -658,27 +740,49 @@ class SphericalSolver:
 
 
 class MonitorSpherical:
-    """A monitor for checking the status of the neural network during training.
+    r"""A monitor for checking the status of the neural network during training.
 
-    :param r_min: The lower bound of radius, i.e., radius of interior boundary
+    :param r_min:
+        The lower bound of radius,
+        i.e., radius of interior boundary.
     :type r_min: float
-    :param r_max: The upper bound of radius, i.e., radius of exterior boundary
+    :param r_max:
+        The upper bound of radius,
+        i.e., radius of exterior boundary.
     :type r_max: float
-    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
+    :param check_every:
+        The frequency of checking the neural network represented by the number of epochs between two checks.
+        Defaults to 100.
     :type check_every: int, optional
-    :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
+    :param var_names:
+        Names of dependent variables.
+        If provided, shall be used for plot titles.
+        Defaults to None.
     :type var_names: list[str]
-    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :param shape:
+        Shape of mesh for visualizing the solution.
+        Defaults to (10, 10, 10).
     :type shape: tuple[int]
-    :param r_scale: 'linear' or 'log'; controls the grid point in the :math:`r` direction; defaults to 'linear'
+    :param r_scale:
+        'linear' or 'log'.
+        Controls the grid point in the :math:`r` direction.
+        Defaults to 'linear'.
     :type r_scale: str
-    :param theta_min: The lower bound of polar angle, defaults to :math:`0`
+    :param theta_min:
+        The lower bound of polar angle.
+        Defaults to :math:`0`.
     :type theta_min: float
-    :param theta_max: The upper bound of polar angle, defaults to :math:`\\pi`
+    :param theta_max:
+        The upper bound of polar angle.
+        Defaults to :math:`\pi`.
     :type theta_max: float
-    :param phi_min: The lower bound of azimuthal angle, defaults to :math:`0`
+    :param phi_min:
+        The lower bound of azimuthal angle.
+        Defaults to :math:`0`.
     :type phi_min: float
-    :param phi_max: The upper bound of azimuthal angle, defaults to :math:`2\\pi`
+    :param phi_max:
+        The upper bound of azimuthal angle.
+        Defaults to :math:`2\pi`.
     :type phi_max: float
     """
 
@@ -768,13 +872,19 @@ class MonitorSpherical:
                 c) one ax for u-theta-phi contour heat map
              2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
 
-        :param nets: The neural networks that approximates the PDE.
+        :param nets:
+            The neural networks that approximates the PDE.
         :type nets: list [`torch.nn.Module`]
-        :param conditions: The initial/boundary condition of the PDE.
+        :param conditions:
+            The initial/boundary condition of the PDE.
         :type conditions: list [`neurodiffeq.conditions.BaseCondition`]
-        :param loss_history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :param loss_history:
+            The history of training loss and validation loss.
+            The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
         :type loss_history: dict['train': list[float], 'valid': list[float]]
-        :param analytic_mse_history: The history of training and validation MSE against analytic solution. The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
+        :param analytic_mse_history:
+            The history of training and validation MSE against analytic solution.
+            The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
         :type analytic_mse_history: dict['train': list[float], 'valid': list[float]]
 
         .. note::
@@ -844,7 +954,8 @@ class MonitorSpherical:
         self.customization()
         self.fig.canvas.draw()
         # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
-        # see https://stackoverflow.com/questions/19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
+        # see https://stackoverflow.com/questions/
+        # 19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
         if not self.using_non_gui_backend:
             plt.pause(0.05)
 
@@ -917,7 +1028,7 @@ class MonitorSpherical:
 
     def set_variable_count(self, n):
         r"""Manually set the number of scalar fields to be visualized;
-            If not set, defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        If not set, defaults to length of ``nets`` passed to ``self.check()`` every time ``self.check()`` is called.
 
         :param n: number of scalar fields to overwrite default
         :type n: int
@@ -928,7 +1039,8 @@ class MonitorSpherical:
 
     def unset_variable_count(self):
         r"""Manually unset the number of scalar fields to be visualized;
-            Once unset, the number defaults to length of `nets` passed to `self.check()` every time `self.check()` is called
+        Once unset, the number defaults to length of ``nets``
+        passed to ``self.check()`` every time ``self.check()`` is called.
 
         :return: self
         """
@@ -937,16 +1049,15 @@ class MonitorSpherical:
 
 
 class SolutionSphericalHarmonics(SolutionSpherical):
-    """
-    A solution to a PDE (system) in spherical coordinates
+    r"""A solution to a PDE (system) in spherical coordinates.
 
-    :param nets: list of networks that takes in radius tensor and outputs the coefficients of spherical harmonics
+    :param nets: List of networks that takes in radius tensor and outputs the coefficients of spherical harmonics.
     :type nets: list[`torch.nn.Module`]
-    :param conditions: list of conditions to be enforced on each nets; must be of the same length as nets
+    :param conditions: List of conditions to be enforced on each nets; must be of the same length as nets.
     :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
+    :param harmonics_fn: Mapping from :math:`\theta` and :math:`\phi` to basis functions, e.g., spherical harmonics.
     :type harmonics_fn: callable
-    :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis
+    :param max_degree: **DEPRECATED and SUPERSEDED** by ``harmonics_fn``. Highest used for the harmonic basis.
     :type max_degree: int
     """
 
@@ -968,31 +1079,53 @@ class SolutionSphericalHarmonics(SolutionSpherical):
 
 
 class MonitorSphericalHarmonics(MonitorSpherical):
-    """A monitor for checking the status of the neural network during training.
+    r"""A monitor for checking the status of the neural network during training.
 
-    :param r_min: The lower bound of radius, i.e., radius of interior boundary
+    :param r_min:
+        The lower bound of radius, i.e., radius of interior boundary.
     :type r_min: float
-    :param r_max: The upper bound of radius, i.e., radius of exterior boundary
+    :param r_max:
+        The upper bound of radius, i.e., radius of exterior boundary.
     :type r_max: float
-    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
+    :param check_every:
+        The frequency of checking the neural network represented by the number of epochs between two checks.
+        Defaults to 100.
     :type check_every: int, optional
-    :param var_names: names of dependent variables; if provided, shall be used for plot titles; defaults to None
+    :param var_names:
+        The names of dependent variables; if provided, shall be used for plot titles.
+        Defaults to None
     :type var_names: list[str]
-    :param shape: shape of mesh for visualizing the solution; defaults to (10, 10, 10)
+    :param shape:
+        Shape of mesh for visualizing the solution.
+        Defaults to (10, 10, 10).
     :type shape: tuple[int]
-    :param r_scale: 'linear' or 'log'; controls the grid point in the :math:`r` direction; defaults to 'linear'
+    :param r_scale:
+        'linear' or 'log'.
+        Controls the grid point in the :math:`r` direction.
+        Defaults to 'linear'.
     :type r_scale: str
-    :param harmonics_fn: mapping from :math:`\\theta` and :math:`\\phi` to basis functions, e.g., spherical harmonics
+    :param harmonics_fn:
+        A mapping from :math:`\theta` and :math:`\phi` to basis functions, e.g., spherical harmonics.
     :type harmonics_fn: callable
-    :param theta_min: The lower bound of polar angle, defaults to :math:`0`
+    :param theta_min:
+        The lower bound of polar angle.
+        Defaults to :math:`0`
     :type theta_min: float
-    :param theta_max: The upper bound of polar angle, defaults to :math:`\\pi`
+    :param theta_max:
+        The upper bound of polar angle.
+        Defaults to :math:`\pi`.
     :type theta_max: float
-    :param phi_min: The lower bound of azimuthal angle, defaults to :math:`0`
+    :param phi_min:
+        The lower bound of azimuthal angle.
+        Defaults to :math:`0`.
     :type phi_min: float
-    :param phi_max: The upper bound of azimuthal angle, defaults to :math:`2\\pi`
+    :param phi_max:
+        The upper bound of azimuthal angle.
+        Defaults to :math:`2\pi`.
     :type phi_max: float
-    :param max_degree: DEPRECATED and SUPERSEDED by harmonics_fn; highest used for the harmonic basis
+    :param max_degree:
+        **DEPRECATED and SUPERSEDED** by ``harmonics_fn``.
+        Highest used for the harmonic basis.
     :type max_degree: int
     """
 
@@ -1046,15 +1179,15 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
 
 class MonitorCallback:
-    """A callback for updating the monitor plots (and optionally saving the fig to disk)
+    """A callback for updating the monitor plots (and optionally saving the fig to disk).
 
-    :param monitor: the underlying monitor responsible for plotting solutions
+    :param monitor: The underlying monitor responsible for plotting solutions.
     :type monitor: MonitorSpherical
-    :param fig_dir: directory for saving monitor figs; if not specified, figs will not be saved
+    :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
     :type fig_dir: str
-    :param check_against: which epoch count to check against; either 'local' (default) or 'global'
+    :param check_against: Which epoch count to check against; either 'local' (default) or 'global'.
     :type check_against: str
-    :param repaint_last: whether to update the plot on the last local epoch, defaults to True
+    :param repaint_last: Whether to update the plot on the last local epoch, defaults to True.
     :type repaint_last: bool
     """
 

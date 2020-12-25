@@ -21,33 +21,39 @@ class BaseSolver(ABC):
     :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
     :param nets:
         List of neural networks for parameterized solution.
-        If provided, length must equal that of conditions. Optional.
-    :type nets: list[`torch.nn.Module`]
+        If provided, length must equal that of conditions.
+    :type nets: list[`torch.nn.Module`], optional
     :param train_generator:
         A generator for sampling training points.
-        It must provide a `.get_examples()` method and a `.size` field. Required.
-    :type train_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+        It must provide a `.get_examples()` method and a `.size` field.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, required
     :param valid_generator:
         A generator for sampling validation points.
-        It must provide a `.get_examples()` method and a `.size` field. Required.
-    :type valid_generator: `neurodiffeq.pde_spherical.BaseGenerator`
+        It must provide a `.get_examples()` method and a `.size` field.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, required
     :param analytic_solutions:
         The analytical solutions to be compared with neural net solutions.
         It maps a tuple of three coordinates to a tuple of function values.
-        The output shape should match that of networks. Optional.
-    :type analytic_solutions: callable
+        The output shape should match that of networks.
+    :type analytic_solutions: callable, optional
     :param optimizer:
-        The optimizer to be used for training. Optional.
-    :type optimizer: `torch.nn.optim.Optimizer`
+        The optimizer to be used for training.
+    :type optimizer: `torch.nn.optim.Optimizer`, optional
     :param criterion:
-        A function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss. Optional.
-    :type criterion: callable
+        A function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss.
+    :type criterion: callable, optional
     :param n_batches_train:
-        The number of batches to train in every epoch, where batch-size equals `train_generator.size`. Optional.
-    :type n_batches_train: int
+        The number of batches to train in every epoch, where batch-size equals `train_generator.size`.
+    :type n_batches_train: int, optional
     :param n_batches_valid:
-        The number of batches to valid in every epoch, where batch-size equals `valid_generator.size`. Optional.
-    :type n_batches_valid: int
+        The number of batches to valid in every epoch, where batch-size equals `valid_generator.size`.
+    :type n_batches_valid: int, optional
+    :param n_input_units:
+        Number of input units for each neural network. Ignored if ``nets`` is specified.
+    :type n_input_units: int, required
+    :param n_output_units:
+        Number of output units for each neural network. Ignored if ``nets`` is specified.
+    :type n_output_units: int, required
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
@@ -59,9 +65,10 @@ class BaseSolver(ABC):
     :type shuffle: bool
     """
 
-    def __init__(self, diff_eqs, conditions, n_input_units=None, n_output_units=None,
+    def __init__(self, diff_eqs, conditions,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+                 n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
                  shuffle=False, batch_size=None):
         # deprecate argument `shuffle`
@@ -426,3 +433,5 @@ class BaseSolver(ABC):
         :rtype: torch.Tensor
         """
         return 0.0
+
+

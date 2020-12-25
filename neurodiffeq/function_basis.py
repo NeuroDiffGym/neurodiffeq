@@ -278,7 +278,7 @@ class HarmonicsLaplacian(BasisOperator):
     :math:`\begin{aligned}
     &\nabla^{2} R_{l, m}(r) Y_{l,m}(\theta, \phi)\\
     &=\left(\nabla_{r}^{2}+\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)\left(R_{l, m}(r) Y_{l, m}(\theta, \phi)\right)\\
-    &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right) Y_{l, m}\right)\\
+    &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m}\left(\left(\nabla_{\theta}^{2}+\nabla_{\phi}^{2}\right)Y_{l, m}\right)\\
     &=Y_{l, m} \nabla_{r}^{2} R_{l, m}+R_{l, m} \frac{-l(l+1)}{r^{2}} Y_{l, m}\\
     &=Y_{l, m}\left(\nabla_{r}^{2} R_{l, m}+\frac{-l(l+1)}{r^{2}} R_{l, m}\right)
     \end{aligned}`
@@ -286,13 +286,13 @@ class HarmonicsLaplacian(BasisOperator):
 
     def __init__(self, max_degree=4):
         self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
-        laplacian_coefficients = [-l * (l + 1) for l in range(max_degree + 1) for m in range(-l, l + 1)]
-        self.laplacian_coefficients = torch.tensor(laplacian_coefficients).type(torch.float)
+        laplacian_coefficients = [-l * (l + 1) * 1.0 for l in range(max_degree + 1) for m in range(-l, l + 1)]
+        self.laplacian_coefficients = torch.tensor(laplacian_coefficients)
 
     def __call__(self, R, r, theta, phi):
         # We would hope to do `radial_component = diff(R * r, r, order=2) / r`
         # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
-        # we have to separate columns in R, compute derivates, and manually concatenate them back together
+        # we have to separate columns in R, compute derivatives, and manually concatenate them back together
         radial_component = torch.cat([diff(R[:, j:j+1] * r, r, order=2) for j in range(R.shape[1])], dim=1) / r
 
         angular_component = self.laplacian_coefficients * R / r ** 2
