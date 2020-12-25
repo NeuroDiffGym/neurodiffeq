@@ -342,7 +342,7 @@ class BaseSolver(ABC):
                     )
 
     @abstractmethod
-    def get_solution(self, copy=True):
+    def get_solution(self, copy=True, best=True):
         """Get a (callable) solution object. See this usage example:
 
         .. code-block:: python3
@@ -355,6 +355,10 @@ class BaseSolver(ABC):
             Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
             Defaults to True.
         :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
         :return:
             A solution object which can be called.
             To evaluate the solution on certain points,
