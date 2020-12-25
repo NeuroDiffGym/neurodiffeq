@@ -735,3 +735,8 @@ class SolutionSphericalHarmonics(SolutionSpherical):
     def _compute_u(self, net, condition, rs, thetas, phis):
         products = condition.enforce(net, rs) * self.harmonics_fn(thetas, phis)
         return torch.sum(products, dim=1)
+
+
+class Solution1D(BaseSolution):
+    def _compute_u(self, net, condition, ts):
+        return condition.enforce(net, ts)
