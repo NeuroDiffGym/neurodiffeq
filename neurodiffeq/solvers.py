@@ -475,20 +475,26 @@ class SolutionSpherical(BaseSolution):
     def _compute_u(self, net, condition, rs, thetas, phis):
         return condition.enforce(net, rs, thetas, phis)
 
-    def __call__(self, rs, thetas, phis, as_type='tf'):
-        """Evaluate the solution at certain points.
+    @deprecated_alias(as_type='to_numpy')
+    def __call__(self, rs, thetas, phis, to_numpy=False):
+        r"""Evaluate the solution at certain points.
 
         :param rs: The radii of points where the neural network output is evaluated.
-        :type rs: `torch.Tensor`
-        :param thetas: The latitudes of points where the neural network output is evaluated. `theta` ranges [0, pi]
-        :type thetas: `torch.Tensor`
-        :param phis: The longitudes of points where the neural network output is evaluated. `phi` ranges [0, 2*pi)
-        :type phis: `torch.Tensor`
-        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
-        :type as_type: str
-        :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
+        :type rs: ``torch.Tensor``
+        :param thetas:
+            The co-latitudes of points where the neural network output is evaluated.
+            ``theta`` falls in the interval :math:`[0, \pi)`
+        :type thetas: ``torch.Tensor``
+        :param phis:
+            The longitudes of points where the neural network output is evaluated.
+            ``phi`` falls in the interval :math:`[0, 2\pi)`
+        :type phis: ``torch.Tensor``
+        :param to_numpy:
+            If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
+            Defaults to False.
+        :type to_numpy: bool
+        :return: Dependent variables evaluated at given points.
+        :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
         if not isinstance(rs, torch.Tensor):
             rs = torch.tensor(rs)
@@ -500,14 +506,23 @@ class SolutionSpherical(BaseSolution):
         rs = rs.reshape(-1, 1)
         thetas = thetas.reshape(-1, 1)
         phis = phis.reshape(-1, 1)
-        if as_type not in ('tf', 'np'):
-            raise ValueError("The valid return types are 'tf' and 'np'.")
+        if isinstance(to_numpy, str):
+            # Why did we allow `tf` as an option >_<
+            # We should phase this out as soon as possible
+            if to_numpy == 'tf':
+                to_numpy = False
+            elif to_numpy == 'torch':
+                to_numpy = True
+            elif to_numpy == 'np':
+                to_numpy = True
+            else:
+                raise ValueError(f"Unrecognized `as_type` option: '{to_numpy}'")
 
         vs = [
             self._compute_u(net, con, rs, thetas, phis).reshape(original_shape)
             for con, net in zip(self.conditions, self.nets)
         ]
-        if as_type == 'np':
+        if to_numpy:
             vs = [v.detach().cpu().numpy().flatten() for v in vs]
 
         return vs if len(self.nets) > 1 else vs[0]
