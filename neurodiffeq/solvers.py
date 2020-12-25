@@ -14,8 +14,8 @@ class BaseSolver(ABC):
     """A class for solving ODE/PDE systems.
 
     :param diff_eqs:
-        The PDE system to solve, which maps a tuple of three coordinates to a tuple of PDE residuals.
-        Both the coordinates and PDE residuals must have shape (-1, 1).
+        The differential equation system to solve, which maps a tuple of coordinates to a tuple of ODE/PDE residuals.
+        Both the coordinates and ODE/PDE residuals must have shape (-1, 1).
     :type diff_eqs: callable
     :param conditions:
         List of boundary conditions for each target function.
@@ -44,10 +44,12 @@ class BaseSolver(ABC):
         A function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss.
     :type criterion: callable, optional
     :param n_batches_train:
-        The number of batches to train in every epoch, where batch-size equals `train_generator.size`.
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
     :type n_batches_train: int, optional
     :param n_batches_valid:
-        The number of batches to valid in every epoch, where batch-size equals `valid_generator.size`.
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
     :type n_batches_valid: int, optional
     :param n_input_units:
         Number of input units for each neural network. Ignored if ``nets`` is specified.
