@@ -445,10 +445,28 @@ class BaseSolver(ABC):
 
 
 class BaseSolution(ABC):
+    """A solution to a PDE/ODE (system).
+
+    :param nets: The neural networks that approximate the PDE/ODE solution.
+    :type nets: list[`torch.nn.Module`]
+    :param conditions: The conditions enforced on the PDE/ODE solution.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    """
+
+    def __init__(self, nets, conditions):
+        self.nets = nets
+        self.conditions = conditions
+
     @abstractmethod
+    def _compute_u(self, net, con, *coords):
+        pass
+
+    @deprecated_alias(as_type='to_numpy')
     def __call__(self, *coords, to_numpy=False):
         r"""Evaluate the solution at certain points.
 
+        :param coords: tuple of coordinate tensors, each of shape (n_samples, 1)
+        :type coords: Tuple[`torch.Tensor`]
         :param to_numpy:
             If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
             Defaults to False.
@@ -456,7 +474,27 @@ class BaseSolution(ABC):
         :return: Dependent variables evaluated at given points.
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
-        pass
+        coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]
+        original_shape = coords[0].shape
+        coords = [c.reshape(-1, 1) for c in coords]
+        if isinstance(to_numpy, str):
+            # Why did we allow `tf` as an option >_<
+            # We should phase this out as soon as possible
+            if to_numpy == 'tf' or to_numpy == 'torch':
+                to_numpy = True
+            elif to_numpy == 'np':
+                to_numpy = True
+            else:
+                raise ValueError(f"Unrecognized `as_type` option: '{to_numpy}'")
+
+        us = [
+            self._compute_u(net, con, *coords).reshape(original_shape)
+            for con, net in zip(self.conditions, self.nets)
+        ]
+        if to_numpy:
+            us = [u.detach().cpu().numpy().flatten() for u in us]
+
+        return us if len(self.nets) > 1 else us[0]
 
 
 class SphericalSolver(BaseSolver):
@@ -653,74 +691,8 @@ class SphericalSolver(BaseSolver):
 
 
 class SolutionSpherical(BaseSolution):
-    """A solution to a PDE (system) in spherical coordinates
-
-    :param nets: The neural networks that approximate the PDE.
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: The conditions of the PDE (system).
-    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    """
-
-    def __init__(self, nets, conditions):
-        """Initializer method
-        """
-        self.nets = deepcopy(nets)
-        self.conditions = deepcopy(conditions)
-
     def _compute_u(self, net, condition, rs, thetas, phis):
         return condition.enforce(net, rs, thetas, phis)
-
-    @deprecated_alias(as_type='to_numpy')
-    def __call__(self, rs, thetas, phis, to_numpy=False):
-        r"""Evaluate the solution at certain points.
-
-        :param rs: The radii of points where the neural network output is evaluated.
-        :type rs: ``torch.Tensor``
-        :param thetas:
-            The co-latitudes of points where the neural network output is evaluated.
-            ``theta`` falls in the interval :math:`[0, \pi)`
-        :type thetas: ``torch.Tensor``
-        :param phis:
-            The longitudes of points where the neural network output is evaluated.
-            ``phi`` falls in the interval :math:`[0, 2\pi)`
-        :type phis: ``torch.Tensor``
-        :param to_numpy:
-            If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
-            Defaults to False.
-        :type to_numpy: bool
-        :return: Dependent variables evaluated at given points.
-        :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
-        """
-        if not isinstance(rs, torch.Tensor):
-            rs = torch.tensor(rs)
-        if not isinstance(thetas, torch.Tensor):
-            thetas = torch.tensor(thetas)
-        if not isinstance(phis, torch.Tensor):
-            phis = torch.tensor(phis)
-        original_shape = rs.shape
-        rs = rs.reshape(-1, 1)
-        thetas = thetas.reshape(-1, 1)
-        phis = phis.reshape(-1, 1)
-        if isinstance(to_numpy, str):
-            # Why did we allow `tf` as an option >_<
-            # We should phase this out as soon as possible
-            if to_numpy == 'tf':
-                to_numpy = False
-            elif to_numpy == 'torch':
-                to_numpy = True
-            elif to_numpy == 'np':
-                to_numpy = True
-            else:
-                raise ValueError(f"Unrecognized `as_type` option: '{to_numpy}'")
-
-        vs = [
-            self._compute_u(net, con, rs, thetas, phis).reshape(original_shape)
-            for con, net in zip(self.conditions, self.nets)
-        ]
-        if to_numpy:
-            vs = [v.detach().cpu().numpy().flatten() for v in vs]
-
-        return vs if len(self.nets) > 1 else vs[0]
 
 
 class SolutionSphericalHarmonics(SolutionSpherical):
