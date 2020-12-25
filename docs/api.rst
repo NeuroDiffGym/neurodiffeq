@@ -22,6 +22,13 @@ API Reference
     :inherited-members:
     :members:
 
+`neurodiffeq.solvers`
+------------------------------------------------------
+.. automodule:: neurodiffeq.solvers
+    :show-inheritance:
+    :inherited-members:
+    :members:
+
 `neurodiffeq.ode`
 ------------------------------------------------------
 .. automodule:: neurodiffeq.ode
