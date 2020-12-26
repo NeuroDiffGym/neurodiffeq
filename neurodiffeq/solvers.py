@@ -9,6 +9,7 @@ from torch.optim import Adam
 from neurodiffeq.networks import FCNN
 from neurodiffeq._version_utils import deprecated_alias
 from neurodiffeq.generators import GeneratorSpherical
+from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.function_basis import RealSphericalHarmonics
 
 
@@ -153,7 +154,10 @@ class BaseSolver(ABC):
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
 
-        self.generator = make_pair_dict(train=train_generator, valid=valid_generator)
+        self.generator = make_pair_dict(
+            train=SamplerGenerator(train_generator),
+            valid=SamplerGenerator(valid_generator),
+        )
         # number of batches for training / validation;
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
         # current batch of samples, kept for additional_loss term to use
