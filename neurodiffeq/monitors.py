@@ -5,12 +5,16 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 import seaborn as sns
 from abc import ABC, abstractmethod
 
 from ._version_utils import deprecated_alias
 from .function_basis import RealSphericalHarmonics
+from .generators import Generator1D
+from .generators import Generator2D
 from .generators import Generator3D
+from .conditions import IrregularBoundaryCondition
 
 
 class BaseMonitor(ABC):
@@ -23,6 +27,7 @@ class BaseMonitor(ABC):
         Currently, the ``check()`` method can only run synchronously.
         It blocks the training / validation process, so don't call the ``check()`` method too often.
     """
+
     @abstractmethod
     def check(self, nets, conditions, history):
         pass
@@ -479,6 +484,7 @@ class Monitor1D(BaseMonitor):
         Defaults to 100.
     :type check_every: int, optional
     """
+
     def __init__(self, t_min, t_max, check_every=100):
         """Initializer method
         """
@@ -548,3 +554,129 @@ class Monitor1D(BaseMonitor):
         if not self.using_non_gui_backend:
             plt.pause(0.05)
 
+
+class Monitor2D(BaseMonitor):
+    r"""A monitor for checking the status of the neural network during training.
+
+    :param xy_min:
+        The lower bound of 2 dimensions.
+        If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
+    :type xy_min: tuple[float, float], optional
+    :param xy_max:
+        The upper bound of 2 dimensions.
+        If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
+    :type xy_max: tuple[float, float], optional
+    :param check_every:
+        The frequency of checking the neural network represented by the number of epochs between two checks.
+        Defaults to 100.
+    :type check_every: int, optional
+    """
+
+    def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
+        """Initializer method
+        """
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
+        self.check_every = check_every
+        self.fig = None
+        self.axs = []  # subplots
+        # self.caxs = []  # colorbars
+        self.cbs = []  # color bars
+        # input for neural network
+        if valid_generator is None:
+            valid_generator = Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+        xs_ann, ys_ann = valid_generator.get_examples()
+        self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
+        self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
+        self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
+
+    # draw a contour plot of the surface (xs, ys) -> zs
+    @staticmethod
+    def _create_contour(ax, xs, ys, zs, condition):
+        triang = tri.Triangulation(xs, ys)
+        xs = xs[triang.triangles].mean(axis=1)
+        ys = ys[triang.triangles].mean(axis=1)
+        if condition:
+            xs, ys = torch.tensor(xs), torch.tensor(ys)
+            if isinstance(condition, IrregularBoundaryCondition):
+                in_domain = condition.in_domain(xs, ys)
+                triang.set_mask(~in_domain)
+
+        contour = ax.tricontourf(triang, zs, cmap='coolwarm')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_aspect('equal', adjustable='box')
+        return contour
+
+    def check(self, nets, conditions, history):
+        r"""Draw 2 plots: One shows the shape of the current solution (with heat map).
+        The other shows the history training loss and validation loss.
+
+        :param nets:
+            The neural networks that approximates the PDE.
+        :type nets: list [`torch.nn.Module`]
+        :param conditions:
+            The initial/boundary condition of the PDE.
+        :type conditions: list [`neurodiffeq.conditions.BaseCondition`]
+        :param history:
+            The history of training loss and validation loss.
+            The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
+        :type history: dict['train': list[float], 'valid': list[float]]
+
+        .. note::
+            `check` is meant to be called by the function `solve2D`.
+        """
+
+        if not self.fig:
+            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
+            # size of the figure, number of the subplots, etc.
+
+            # one for each dependent variable, plus one for training and validation loss, plus one for metrics
+            n_axs = len(conditions) + 2
+            n_row, n_col = (n_axs + 1) // 2, 2
+            self.fig = plt.figure(figsize=(20, 8 * n_row))
+            for i in range(n_axs):
+                self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
+            for i in range(n_axs - 2):
+                self.cbs.append(None)
+
+        us = [
+            con.enforce(net, self.xs_ann, self.ys_ann)
+            for con, net in zip(conditions, nets)
+        ]
+
+        for i, ax_u_con in enumerate(zip(self.axs[:-2], us, conditions)):
+            ax, u, con = ax_u_con
+            ax.clear()
+            u = u.detach().cpu().numpy().flatten()
+            cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
+            if self.cbs[i] is None:
+                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
+            else:
+                self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+            ax.set_title(f'u[{i}](x, y)')
+
+        self.axs[-2].clear()
+        self.axs[-2].plot(history['train_loss'], label='training loss')
+        self.axs[-2].plot(history['valid_loss'], label='validation loss')
+        self.axs[-2].set_title('loss during training')
+        self.axs[-2].set_ylabel('loss')
+        self.axs[-2].set_xlabel('epochs')
+        self.axs[-2].set_yscale('log')
+        self.axs[-2].legend()
+
+        self.axs[-1].clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.axs[-1].plot(metric_values, label=metric_name)
+        self.axs[-1].set_title('metrics during training')
+        self.axs[-1].set_ylabel('metrics')
+        self.axs[-1].set_xlabel('epochs')
+        self.axs[-1].set_yscale('log')
+        # if there's not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.axs[-1].legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
