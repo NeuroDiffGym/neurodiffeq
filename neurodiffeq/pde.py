@@ -14,10 +14,12 @@ from .generators import Generator2D, PredefinedGenerator
 from ._version_utils import warn_deprecate_class
 from .conditions import IrregularBoundaryCondition
 from .conditions import NoCondition, DirichletBVP2D, IBVP1D
+from .solvers import Solution2D
 from copy import deepcopy
 
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
 PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
+Solution = warn_deprecate_class(Solution2D)
 
 
 # Calculate the output of a neural network with 2 input.
@@ -551,53 +553,6 @@ def solve2D_system(
         return solution, history, internal
     else:
         return solution, history
-
-
-class Solution:
-    r"""A solution to an PDE (system)
-
-    :param single_net: The neural networks that approximates the PDE.
-    :type single_net: `torch.nn.Module`
-    :param nets: The neural networks that approximates the PDE.
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    """
-    def __init__(self, single_net, nets, conditions):
-        """Initializer method
-        """
-        self.single_net = deepcopy(single_net)
-        self.nets = deepcopy(nets)
-        self.conditions = deepcopy(conditions)
-
-    def __call__(self, xs, ys, as_type='tf'):
-        """Evaluate the solution at certain points.
-
-        :param xs: The x-coordinates of points on which the dependent variables are evaluated.
-        :type xs: `torch.Tensor` or sequence of number
-        :param ys: The y-coordinates of points on which the dependent variables are evaluated.
-        :type ys: `torch.Tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
-        :type as_type: str
-        :return: Dependent variables are evaluated at given points.
-        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.Tensor` or `numpy.array` (when there is only one dependent variable).
-        """
-        if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor(xs)
-        if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor(ys)
-        original_shape = xs.shape
-        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
-        if as_type not in ('tf', 'np'):
-            raise ValueError("The valid return types are 'tf' and 'np'.")
-
-        us = _trial_solution_2input(self.single_net, self.nets, xs, ys, self.conditions)
-        us = [u.reshape(original_shape) for u in us]
-        if as_type == 'np':
-            us = [u.detach().cpu().numpy() for u in us]
-
-        return us if len(us) > 1 else us[0]
 
 
 def make_animation(solution, xs, ts):

@@ -927,3 +927,8 @@ class Solver1D(BaseSolver):
             't_max': self.t_max,
         })
         return available_variables
+
+
+class Solution2D(BaseSolution):
+    def _compute_u(self, net, condition, xs, ys):
+        return condition.enforce(net, xs, ys)
