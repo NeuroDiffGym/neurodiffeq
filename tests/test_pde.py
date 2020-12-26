@@ -82,7 +82,7 @@ def test_train_generator():
         net=net, max_epochs=3, train_generator=train_gen, valid_generator=valid_gen, batch_size=64
     )
 
-    with raises(RuntimeError):
+    with raises(ValueError):
         solution_neural_net_laplace, _ = solve2D(
             pde=laplace, condition=bc,
             net=net, max_epochs=3, batch_size=64
@@ -105,7 +105,7 @@ def test_laplace():
         train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy', xy_noise_std=(0.01, 0.01)),
         batch_size=64
     )
-    assert isinstance(solution_neural_net_laplace, Solution)
+    assert isinstance(solution_neural_net_laplace, Solution2D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
     for key in keys:
