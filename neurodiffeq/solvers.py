@@ -35,6 +35,7 @@ class BaseSolver(ABC):
         It must provide a `.get_examples()` method and a `.size` field.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, required
     :param analytic_solutions:
+        **[DEPRECATED]** Pass ``metrics`` instead.
         The analytical solutions to be compared with neural net solutions.
         It maps a tuple of three coordinates to a tuple of function values.
         The output shape should match that of networks.
@@ -53,6 +54,14 @@ class BaseSolver(ABC):
         Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
         Defaults to 4.
     :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``diff_eq``.
+
+    :type metrics: dict, optional
     :param n_input_units:
         Number of input units for each neural network. Ignored if ``nets`` is specified.
     :type n_input_units: int, required
@@ -73,7 +82,7 @@ class BaseSolver(ABC):
     def __init__(self, diff_eqs, conditions,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
-                 n_input_units=None, n_output_units=None,
+                 metrics=None, n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
                  shuffle=False, batch_size=None):
         # deprecate argument `shuffle`
@@ -106,7 +115,38 @@ class BaseSolver(ABC):
         if valid_generator is None:
             raise ValueError("valid_generator must be specified")
 
-        self.analytic_solutions = analytic_solutions
+        self.metrics_fn = metrics if metrics else {}
+        # For backward compatibility with the legacy `analytic_solutions` argument
+        if analytic_solutions:
+            warnings.warn(
+                'The `analytic_solutions` argument is deprecated and could lead to unstable behavior. '
+                'Pass a `metrics` dict instead.',
+                FutureWarning,
+            )
+
+            def analytic_mse(*args):
+                x = args[-n_input_units:]
+                u_hat = analytic_solutions(*x)
+                u = args[:-n_input_units]
+                u, u_hat = torch.stack(u), torch.stack(u_hat)
+                return ((u - u_hat) ** 2).mean()
+
+            if 'analytic_mse' in self.metrics_fn:
+                warnings.warn(
+                    "Ignoring `analytic_solutions` in presence of key 'analytic_mse' in `metrics`",
+                    FutureWarning,
+                )
+            else:
+                self.metrics_fn['analytic_mse'] = analytic_mse
+
+        # metric history, keys will be train_loss, valid_loss, train__<metric_name>, valid__<metric_name>.
+        # For compatibility with ode.py and pde.py,
+        # double underscore are used between 'train'/'valid' and custom metric names.
+        self.metrics_history = {}
+        self.metrics_history.update({'train_loss': [], 'valid_loss': []})
+        self.metrics_history.update({'train__' + name: [] for name in self.metrics_fn})
+        self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
+
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
         self.criterion = criterion if criterion else lambda r: (r ** 2).mean()
 
@@ -114,10 +154,6 @@ class BaseSolver(ABC):
             return {'train': train, 'valid': valid}
 
         self.generator = make_pair_dict(train=train_generator, valid=valid_generator)
-        # loss history
-        self.loss = make_pair_dict(train=[], valid=[])
-        # analytic MSE history
-        self.analytic_mse = make_pair_dict(train=[], valid=[])
         # number of batches for training / validation;
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
         # current batch of samples, kept for additional_loss term to use
@@ -143,7 +179,7 @@ class BaseSolver(ABC):
         :return: Number of training epochs that have been run.
         :rtype: int
         """
-        return len(self.loss['train'])
+        return len(self.metrics_history['train_loss'])
 
     def compute_func_val(self, net, cond, *coordinates):
         r"""Compute the function value evaluated on the points specified by ``coordinates``.
@@ -164,18 +200,18 @@ class BaseSolver(ABC):
 
         :param value: Value to be appended.
         :type value: float
-        :param metric_type: {'loss', 'analytic_mse'}; Type of history metrics.
+        :param metric_type: Name of the metric. Must be 'loss' or present in ``self.metrics``.
         :type metric_type: str
-        :param key: {'train', 'valid'}; Dict key in ``self.loss`` or ``self.analytic_mse``.
+        :param key: {'train', 'valid'}. Phase of the process.
         :type key: str
         """
         self._phase = key
         if metric_type == 'loss':
-            self.loss[key].append(value)
-        elif metric_type == 'analytic_mse':
-            self.analytic_mse[key].append(value)
+            self.metrics_history[f'{key}_{metric_type}'].append(value)
+        elif metric_type in self.metrics_fn:
+            self.metrics_history[f'{key}__{metric_type}'].append(value)
         else:
-            raise KeyError(f'history type = {metric_type} not understood')
+            raise KeyError(f"metric '{metric_type}' not specified")
 
     def _update_train_history(self, value, metric_type):
         r"""Append a value to corresponding training history list."""
@@ -232,7 +268,7 @@ class BaseSolver(ABC):
         """
         self._phase = key
         epoch_loss = 0.0
-        epoch_analytic_mse = 0
+        metric_values = {name: 0.0 for name in self.metrics_fn}
 
         # perform forward pass for all batches: a single graph is created and release in every iteration
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
@@ -242,11 +278,9 @@ class BaseSolver(ABC):
                 self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
             ]
 
-            if self.analytic_solutions is not None:
-                funcs_true = self.analytic_solutions(*batch)
-                for f_pred, f_true in zip(funcs, funcs_true):
-                    epoch_analytic_mse += ((f_pred - f_true) ** 2).mean().item()
-
+            for name in self.metrics_fn:
+                value = self.metrics_fn[name](*funcs, *batch).item()
+                metric_values[name] += value
             residuals = self.diff_eqs(*funcs, *batch)
             residuals = torch.cat(residuals, dim=1)
             loss = self.criterion(residuals) + self.additional_loss(funcs, key)
@@ -270,11 +304,9 @@ class BaseSolver(ABC):
         else:
             self._update_best()
 
-        # calculate mean analytic mse of all batches and register to history
-        if self.analytic_solutions is not None:
-            epoch_analytic_mse /= self.n_batches[key]
-            epoch_analytic_mse /= self.n_funcs
-            self._update_history(epoch_analytic_mse, 'analytic_mse', key)
+        # calculate average metrics across batches and register to history
+        for name in self.metrics_fn:
+            self._update_history(metric_values[name] / self.n_batches[key], name, key)
 
     def run_train_epoch(self):
         r"""Run a training epoch, update history, and perform gradient descent."""
@@ -288,7 +320,7 @@ class BaseSolver(ABC):
         r"""Update ``self.lowest_loss`` and ``self.best_nets``
         if current validation loss is lower than ``self.lowest_loss``
         """
-        current_loss = self.loss['valid'][-1]
+        current_loss = self.metrics_history['valid_loss'][-1]
         if (self.lowest_loss is None) or current_loss < self.lowest_loss:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
@@ -318,7 +350,8 @@ class BaseSolver(ABC):
         self._max_local_epoch = max_epochs
 
         if monitor:
-            warnings.warn("Monitor is deprecated, use a MonitorCallback instead")
+            warnings.warn("Passing `monitor` is deprecated, "
+                          "use a MonitorCallback and pass a list of callbacks instead")
 
         for local_epoch in range(max_epochs):
             # stops training if self._stop_training is set to True by a callback
@@ -382,14 +415,12 @@ class BaseSolver(ABC):
         """
 
         return {
-            "analytic_mse": self.analytic_mse,
-            "analytic_solutions": self.analytic_solutions,
+            "metrics": self.metrics_fn,
             "n_batches": self.n_batches,
             "best_nets": self.best_nets,
             "criterion": self.criterion,
             "conditions": self.conditions,
             "global_epoch": self.global_epoch,
-            "loss": self.loss,
             "lowest_loss": self.lowest_loss,
             "n_funcs": self.n_funcs,
             "nets": self.nets,

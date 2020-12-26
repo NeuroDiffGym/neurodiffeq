@@ -199,7 +199,7 @@ def test_electric_potential_gaussian_charged_density():
     v_0 = (k * Q / r_0) * erf(r_0 / (np.sqrt(2) * sigma))
     v_1 = (k * Q / r_1) * erf(r_1 / (np.sqrt(2) * sigma))
 
-    def validate(solution, loss_history, analytical_mse):
+    def validate(solution):
         generator = GeneratorSpherical(512, r_min=r_0, r_max=r_1)
         rs, thetas, phis = generator.get_examples()
         us = solution(rs, thetas, phis, as_type="np")
@@ -211,7 +211,7 @@ def test_electric_potential_gaussian_charged_density():
     pde1 = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
     condition1 = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
     monitor1 = MonitorSpherical(r_0, r_1, check_every=50)
-    solution1, loss_history1, analytic_mse1 = solve_spherical(
+    solution1, metrics_history = solve_spherical(
         pde1, condition1, r_0, r_1,
         max_epochs=2,
         return_best=True,
@@ -219,7 +219,7 @@ def test_electric_potential_gaussian_charged_density():
         monitor=monitor1,
         batch_size=64,
     )
-    validate(solution1, loss_history1, analytic_mse1)
+    validate(solution1)
 
     # solving the problem using spherical harmonics (laplcian computation is optimized)
     max_degree = 2
@@ -237,7 +237,7 @@ def test_electric_potential_gaussian_charged_density():
     monitor2 = MonitorSphericalHarmonics(r_0, r_1, check_every=50, max_degree=max_degree)
     net2 = FCNN(n_input_units=1, n_output_units=(max_degree + 1) ** 2)
     harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
-    solution2, loss_history2, analytic_mse2 = solve_spherical(
+    solution2, metrics_history = solve_spherical(
         pde2, condition2, r_0, r_1,
         net=net2,
         max_epochs=2,
@@ -248,7 +248,7 @@ def test_electric_potential_gaussian_charged_density():
         harmonics_fn=harmonics_fn,
     )
 
-    validate(solution2, loss_history2, analytic_mse2)
+    validate(solution2)
 
 
 def test_spherical_harmonics():

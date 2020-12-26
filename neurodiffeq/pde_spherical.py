@@ -124,7 +124,6 @@ def solve_spherical(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
-        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
 
 
     .. note::
@@ -238,7 +237,6 @@ def solve_spherical_system(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
-        or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict, dict]
 
     .. note::
         This function is deprecated, use a `SphericalSolver` instead
@@ -273,9 +271,7 @@ def solve_spherical_system(
 
     solver.fit(max_epochs=max_epochs, monitor=monitor)
     solution = solver.get_solution(copy=True, best=return_best, harmonics_fn=harmonics_fn)
-    ret = (solution, solver.loss)
-    if analytic_solutions is not None:
-        ret = ret + (solver.analytic_mse,)
+    ret = (solution, solver.metrics_history)
     if return_internal:
         params = ['nets', 'conditions', 'train_generator', 'valid_generator', 'optimizer', 'criterion']
         internals = solver.get_internals(params, return_type="dict")
