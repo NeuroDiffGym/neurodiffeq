@@ -726,7 +726,7 @@ class SolverSpherical(BaseSolver):
             return SolutionSpherical(nets, conditions)
 
     def _get_internal_variables(self):
-        available_variables = self._get_internal_variables()
+        available_variables = super(SolverSpherical, self)._get_internal_variables()
         available_variables.update({
             'r_min': self.r_min,
             'r_max': self.r_max,
