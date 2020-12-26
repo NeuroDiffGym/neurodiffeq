@@ -11,9 +11,12 @@ from .generators import Generator1D
 from ._version_utils import warn_deprecate_class
 from .monitors import Monitor1D
 from .conditions import NoCondition, IVP, DirichletBVP
+from .solvers import Solver1D
 from copy import deepcopy
+import warnings
 
 ExampleGenerator = warn_deprecate_class(Generator1D)
+Monitor = warn_deprecate_class(Monitor1D)
 
 
 def _trial_solution(single_net, nets, ts, conditions):
@@ -135,8 +138,7 @@ def solve_system(
         ode_system, conditions, t_min, t_max,
         single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
         optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
-        max_epochs=1000,
-        monitor=None, return_internal=False,
+        max_epochs=1000, monitor=None, return_internal=False,
         return_best=False,
 ):
     r"""Train a neural network to solve an ODE.
@@ -175,10 +177,6 @@ def solve_system(
         The example generator to generate 1-D training points.
         Default to None.
     :type train_generator: `neurodiffeq.generators.Generator1D`, optional
-    :param shuffle:
-        Whether to shuffle the training examples every epoch.
-        Defaults to True.
-    :type shuffle: bool, optional
     :param valid_generator:
         The example generator to generate 1-D validation points.
         Default to None.
@@ -196,16 +194,13 @@ def solve_system(
         The input of `additional_loss_term` should be the same as `ode_system`.
     :type additional_loss_term: callable
     :param metrics:
-        Metrics to keep track of during training.
-        The metrics should be passed as a dictionary where the keys are the names of the metrics,
-        and the values are the corresponding function.
-        The input functions should be the same as `ode_system` and the output should be a numeric value.
-        The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, callable]
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``ode_system``.
+
+    :type metrics: dict[str, callable], optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -222,79 +217,29 @@ def solve_system(
         Whether to return the nets that achieved the lowest validation loss.
         Defaults to False.
     :type return_best: bool, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
     :return:
         The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
     """
 
-    ########################################### subroutines ###########################################
-    def train(train_generator, net, nets, ode_system, conditions, criterion, additional_loss_term, shuffle, optimizer):
-        train_examples_t = train_generator.get_examples()
-        train_examples_t = train_examples_t.reshape((-1, 1))
-        n_examples_train = train_generator.size
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            ts = train_examples_t[batch_idx]
-
-            train_loss_batch = calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term)
-
-            optimizer.zero_grad()
-            train_loss_batch.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
-        train_loss_epoch = calculate_loss(
-            train_examples_t, net, nets, ode_system,
-            conditions, criterion, additional_loss_term
-        )
-        train_loss_epoch = train_loss_epoch.item()
-
-        train_metrics_epoch = calculate_metrics(train_examples_t, net, nets, conditions, metrics)
-        return train_loss_epoch, train_metrics_epoch
-
-    def valid(valid_generator, net, nets, ode_system, conditions, criterion, additional_loss_term):
-        valid_examples_t = valid_generator.get_examples()
-        valid_examples_t = valid_examples_t.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(
-            valid_examples_t, net, nets, ode_system,
-            conditions, criterion, additional_loss_term
-        )
-        valid_loss_epoch = valid_loss_epoch.item()
-
-        valid_metrics_epoch = calculate_metrics(valid_examples_t, net, nets, conditions, metrics)
-        return valid_loss_epoch, valid_metrics_epoch
-
-    def calculate_loss(ts, net, nets, ode_system, conditions, criterion, additional_loss_term):
-        us = _trial_solution(net, nets, ts, conditions)
-        Futs = ode_system(*us, ts)
-        loss = sum(
-            criterion(Fut, torch.zeros_like(ts))
-            for Fut in Futs
-        )
-        if additional_loss_term is not None:
-            loss += additional_loss_term(*us, ts)
-        return loss
-
-    def calculate_metrics(ts, net, nets, conditions, metrics):
-        us = _trial_solution(net, nets, ts, conditions)
-        metrics_ = {
-            metric_name: metric_function(*us, ts).item()
-            for metric_name, metric_function in metrics.items()
-        }
-        return metrics_
-    ###################################################################################################
-
+    warnings.warn(
+        "The `solve_system` function is deprecated, use a `neurodiffeq.solvers.Solver1D` instance instead",
+        FutureWarning,
+    )
     if single_net and nets:
-        raise RuntimeError('Only one of net and nets should be specified')
-    # defaults to use a single neural network
+        raise ValueError('Only one of net and nets should be specified')
+
+    # For backward compatibility defaults to use a single neural network
     if (not single_net) and (not nets):
         single_net = FCNN(
             n_input_units=1,
@@ -302,121 +247,41 @@ def solve_system(
             hidden_units=(32, 32),
             actv=nn.Tanh,
         )
+
     if single_net:
         # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
-    if not train_generator:
-        if (t_min is None) or (t_max is None):
-            raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
-        train_generator = Generator1D(32, t_min, t_max, method='equally-spaced-noisy')
-    if not valid_generator:
-        if (t_min is None) or (t_max is None):
-            raise RuntimeError('Please specify t_min and t_max when train_generator is not specified')
-        valid_generator = Generator1D(32, t_min, t_max, method='equally-spaced')
-    if (not optimizer) and single_net:  # using a single net
-        optimizer = optim.Adam(single_net.parameters(), lr=0.001)
-    if (not optimizer) and nets:  # using multiple nets
-        all_parameters = []
-        for net in nets:
-            all_parameters += list(net.parameters())
-        optimizer = optim.Adam(all_parameters, lr=0.001)
-    if not criterion:
-        criterion = nn.MSELoss()
-    if metrics is None:
-        metrics = {}
+        nets = [single_net] * len(conditions)
 
-    history = {}
-    history['train_loss'] = []
-    history['valid_loss'] = []
-    for metric_name, _ in metrics.items():
-        history['train__' + metric_name] = []
-        history['valid__' + metric_name] = []
-
-    if return_best:
-        valid_loss_epoch_min = np.inf
-        solution_min = None
-
-    for epoch in range(max_epochs):
-        train_loss_epoch, train_metrics_epoch = train(
-            train_generator, single_net, nets, ode_system, conditions,
-            criterion, additional_loss_term, shuffle, optimizer
-        )
-        history['train_loss'].append(train_loss_epoch)
-        for metric_name, metric_value in train_metrics_epoch.items():
-            history['train__'+metric_name].append(metric_value)
-
-        valid_loss_epoch, valid_metrics_epoch = valid(
-            valid_generator, single_net, nets, ode_system, conditions,
-            criterion, additional_loss_term,
-        )
-        history['valid_loss'].append(valid_loss_epoch)
-        for metric_name, metric_value in valid_metrics_epoch.items():
-            history['valid__'+metric_name].append(metric_value)
-
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(single_net, nets, conditions, history)
-
-        if return_best and valid_loss_epoch < valid_loss_epoch_min:
-            valid_loss_epoch_min = valid_loss_epoch
-            solution_min = Solution(single_net, nets, conditions)
-
-    if return_best:
-        solution = solution_min
+    if additional_loss_term:
+        class CustomSolver1D(Solver1D):
+            def additional_loss(self, funcs, key):
+                return additional_loss_term(*funcs, self._batch_examples[key])
     else:
-        solution = Solution(single_net, nets, conditions)
+        class CustomSolver1D(Solver1D):
+            pass
 
+    solver = CustomSolver1D(
+        ode_system=ode_system,
+        conditions=conditions,
+        t_min=t_min,
+        t_max=t_max,
+        nets=nets,
+        train_generator=train_generator,
+        valid_generator=valid_generator,
+        optimizer=optimizer,
+        criterion=criterion,
+        metrics=metrics,
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+
+    solver.fit(max_epochs=max_epochs, monitor=monitor)
+    solution = solver.get_solution(copy=True, best=return_best)
+    ret = (solution, solver.metrics_history)
     if return_internal:
-        internal = {
-            'single_net': single_net,
-            'nets': nets,
-            'conditions': conditions,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
-        return solution, history, internal
-    else:
-        return solution, history
-
-
-class Solution:
-    r"""A solution to an ODE (system).
-
-    :param nets: The neural networks that approximates the ODE.
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    """
-    def __init__(self, single_net, nets, conditions):
-        """Initializer method
-        """
-        self.single_net = deepcopy(single_net)
-        self.nets = deepcopy(nets)
-        self.conditions = deepcopy(conditions)
-
-    def __call__(self, ts, as_type='tf'):
-        """Evaluate the solution at certain points.
-
-        :param ts: The points on which the dependent variables are evaluated.
-        :type ts: `torch.Tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
-        :type as_type: str
-        :return: Dependent variables are evaluated at given points.
-        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.Tensor` or `numpy.array` (when there is only one dependent variable)
-        """
-        if not isinstance(ts, torch.Tensor):
-            ts = torch.tensor(ts)
-        original_shape = ts.shape
-        ts = ts.reshape(-1, 1)
-        if as_type not in ('tf', 'np'):
-            raise ValueError("The valid return types are 'tf' and 'np'.")
-
-        us = _trial_solution(self.single_net, self.nets, ts, self.conditions)
-        us = [u.reshape(original_shape) for u in us]
-        if as_type == 'np':
-            us = [u.detach().cpu().numpy() for u in us]
-
-        return us if len(self.conditions) > 1 else us[0]
+        params = ['nets', 'conditions', 'train_generator', 'valid_generator', 'optimizer', 'criterion']
+        internals = solver.get_internals(params, return_type="dict")
+        ret = ret + (internals,)
+    return ret
