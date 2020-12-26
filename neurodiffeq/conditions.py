@@ -120,11 +120,18 @@ class EnsembleCondition(BaseCondition):
         r"""Re-parameterizes each column in output_tensor individually, using its corresponding sub-condition.
         This is useful when solving differential equations with a single, multi-output network.
 
-        :param output_tensor: Output of the neural network. Number of units (.shape[1]) must equal number of sub-conditions.
+        :param output_tensor:
+            Output of the neural network.
+            Number of units (.shape[1]) must equal number of sub-conditions.
         :type output_tensor: `torch.Tensor`
-        :param input_tensors: Inputs to the neural network; i.e., sampled coordinates; i.e., independent variables.
+        :param input_tensors:
+            Inputs to the neural network;
+            i.e., sampled coordinates;
+            i.e., independent variables.
         :type input_tensors: `torch.Tensor`
-        :return: The column-wise re-parameterized network output, concatenated across columns so that it's still one tensor.
+        :return:
+            The column-wise re-parameterized network output,
+            concatenated across columns so that it's still one tensor.
         :rtype: `torch.Tensor`
         """
         if output_tensor.shape[1] != len(self.conditions):
@@ -165,7 +172,10 @@ class IVP(BaseCondition):
     :type t_0: float
     :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`.
     :type u_0: float
-    :param u_0_prime: The initial derivative of :math:`u` w.r.t. :math:`t`. :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0} = u_0'`, defaults to None.
+    :param u_0_prime:
+        The initial derivative of :math:`u` w.r.t. :math:`t`.
+        :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0} = u_0'`.
+        Defaults to None.
     :type u_0_prime: float, optional
     """
 
@@ -293,9 +303,9 @@ class DirichletBVP2D(BaseCondition):
 
         :param output_tensor: Output of the neural network.
         :type output_tensor: `torch.Tensor`
-        :param x: :math:`x`-coordinates of inputs to the neural network; i.e., the sampled :math:`x`-coordinates
+        :param x: :math:`x`-coordinates of inputs to the neural network; i.e., the sampled :math:`x`-coordinates.
         :type x: `torch.Tensor`
-        :param y: :math:`y`-coordinates of inputs to the neural network; i.e., the sampled :math:`y`-coordinates
+        :param y: :math:`y`-coordinates of inputs to the neural network; i.e., the sampled :math:`y`-coordinates.
         :type y: `torch.Tensor`
         :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
@@ -522,13 +532,22 @@ class DirichletBVPSpherical(BaseCondition):
     - :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`
     - :math:`u(r_1,\theta,\phi)=g(\theta,\phi)`
 
-    :param r_0: The radius of the interior boundary. When :math:`r_0 = 0`, the interior boundary collapses to a single point (center of the ball).
+    :param r_0:
+        The radius of the interior boundary.
+        When :math:`r_0 = 0`, the interior boundary collapses to a single point (center of the ball).
     :type r_0: float
-    :param f: The value of :math:`u` on the interior boundary. :math:`u(r_0, \theta, \phi)=f(\theta, \phi)`.
+    :param f:
+        The value of :math:`u` on the interior boundary.
+        :math:`u(r_0, \theta, \phi)=f(\theta, \phi)`.
     :type f: callable
-    :param r_1: The radius of the exterior boundary; if set to None, `g` must also be None.
+    :param r_1:
+        The radius of the exterior boundary.
+        If set to None, `g` must also be None.
     :type r_1: float or None
-    :param g: The value of :math:`u` on the exterior boundary. :math:`u(r_1, \theta, \phi)=g(\theta, \phi)`. If set to None, `r_1` must also be set to None.
+    :param g:
+        The value of :math:`u` on the exterior boundary.
+        :math:`u(r_1, \theta, \phi)=g(\theta, \phi)`.
+        If set to None, `r_1` must also be set to None.
     :type g: callable or None
     """
 
@@ -585,14 +604,22 @@ class InfDirichletBVPSpherical(BaseCondition):
     - :math:`\displaystyle u(r_0,\theta,\phi)=f(\theta,\phi)`,
     - :math:`\lim_{r\to+\infty}u(r,\theta,\phi)=g(\theta,\phi)`.
 
-    :param r_0: The radius of the interior boundary. When :math:`r_0=0`, the interior boundary collapses to a single point (center of the ball).
+    :param r_0:
+        The radius of the interior boundary.
+        When :math:`r_0=0`, the interior boundary collapses to a single point (center of the ball).
     :type r_0: float
-    :param f: The value of :math:`u` on the interior boundary. :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`.
+    :param f:
+        The value of :math:`u` on the interior boundary.
+        :math:`u(r_0,\theta,\phi)=f(\theta,\phi)`.
     :type f: callable
-    :param g: The value of :math:`u` at infinity. :math:`\lim_{r\to+\infty}u(r,\theta,\phi)=g(\theta,\phi)`.
+    :param g:
+        The value of :math:`u` at infinity.
+        :math:`\lim_{r\to+\infty}u(r,\theta,\phi)=g(\theta,\phi)`.
     :type g: callable
-    :param order: The smallest :math:`k` such that :math:`\lim_{r\to+\infty}u(r,\theta,\phi)e^{-kr}=0`, defaults to 1.
-    :type order: int or float, optional
+    :param order:
+        The smallest :math:`k` such that :math:`\lim_{r\to+\infty}u(r,\theta,\phi)e^{-kr}=0`.
+        Defaults to 1.
+    :type order: int or float
     """
 
     def __init__(self, r_0, f, g, order=1):
@@ -646,15 +673,24 @@ class DirichletBVPSphericalBasis(BaseCondition):
     The boundary conditions are: :math:`\mathbf{R}(r_0)=\mathbf{R}_0` and :math:`\mathbf{R}(r_1)=\mathbf{R}_1`,
     where :math:`\mathbf{R}` is a vector whose components are :math:`\big\{R_k\big\}_{k=1}^{K}`
 
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :param r_0:
+        The radius of the interior boundary.
+        When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball).
     :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:`\mathbf{R}` on the interior boundary. :math:`\mathbf{R}(r_0)=\mathbf{R}_0`.
+    :param R_0:
+        The value of harmonic coefficients :math:`\mathbf{R}` on the interior boundary.
+        :math:`\mathbf{R}(r_0)=\mathbf{R}_0`.
     :type R_0: `torch.Tensor`
-    :param r_1: The radius of the exterior boundary; if set to None, `R_1` must also be None
+    :param r_1:
+        The radius of the exterior boundary.
+        If set to None, `R_1` must also be None
     :type r_1: float or None
-    :param R_1: The value of harmonic coefficients :math:`\mathbf{R}` on the exterior boundary. :math:`\mathbf{R}(r_1)=\mathbf{R}_1`.
+    :param R_1:
+        The value of harmonic coefficients :math:`\mathbf{R}` on the exterior boundary.
+        :math:`\mathbf{R}(r_1)=\mathbf{R}_1`.
     :type R_1: `torch.Tensor`
-    :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics
+    :param max_degree:
+        **[DEPRECATED]** Highest degree when using spherical harmonics.
     :type max_degree: int
     """
 
@@ -716,15 +752,24 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
     :math:`\lim_{r_0\to+\infty}\mathbf{R}(r)=\mathbf{R}_1`,
     where :math:`\mathbf{R}` is a vector whose components are :math:`\big\{R_k\big\}_{k=1}^{K}`.
 
-    :param r_0: The radius of the interior boundary. When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball)
+    :param r_0:
+        The radius of the interior boundary.
+        When r_0 = 0, the interior boundary is collapsed to a single point (center of the ball).
     :type r_0: float
-    :param R_0: The value of harmonic coefficients :math:`R` on the interior boundary. :math:`R(r_0)=R_0`.
+    :param R_0:
+        The value of harmonic coefficients :math:`R` on the interior boundary.
+        :math:`R(r_0)=R_0`.
     :type R_0: `torch.Tensor`
-    :param R_inf: The value of harmonic coefficients :math:`R` at infinity. :math:`\lim_{r\to+\infty}R(r)=R_\infty`.
+    :param R_inf:
+        The value of harmonic coefficients :math:`R` at infinity.
+        :math:`\lim_{r\to+\infty}R(r)=R_\infty`.
     :type R_inf: `torch.Tensor`
-    :param order: The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`, defaults to 1
-    :type order: int or float, optional
-    :param max_degree: **[DEPRECATED]** highest degree when using spherical harmonics
+    :param order:
+        The smallest :math:`k` that guarantees :math:`\lim_{r \to +\infty} R(r) e^{-k r} = \bf 0`.
+        Defaults to 1.
+    :type order: int or float
+    :param max_degree:
+        **[DEPRECATED]** Highest degree when using spherical harmonics.
     :type max_degree: int
     """
 

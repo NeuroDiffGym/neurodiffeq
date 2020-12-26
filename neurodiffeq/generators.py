@@ -6,7 +6,7 @@ from typing import List
 
 
 class BaseGenerator:
-    """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field
+    """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field.
     """
 
     def __init__(self):
@@ -38,12 +38,18 @@ class Generator1D(BaseGenerator):
     :type t_min: float, optional
     :param t_max: The upper boound of the 1-D points generated, defaults to 1.0.
     :type t_max: float, optional
-    :param method: The distribution of the 1-D points generated.
-        If set to 'uniform', the points will be drew from a uniform distribution Unif(t_min, t_max).
-        If set to 'equally-spaced', the points will be fixed to a set of linearly-spaced points that go from t_min to t_max.
-        If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
-        If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
-        If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'uniform'.
+    :param method:
+        The distribution of the 1-D points generated.
+
+        - If set to 'uniform',
+          the points will be drew from a uniform distribution Unif(t_min, t_max).
+        - If set to 'equally-spaced',
+          the points will be fixed to a set of linearly-spaced points that go from t_min to t_max.
+        - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+        - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
+        - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
+
+        defaults to 'uniform'.
     :type method: str, optional
     :raises ValueError: When provided with an unknown method.
     """
@@ -53,7 +59,8 @@ class Generator1D(BaseGenerator):
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 1-D training points. It will be called by the function `solve` and `solve_system`.
+            A instance method `get_examples` is dynamically created to generate 1-D training points. 
+            It will be called by the function `solve` and `solve_system`.
         """
         self.size = size
         self.t_min, self.t_max = t_min, t_max
@@ -88,19 +95,35 @@ class Generator1D(BaseGenerator):
 
 
 class Generator2D(BaseGenerator):
-    """An example generator for generating 2-D training points.
+    r"""An example generator for generating 2-D training points.
 
-        :param grid: The discretization of the 2 dimensions, if we want to generate points on a :math:`m \\times n` grid, then `grid` is `(m, n)`, defaults to `(10, 10)`.
+        :param grid:
+            The discretization of the 2 dimensions.
+            If we want to generate points on a :math:`m \times n` grid, then `grid` is `(m, n)`.
+            Defaults to `(10, 10)`.
         :type grid: tuple[int, int], optional
-        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \\geq x_0` and :math:`y \\geq y_0`, then `xy_min` is `(x_0, y_0)`, defaults to `(0.0, 0.0)`.
+        :param xy_min:
+            The lower bound of 2 dimensions.
+            If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
+            Defaults to `(0.0, 0.0)`.
         :type xy_min: tuple[float, float], optional
-        :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \\leq x_1` and :math:`y \\leq y_1`, then `xy_min` is `(x_1, y_1)`, defaults to `(1.0, 1.0)`.
+        :param xy_max:
+            The upper boound of 2 dimensions.
+            If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
+            Defaults to `(1.0, 1.0)`.
         :type xy_max: tuple[float, float], optional
-        :param method: The distribution of the 2-D points generated.
-            If set to 'equally-spaced', the points will be fixed to the grid specified.
-            If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
+        :param method:
+            The distribution of the 2-D points generated.
+
+            - If set to 'equally-spaced', the points will be fixed to the grid specified.
+            - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+
+            Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
-        :param xy_noise_std: the standard deviation of the noise on the x and y dimension, if not specified, the default value will be (grid step size on x dimension / 4, grid step size on y dimension / 4)
+        :param xy_noise_std:
+            The standard deviation of the noise on the x and y dimension.
+            If not specified, the default value will be
+            (``grid step size on x dimension`` / 4, ``grid step size on y dimension`` / 4).
         :type xy_noise_std: tuple[int, int], optional, defaults to None
         :raises ValueError: When provided with an unknown method.
     """
@@ -110,7 +133,8 @@ class Generator2D(BaseGenerator):
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 2-D training points. It will be called by the function `solve2D`.
+            A instance method `get_examples` is dynamically created to generate 2-D training points.
+            It will be called by the function `solve2D`.
         """
         super(Generator2D, self).__init__()
         self.size = grid[0] * grid[1]
@@ -148,15 +172,32 @@ class Generator2D(BaseGenerator):
 
 
 class Generator3D(BaseGenerator):
-    """An example generator for generating 3-D training points. NOT TO BE CONFUSED with `GeneratorSpherical`
+    r"""An example generator for generating 3-D training points. NOT TO BE CONFUSED with `GeneratorSpherical`
 
-        :param grid: The discretization of the 3 dimensions, if we want to generate points on a :math:`m \\times n \\times k` grid, then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
+        :param grid:
+            The discretization of the 3 dimensions.
+            If we want to generate points on a :math:`m \times n \times k` grid,
+            then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
         :type grid: tuple[int, int, int], optional
-        :param xyz_min: The lower bound of 3 dimensions, if we only care about :math:`x \\geq x_0`, :math:`y \\geq y_0`, and :math:`z \\geq z_0` then `xyz_min` is :math:`(x_0, y_0, z_0)`, defaults to `(0.0, 0.0, 0.0)`.
+        :param xyz_min:
+            The lower bound of 3 dimensions.
+            If we only care about :math:`x \geq x_0`, :math:`y \geq y_0`,
+            and :math:`z \geq z_0` then `xyz_min` is :math:`(x_0, y_0, z_0)`.
+            Defaults to `(0.0, 0.0, 0.0)`.
         :type xyz_min: tuple[float, float, float], optional
-        :param xyz_max: The upper bound of 3 dimensions, if we only care about :math:`x \\leq x_1`, :math:`y \\leq y_1`, and :math:`z \\leq z_1` then `xyz_max` is :math:`(x_1, y_1, z_1)`, defaults to `(1.0, 1.0, 1.0)`.
+        :param xyz_max:
+            The upper bound of 3 dimensions.
+            If we only care about :math:`x \leq x_1`, :math:`y \leq y_1`, i
+            and :math:`z \leq z_1` then `xyz_max` is :math:`(x_1, y_1, z_1)`.
+            Defaults to `(1.0, 1.0, 1.0)`.
         :type xyz_max: tuple[float, float, float], optional
-        :param method: The distribution of the 3-D points generated. If set to 'equally-spaced', the points will be fixed to the grid specified. If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points, defaults to 'equally-spaced-noisy'.
+        :param method:
+            The distribution of the 3-D points generated.
+
+            - If set to 'equally-spaced', the points will be fixed to the grid specified.
+            - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+
+            Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
         :raises ValueError: When provided with an unknown method.
     """
@@ -166,7 +207,8 @@ class Generator3D(BaseGenerator):
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 2-D training points. It will be called by the function `solve2D`.
+            A instance method `get_examples` is dynamically created to generate 2-D training points.
+            It will be called by the function `solve2D`.
         """
         super(Generator3D, self).__init__()
         self.size = grid[0] * grid[1] * grid[2]
@@ -200,16 +242,28 @@ class Generator3D(BaseGenerator):
 
 
 class GeneratorSpherical(BaseGenerator):
-    """An example generator for generating points in spherical coordinates. NOT TO BE CONFUSED with `Generator3D`
+    r"""A generator for generating points in spherical coordinates.
 
-    :param size: number of points in 3-D sphere
+    :param size: Number of points in 3-D sphere.
     :type size: int
-    :param r_min: radius of the interior boundary
+    :param r_min: Radius of the interior boundary.
     :type r_min: float, optional
-    :param r_max: radius of the exterior boundary
+    :param r_max: Radius of the exterior boundary.
     :type r_max: float, optional
-    :param method: The distribution of the 3-D points generated. If set to 'equally-radius-noisy', radius of the points will be drawn from a uniform distribution :math:`r \\sim U[r_{min}, r_{max}]`. If set to 'equally-spaced-noisy', squared radius of the points will be drawn from a uniform distribution :math:`r^2 \\sim U[r_{min}^2, r_{max}^2]`
+    :param method:
+        The distribution of the 3-D points generated.
+
+        - If set to 'equally-radius-noisy', radius of the points will be drawn
+          from a uniform distribution :math:`r \sim U[r_{min}, r_{max}]`.
+        - If set to 'equally-spaced-noisy', squared radius of the points will be drawn
+          from a uniform distribution :math:`r^2 \sim U[r_{min}^2, r_{max}^2]`
+
+        Defaults to 'equally-spaced-noisy'.
+
     :type method: str, optional
+
+    .. note::
+        Not to be confused with ``Generator3D``.
     """
 
     # noinspection PyMissingConstructor
@@ -262,11 +316,14 @@ class GeneratorSpherical(BaseGenerator):
 
 
 class ConcatGenerator(BaseGenerator):
-    r"""An concatenated generator for sampling points, whose `get_examples` method returns the concatenated vector of the samples returned by its sub-generators.
-        Not to be confused with EnsembleGenerator which returns all the samples of its sub-generators
+    r"""An concatenated generator for sampling points,
+    whose ``get_examples()`` method returns the concatenated vector of the samples returned by its sub-generators.
 
-    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    :type generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :param generators: a sequence of sub-generators, must have a ``.size`` field and a ``.get_examples()`` method
+    :type generators: Tuple[BaseGenerator]
+
+    .. note::
+        Not to be confused with ``EnsembleGenerator`` which returns all the samples of its sub-generators.
     """
 
     def __init__(self, *generators):
@@ -285,7 +342,8 @@ class ConcatGenerator(BaseGenerator):
 
 
 class StaticGenerator(BaseGenerator):
-    """A generator that returns the same samples, obtained by its sub-generator, every time
+    """A generator that returns the same samples every time.
+    The static samples are obtained by the sub-generator at instantiation time.
 
     :param generator: a generator used to generate the static samples
     :type generator: BaseGenerator
@@ -301,7 +359,7 @@ class StaticGenerator(BaseGenerator):
 
 
 class PredefinedGenerator(BaseGenerator):
-    """A generator for generating training points. Here the training points are fixed and predefined.
+    """A generator for generating points that are fixed and predefined.
 
     :param xs: The x-dimension of the trianing points
     :type xs: `torch.Tensor`
@@ -331,13 +389,17 @@ class PredefinedGenerator(BaseGenerator):
 
 
 class TransformGenerator(BaseGenerator):
-    """A generator which applies certain transformations on the sample vectors
+    """A generator which applies certain transformations on the sample vectors.
 
-    :param generator: a generator used to generate samples on which transformations will be applied
+    :param generator:
+        A generator used to generate samples on which transformations will be applied.
     :type generator: BaseGenerator
-    :param transforms: a list of transformations to be applied on the sample vectors; identity transformation can be replaced with None
+    :param transforms:
+        A list of transformations to be applied on the sample vectors.
+        Identity transformation can be replaced with None
     :type transforms: list[callable]
-    :param transform: a callable that transforms the output(s) of base generator to another (tuple of) coordinate(s)
+    :param transform:
+        A callable that transforms the output(s) of base generator to another (tuple of) coordinate(s).
     :type transform: callable
     """
 
@@ -371,12 +433,16 @@ class TransformGenerator(BaseGenerator):
 
 
 class EnsembleGenerator(BaseGenerator):
-    r"""An ensemble generator for sampling points, whose `get_examples` method returns all the samples of its sub-generators;
-        Not to be confused with ConcatGenerator which returns the concatenated vector of samples returned by its sub-generators.
-        All sub-generator must return vectors of the same shape; yet the number of vectors for each sub-generator can be different
+    r"""A generator for sampling points whose `get_examples` method returns all the samples of its sub-generators.
+    All sub-generator must return tensors of the same shape.
+    The number of tensors returned by each sub-generator can be different.
 
-    :param \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    :type \*generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type generators: Tuple[BaseGenerator]
+
+    .. note::
+        Not to be confused with ``ConcatGenerator`` which returns
+        the concatenated vector of samples returned by its sub-generators.
     """
 
     def __init__(self, *generators):
@@ -406,13 +472,19 @@ class EnsembleGenerator(BaseGenerator):
 class FilterGenerator(BaseGenerator):
     """A generator which applies some filtering before samples are returned
 
-    :param generator: a generator used to generate samples to be filtered
+    :param generator:
+        A generator used to generate samples to be filtered.
     :type generator: BaseGenerator
-    :param filter_fn: a filter to be applied on the sample vectors; maps a list of tensors to a mask tensor
+    :param filter_fn:
+        A filter to be applied on the sample vectors; maps a list of tensors to a mask tensor.
     :type filter_fn: callable
-    :param size: size to be used for `self.size`; if not given, this attribute is initialized to the size of `generator`
+    :param size:
+        Size to be used for `self.size`.
+        If not given, this attribute is initialized to the size of ``generator``.
     :type size: int
-    :param update_size: whether or not to update `.size` after each call of `self.get_examples`; defaults to True
+    :param update_size:
+        Whether or not to update `.size` after each call of `self.get_examples`.
+        Defaults to True.
     :type update_size: bool
     """
 
@@ -443,11 +515,11 @@ class FilterGenerator(BaseGenerator):
 class ResampleGenerator(BaseGenerator):
     """A generator whose output is shuffled and resampled every time
 
-    :param generator: a generator used to generate samples to be shuffled and resampled
+    :param generator: A generator used to generate samples to be shuffled and resampled.
     :type generator: BaseGenerator
-    :param size: size of the shuffled output, defaults to the size of `generator`
+    :param size: Size of the shuffled output. Defaults to the size of ``generator``.
     :type size: int
-    :param replacement: whether to sample with replacement or not; defaults to False
+    :param replacement: Whether to sample with replacement or not. Defaults to False.
     :type replacement: bool
     """
 
@@ -476,9 +548,12 @@ class ResampleGenerator(BaseGenerator):
 class BatchGenerator(BaseGenerator):
     """A generator which caches samples and returns a single batch of the samples at a time
 
-    :param generator: a generator used for getting (cached) examples
+    :param generator:
+        A generator used for getting (cached) examples.
     :type generator: BaseGenerator
-    :param batch_size: number of batches to be returned; can be larger than size of  `generator`, but inefficient if so
+    :param batch_size:
+        Number of batches to be returned.
+        It can be larger than size of ``generator``, but inefficient if so.
     :type batch_size: int
     """
 
@@ -511,3 +586,17 @@ class BatchGenerator(BaseGenerator):
             return batch[0]
         else:
             return batch
+
+
+class SamplerGenerator(BaseGenerator):
+    def __init__(self, generator):
+        super(SamplerGenerator, self).__init__()
+        self.generator = generator
+        self.size = generator.size
+
+    def get_examples(self) -> List[torch.Tensor]:
+        samples = self.generator.get_examples()
+        if isinstance(samples, torch.Tensor):
+            samples = [samples]
+        samples = [u.reshape(-1, 1) for u in samples]
+        return samples

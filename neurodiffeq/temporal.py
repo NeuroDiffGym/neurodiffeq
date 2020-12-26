@@ -23,9 +23,8 @@ def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     return xx, tt
 
 class Approximator(ABC):
-    """The base class of approximators. An approximator is an approximation of the
-    differential equation's solution. It knows the parameters in the neural network, 
-    and how to calculate the loss function and the metrics.
+    """The base class of approximators. An approximator is an approximation of the differential equation's solution.
+    It knows the parameters in the neural network, and how to calculate the loss function and the metrics.
     """
     @abstractmethod
     def __call__(self):
@@ -50,14 +49,14 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
     and the initial condition will be enforced by transforming the output of the
     neural network.
 
-    :param single_network: A neural network with 2 input nodes (x, t) and 1 output node
+    :param single_network: A neural network with 2 input nodes (x, t) and 1 output node.
     :type single_network: `torch.nn.Module`
     :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde` 
         should be a function that maps :math:`(u, x, t)` to :math:`F(u, x, t)`.
     :type pde: function
-    :param initial_condition: A first order initial condition
+    :param initial_condition: A first order initial condition.
     :type initial_condition: `temporal.FirstOrderInitialCondition`
-    :param boundary_conditions: A list of boundary conditions
+    :param boundary_conditions: A list of boundary conditions.
     :type boundary_conditions: list[`temporal.BoundaryCondition`]
     :param boundary_strictness: The regularization parameter, defaults to 1.
         a larger regularization parameter enforces the boundary conditions more strictly.
@@ -106,18 +105,18 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
 
 class SingleNetworkApproximator2DSpatial(Approximator):
-    """An approximator to approximate the solution of a 2D steady-state problem.
+    r"""An approximator to approximate the solution of a 2D steady-state problem.
     The boundary condition will be enforced by a regularization term in the loss function.
 
-    :param single_network: A neural network with 2 input nodes (x, y) and 1 output node
+    :param single_network: A neural network with 2 input nodes (x, y) and 1 output node.
     :type single_network: `torch.nn.Module`
     :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde` 
         should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: function
-    :param boundary_conditions: A list of boundary conditions
+    :param boundary_conditions: A list of boundary conditions.
     :type boundary_conditions: list[`temporal.BoundaryCondition`]
     :param boundary_strictness: The regularization parameter, defaults to 1.
-        a larger regularization parameter enforces the boundary conditions more strictly.
+        A larger regularization parameter enforces the boundary conditions more strictly.
     :type boundary_strictness: float
     """
     def __init__(self, single_network, pde, boundary_conditions, boundary_strictness=1.):
@@ -160,20 +159,24 @@ class SingleNetworkApproximator2DSpatial(Approximator):
 
 
 class SingleNetworkApproximator2DSpatialSystem(Approximator):
-    """An approximator to approximate the solution of a 2D steady-state differential equation system.
+    r"""An approximator to approximate the solution of a 2D steady-state differential equation system.
     The boundary condition will be enforced by a regularization term in the loss function.
 
-    :param single_network: A neural network with 2 input nodes (x, y) and n output node (n is the number of
+    :param single_network:
+        A neural network with 2 input nodes (x, y) and n output node (n is the number of
         dependent variables in the differential equation system)
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE system to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0`
+    :param pde:
+        The PDE system to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0`
         where :math:`u_i` is the i-th dependent variable,
         then `pde` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to
         a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
-    :type pde: function
-    :param boundary_conditions: A list of boundary conditions
+    :type pde: callable
+    :param boundary_conditions:
+        A list of boundary conditions
     :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness: The regularization parameter, defaults to 1.
+    :param boundary_strictness:
+        The regularization parameter, defaults to 1.
         a larger regularization parameter enforces the boundary conditions more strictly.
     :type boundary_strictness: float
     """
@@ -220,21 +223,25 @@ class SingleNetworkApproximator2DSpatialSystem(Approximator):
 
 
 class SingleNetworkApproximator2DSpatialTemporal(Approximator):
-    """An approximator to approximate the solution of a 2D time-dependent problem.
+    r"""An approximator to approximate the solution of a 2D time-dependent problem.
     The boundary condition will be enforced by a regularization term in the loss function
-    and the initial condition will be enforced by transforming the output of the
-    neural network.
+    and the initial condition will be enforced by transforming the output of the neural network.
 
-    :param single_network: A neural network with 3 input nodes (x, y, t) and 1 output node.
+    :param single_network:
+        A neural network with 3 input nodes (x, y, t) and 1 output node.
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE system to solve. If the PDE is :math:`F(u, x, y, t) = 0`
+    :param pde:
+        The PDE system to solve. If the PDE is :math:`F(u, x, y, t) = 0`
         then `pde` should be a function that maps :math:`(u, x, y, t)` to :math:`F(u, x, y, t)`.
-    :type pde: function
-    :param initial_condition: A first order initial condition
+    :type pde: callable
+    :param initial_condition:
+        A first order initial condition.
     :type initial_condition: `temporal.FirstOrderInitialCondition` or `temporal.SecondOrderInitialCondition`
-    :param boundary_conditions: A list of boundary conditions
+    :param boundary_conditions:
+        A list of boundary conditions.
     :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness: The regularization parameter, defaults to 1.
+    :param boundary_strictness:
+        The regularization parameter, defaults to 1.
         a larger regularization parameter enforces the boundary conditions more strictly.
     :type boundary_strictness: float
     """
@@ -255,7 +262,9 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
             uu = torch.exp(-tt) * self.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
         else:
             # not sure about this line
-            uu = (1 - (1 - torch.exp(-tt))**2) * self.u0(xx, yy) + (1 - torch.exp(-tt)) * self.u0dot(xx, yy) + (1 - torch.exp(-tt))**2 * self.single_network(xyt)
+            uu = (1 - (1 - torch.exp(-tt))**2) * self.u0(xx, yy) \
+                 + (1 - torch.exp(-tt)) * self.u0dot(xx, yy) \
+                 + (1 - torch.exp(-tt))**2 * self.single_network(xyt)
         return torch.squeeze(uu)
 
     def parameters(self):
@@ -288,41 +297,46 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
 
 
 class FirstOrderInitialCondition:
-    """A first order initial condition. It is used to initialize ``temporal.Approximator``\s.
+    r"""A first order initial condition. It is used to initialize ``temporal.Approximator``\s.
 
-    :param u0: A function representing the initial condition. If we are solving for
-        is :math:`u`, then `u0` is :math:`u\\bigg|_{t=0}`. The input of the function
-        dependes on where it is used. If it is used as the input for
-        `temporal.SingleNetworkApproximator1DSpatialTemporal`, then `u0` should map
-        :math:`x` to :math:`u(x, t)\\bigg|_{t = 0}`. If it is used as the input for
-        `temporal.SingleNetworkApproximator2DSpatialTemporal`, then `u0` should map
-        :math:`(x, y)` to :math:`u(x, y, t)\\bigg|_{t = 0}`.
-    :type u0: function
+    :param u0:
+        A function representing the initial condition.
+        If we are solving for :math:`u`, then `u0` is :math:`u\bigg|_{t=0}`.
+        The input of the function depends on where it is used.
+
+        - If it is used as the input for `temporal.SingleNetworkApproximator1DSpatialTemporal`,
+          then `u0` should map :math:`x` to :math:`u(x, t)\bigg|_{t = 0}`.
+        - If it is used as the input for `temporal.SingleNetworkApproximator2DSpatialTemporal`,
+          then `u0` should map :math:`(x, y)` to :math:`u(x, y, t)\bigg|_{t = 0}`.
+    :type u0: callable
     """
     def __init__(self, u0):
         self.u0 = u0
 
 
 class SecondOrderInitialCondition:
-    """A second order initial condition. It is used to initialize ``temporal.Approximator``\s.
+    r"""A second order initial condition. It is used to initialize ``temporal.Approximator``\s.
 
-    :param u0: A function representing the initial condition. If we are solving for
-        is :math:`u`, then ``u0`` is :math:`u\\bigg|_{t=0}`. The input of the function
-        dependes on where it is used. If it is used as the input for
-        ``temporal.SingleNetworkApproximator1DSpatialTemporal``, then ``u0`` should map
-        :math:`x` to :math:`u(x, t)\\bigg|_{t = 0}`. If it is used as the input for
-        ``temporal.SingleNetworkApproximator2DSpatialTemporal``, then ``u0`` should map
-        :math:`(x, y)` to :math:`u(x, y, t)\\bigg|_{t = 0}`.
-    :type u0: function
-    :param u0dot: A function representing the initial derivative w.r.t. time. If we are solving for
-        is :math:``u``, then ``u0dot`` is :math:`\\dfrac{\\partial u}{\\partial t}\\bigg|_{t=0}`.
-        The input of the function
-        depends on where it is used. If it is used as the input for
-        ``temporal.SingleNetworkApproximator1DSpatialTemporal``, then ``u0`` should map
-        :math:`x` to :math:`\\dfrac{\\partial u}{\\partial t}\\bigg|_{t = 0}`. If it is used as the input for
-        `temporal.SingleNetworkApproximator2DSpatialTemporal`, then ``u0`` should map
-        :math:`(x, y)` to :math:`\\dfrac{\\partial u}{\\partial t}\\bigg|_{t = 0}`.
-    :type u0dot: function
+    :param u0:
+        A function representing the initial condition.
+        If we are solving for is :math:`u`, then ``u0`` is :math:`u\bigg|_{t=0}`.
+        The input of the function dependes on where it is used.
+
+        - If it is used as the input for ``temporal.SingleNetworkApproximator1DSpatialTemporal``,
+          then ``u0`` should map :math:`x` to :math:`u(x, t)\bigg|_{t = 0}`.
+        - If it is used as the input for ``temporal.SingleNetworkApproximator2DSpatialTemporal``,
+          then ``u0`` should map :math:`(x, y)` to :math:`u(x, y, t)\bigg|_{t = 0}`.
+    :type u0: callable
+    :param u0dot:
+        A function representing the initial derivative w.r.t. time.
+        If we are solving for is :math:`u`, then ``u0dot`` is :math:`\dfrac{\partial u}{\partial t}\bigg|_{t=0}`.
+        The input of the function depends on where it is used.
+
+        - If it is used as the input for ``temporal.SingleNetworkApproximator1DSpatialTemporal``,
+          then ``u0`` should map :math:`x` to :math:`\dfrac{\partial u}{\partial t}\bigg|_{t = 0}`.
+        - If it is used as the input for `temporal.SingleNetworkApproximator2DSpatialTemporal`,
+          then ``u0`` should map :math:`(x, y)` to :math:`\dfrac{\partial u}{\partial t}\bigg|_{t = 0}`.
+    :type u0dot: callable
     """
     def __init__(self, u0, u0dot):
         self.u0 = u0
@@ -332,9 +346,22 @@ class SecondOrderInitialCondition:
 class BoundaryCondition:
     """A boundary condition. It is used to initialize ``temporal.Approximator``\s.
 
-    :param form: The form of the boundary condition. For a 1D time-dependent problem, if the boundary condition demands that :math:`B(u, x) = 0`, then ``form`` should be a function that maps :math:`u, x, t` to :math:`B(u, x)`. For a 2D steady-state problem, if the boundary condition demands that :math:`B(u, x, y) = 0`, then ``form`` should be a function that maps :math:`u, x, y` to :math:`B(u, x, y)`. For a 2D steady-state system, if the boundary condition demands that :math:`B(u_i, x, y) = 0`, then `form` should be a function that maps :math:`u_1, u_2, ..., u_n, x, y` to `B(u_i, x, y)`. For 2D time-dependent problem, if the boundary condition demands that :math:`B(u, x, y) = 0`, then `form` should be a function that maps :math:`u, x, y, t` to `B(u_i, x, y)`. Basically the function signature of ``form`` should be the same as the ``pde`` function of the given ``temporal.Approximator``.
+    :param form: The form of the boundary condition.
+
+        - For a 1D time-dependent problem, if the boundary condition demands that :math:`B(u, x) = 0`,
+          then ``form`` should be a function that maps :math:`u, x, t` to :math:`B(u, x)`.
+        - For a 2D steady-state problem, if the boundary condition demands that :math:`B(u, x, y) = 0`,
+          then ``form`` should be a function that maps :math:`u, x, y` to :math:`B(u, x, y)`.
+        - For a 2D steady-state system, if the boundary condition demands that :math:`B(u_i, x, y) = 0`,
+          then ``form`` should be a function that maps :math:`u_1, u_2, ..., u_n, x, y` to :math:`B(u_i, x, y)`.
+        - For a 2D time-dependent problem, if the boundary condition demands that :math:`B(u, x, y) = 0`,
+          then ``form`` should be a function that maps :math:`u, x, y, t` to :math:`B(u_i, x, y)`.
+
+        Basically the function signature of ``form`` should be
+        the same as the ``pde`` function of the given ``temporal.Approximator``.
     :type form: callable
-    :param points_generator: A generator that generates points on the boundary.
+    :param points_generator:
+        A generator that generates points on the boundary.
         It can be a `temporal.generator_1dspatial`, `temporal.generator_2dspatial_segment`,
         or a generator written by user.
     :type points_genrator: generator
@@ -347,14 +374,20 @@ class BoundaryCondition:
 def generator_1dspatial(size, x_min, x_max, random=True):
     """Return a generator that generates 1D points range from x_min to x_max
 
-    :param size: number of points to generated when `__next__` is invoked
+    :param size:
+        Number of points to generated when ``__next__`` is invoked.
     :type size: int
-    :param x_min: Lower bound of x
+    :param x_min:
+        Lower bound of x.
     :type x_min: float
-    :param x_max: Upper bound of x
+    :param x_max:
+        Upper bound of x.
     :type x_max: float
-    :param random: If set to False, then return eqally spaced points range from
-        x_min to x_max. If set to True then generate points randomly. Defaults to True
+    :param random:
+        - If set to False, then return equally spaced points range from ``x_min`` to ``x_max``.
+        - If set to True then generate points randomly.
+
+        Defaults to True.
     :type random: bool
     """
     seg_len = (x_max-x_min) / size
@@ -373,18 +406,26 @@ def generator_1dspatial(size, x_min, x_max, random=True):
 def generator_2dspatial_segment(size, start, end, random=True):
     """Return a generator that generates 2D points in a line segment.
 
-    :param size: number of points to generated when `__next__` is invoked
+    :param size:
+        Number of points to generated when `__next__` is invoked.
     :type size: int
-    :param x_min: Lower bound of x
+    :param x_min:
+        Lower bound of x.
     :type x_min: float
-    :param x_max: Upper bound of x
+    :param x_max:
+        Upper bound of x.
     :type x_max: float
-    :param y_min: Lower bound of y
+    :param y_min:
+        Lower bound of y.
     :type y_min: float
-    :param y_max: Upper bound of y
+    :param y_max:
+        Upper bound of y.
     :type y_max: float
-    :param random: If set to False, then return a grid where the points are eqally
-        spaced in the x and y dimension. If set to True then generate points randomly. 
+    :param random:
+
+        - If set to False, then return a grid where the points are equally spaced in the x and y dimension.
+        - If set to True then generate points randomly.
+
         Defaults to True.
     :type random: bool
     """
@@ -403,14 +444,20 @@ def generator_2dspatial_segment(size, start, end, random=True):
 def generator_2dspatial_rectangle(size, x_min, x_max, y_min, y_max, random=True):
     """Return a generator that generates 2D points in a rectangle.
 
-    :param size: number of points to generated when `__next__` is invoked
+    :param size:
+        Number of points to generated when `__next__` is invoked.
     :type size: int
-    :param start: the starting point of the line segment
+    :param start:
+        The starting point of the line segment.
     :type start: tuple[float, float]
-    :param end: the ending point of the line segment
+    :param end:
+        The ending point of the line segment.
     :type end: tuple[float, float]
-    :param random: If set to False, then return eqally spaced points range from
-        `start` to `end`. If set to Rrue then generate points randomly. Defaults to True.
+    :param random:
+        - If set to False, then return eqally spaced points range from `start` to `end`.
+        - If set to Rrue then generate points randomly.
+
+        Defaults to True.
     :type random: bool
     """
     x_size, y_size = size
@@ -428,14 +475,20 @@ def generator_2dspatial_rectangle(size, x_min, x_max, y_min, y_max, random=True)
 def generator_temporal(size, t_min, t_max, random=True):
     """Return a generator that generates 1D points range from t_min to t_max
 
-    :param size: number of points to generated when `__next__` is invoked
+    :param size:
+        Number of points to generated when `__next__` is invoked.
     :type size: int
-    :param t_min: Lower bound of t
+    :param t_min:
+        Lower bound of t.
     :type t_min: float
-    :param t_max: Upper bound of t
+    :param t_max:
+        Upper bound of t.
     :type t_max: float
-    :param random: If set to False, then return eqally spaced points range from
-        t_min to t_max. If set to True then generate points randomly. Defaults to True
+    :param random:
+        - If set to False, then return eqally spaced points range from t_min to t_max.
+        - If set to True then generate points randomly.
+
+        Defaults to True
     :type random: bool
     """
     seg_len = (t_max - t_min) / size
@@ -584,7 +637,8 @@ class Monitor2DSpatialTemporal:
         if not self.fig:
             # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
             # size of the figure, number of the subplots, etc.
-            n_axs = len(self.t_array)+2  # one for each time slice, plus one for training and validation loss, plus one for metrics
+            # one for each time slice, plus one for training and validation loss, plus one for metrics
+            n_axs = len(self.t_array)+2
             n_row, n_col = (n_axs+1) // 2, 2
             self.fig = plt.figure(figsize=(20, 8*n_row))
             for i in range(n_axs):
@@ -705,27 +759,40 @@ def _solve_1dspatial_temporal(
 ):
     """Solve a 1D time-dependent problem
 
-    :param train_generator_spatial: a generator to generate 1D spatial points for training
+    :param train_generator_spatial:
+        A generator to generate 1D spatial points for training.
     :type train_generator_spatial: generator
-    :param train_generator_temporal: a generator to generate 1D temporal points for training
+    :param train_generator_temporal:
+        A generator to generate 1D temporal points for training.
     :type train_generator_temporal: generator
-    :param valid_generator_spatial: a generator to generate 1D spatial points for validation
+    :param valid_generator_spatial:
+        A generator to generate 1D spatial points for validation.
     :type valid_generator_spatial: generator
-    :param valid_generator_temporal: a generator to generate 1D temporal points for validation
+    :param valid_generator_temporal:
+        A generator to generate 1D temporal points for validation.
     :type valid_generator_temporal: generator
-    :param approximator: an approximator for 1D time-dependent problem
+    :param approximator:
+        An approximator for 1D time-dependent problem.
     :type approximator: `temporal.SingleNetworkApproximator1DSpatialTemporal` or a custom `temporal.Approximator`
-    :param optimizer: The optimization method to use for training
+    :param optimizer:
+        The optimization method to use for training.
     :type optimizer: `torch.optim.Optimizer`
-    :param batch_size: The size of the mini-batch to use
+    :param batch_size:
+        The size of the mini-batch to use.
     :type batch_size: int
-    :param max_epochs: The maximum number of epochs to train
+    :param max_epochs:
+        The maximum number of epochs to train.
     :type max_epochs: int
-    :param shuffle: Whether to shuffle the training examples every epoch
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
     :type shuffle: bool
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, function]
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
+    :type metrics: dict[string, callable]
     :param monitor: The monitor to check the status of nerual network during training
     :type monitor: `temporal.Monitor1DSpatialTemporal` or `temporal.MonitorMinimal`
     """
@@ -742,28 +809,42 @@ def _solve_2dspatial_temporal(
 ):
     """Solve a 2D time-dependent problem
 
-    :param train_generator_spatial: a generator to generate 2D spatial points for training
+    :param train_generator_spatial:
+        A generator to generate 2D spatial points for training.
     :type train_generator_spatial: generator
-    :param train_generator_temporal: a generator to generate 1D temporal points for training
+    :param train_generator_temporal:
+        A generator to generate 1D temporal points for training.
     :type train_generator_temporal: generator
-    :param valid_generator_spatial: a generator to generate 2D spatial points for validation
+    :param valid_generator_spatial:
+        A generator to generate 2D spatial points for validation.
     :type valid_generator_spatial: generator
-    :param valid_generator_temporal: a generator to generate 1D temporal points for validation
+    :param valid_generator_temporal:
+        A generator to generate 1D temporal points for validation
     :type valid_generator_temporal: generator
-    :param approximator: an approximator for 2D time-dependent problem
+    :param approximator:
+        An approximator for 2D time-dependent problem.
     :type approximator: `temporal.SingleNetworkApproximator2DSpatialTemporal` or a custom `temporal.Approximator`
-    :param optimizer: The optimization method to use for training
+    :param optimizer:
+        The optimization method to use for training.
     :type optimizer: `torch.optim.Optimizer`
-    :param batch_size: The size of the mini-batch to use
+    :param batch_size:
+        The size of the mini-batch to use.
     :type batch_size: int
-    :param max_epochs: The maximum number of epochs to train
+    :param max_epochs:
+        The maximum number of epochs to train.
     :type max_epochs: int
-    :param shuffle: Whether to shuffle the training examples every epoch
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
     :type shuffle: bool
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, function]
-    :param monitor: The monitor to check the status of nerual network during training
+    :param monitor:
+        The monitor to check the status of nerual network during training.
     :type monitor: `temporal.Monitor2DSpatialTemporal` or `temporal.MonitorMinimal`
     """
     return _solve_spatial_temporal(
@@ -776,33 +857,45 @@ def _solve_2dspatial(
     train_generator_spatial, valid_generator_spatial,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
+    """Solve a 2D steady-state problem
+
+    :param train_generator_spatial:
+        A generator to generate 2D spatial points for training.
+    :type train_generator_spatial: generator
+    :param valid_generator_spatial:
+        A generator to generate 2D spatial points for validation.
+    :type valid_generator_spatial: generator
+    :param approximator:
+        An approximator for 2D time-state problem.
+    :type approximator: `temporal.SingleNetworkApproximator2DSpatial`, `temporal.SingleNetworkApproximator2DSpatialSystem`, or a custom `temporal.Approximator`
+    :param optimizer:
+        The optimization method to use for training.
+    :type optimizer: `torch.optim.Optimizer`
+    :param batch_size:
+        The size of the mini-batch to use.
+    :type batch_size: int
+    :param max_epochs:
+        The maximum number of epochs to train.
+    :type max_epochs: int
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
+    :type shuffle: bool
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
+    :type metrics: dict[string, callable]
+    :param monitor:
+        The monitor to check the status of nerual network during training.
+    :type monitor: `temporal.Monitor2DSpatial` or `temporal.MonitorMinimal`
+    """
     return _solve_spatial_temporal(
         train_generator_spatial, None, valid_generator_spatial, None,
         approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
         train_routine=_train_2dspatial, valid_routine=_valid_2dspatial
     )
-    """Solve a 2D steady-state problem
-
-    :param train_generator_spatial: a generator to generate 2D spatial points for training
-    :type train_generator_spatial: generator
-    :param valid_generator_spatial: a generator to generate 2D spatial points for validation
-    :type valid_generator_spatial: generator
-    :param approximator: an approximator for 2D time-state problem
-    :type approximator: `temporal.SingleNetworkApproximator2DSpatial`, `temporal.SingleNetworkApproximator2DSpatialSystem`, or a custom `temporal.Approximator`
-    :param optimizer: The optimization method to use for training
-    :type optimizer: `torch.optim.Optimizer`
-    :param batch_size: The size of the mini-batch to use
-    :type batch_size: int
-    :param max_epochs: The maximum number of epochs to train
-    :type max_epochs: int
-    :param shuffle: Whether to shuffle the training examples every epoch
-    :type shuffle: bool
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `pde` (of the approximator) and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
-    :type metrics: dict[string, function]
-    :param monitor: The monitor to check the status of nerual network during training
-    :type monitor: `temporal.Monitor2DSpatial` or `temporal.MonitorMinimal`
-    """
 
 
 # _solve_1dspatial_temporal, _solve_2dspatial_temporal, _solve_2dspatial all call this function in the end
@@ -838,7 +931,8 @@ def _solve_spatial_temporal(
 
 
 # training phase for 1D time-dependent problems
-def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
+                              approximator, optimizer, metrics, shuffle, batch_size):
     x = next(train_generator_spatial)
     t = next(train_generator_temporal)
     xx, tt = _cartesian_prod_dims(x, t)
@@ -872,7 +966,8 @@ def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
 
 
 # training phase for 2D steady-state problems
-def _train_2dspatial(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+def _train_2dspatial(train_generator_spatial, train_generator_temporal,
+                     approximator, optimizer, metrics, shuffle, batch_size):
     xx, yy = next(train_generator_spatial)
     xx.requires_grad = True
     yy.requires_grad = True
@@ -921,7 +1016,8 @@ def _valid_2dspatial(valid_generator_spatial, valid_generator_temporal, approxim
 
 
 # training phase for 2D time-dependent problems
-def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal, approximator, optimizer, metrics, shuffle, batch_size):
+def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal,
+                              approximator, optimizer, metrics, shuffle, batch_size):
     x, y = next(train_generator_spatial)
     t = next(train_generator_temporal)
     xx, tt = _cartesian_prod_dims(x, t)

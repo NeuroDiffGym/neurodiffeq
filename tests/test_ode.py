@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import isclose
-from pytest import raises
+from pytest import raises, warns
 from scipy.integrate import odeint
 import matplotlib
 
@@ -10,7 +10,8 @@ from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor
-from neurodiffeq.ode import Solution
+from neurodiffeq.monitors import Monitor1D
+from neurodiffeq.solvers import Solution1D
 from neurodiffeq.generators import Generator1D
 
 import torch
@@ -25,7 +26,13 @@ def test_monitor():
     solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                            t_min=0.0, t_max=2.0,
                            max_epochs=3,
-                           monitor=Monitor(t_min=0.0, t_max=2.0, check_every=1))
+                           monitor=Monitor1D(t_min=0.0, t_max=2.0, check_every=1))
+
+    with warns(DeprecationWarning):
+        solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
+                               t_min=0.0, t_max=2.0,
+                               max_epochs=3,
+                               monitor=Monitor(t_min=0.0, t_max=2.0, check_every=1))
 
 
 def test_train_generator():
@@ -84,7 +91,7 @@ def test_ode():
                                       t_min=0.0, t_max=2.0, shuffle=False,
                                       max_epochs=10, return_best=True, metrics={'mse': mse})
 
-    assert isinstance(solution_ex, Solution)
+    assert isinstance(solution_ex, Solution1D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
     for key in keys:
@@ -106,7 +113,7 @@ def test_ode_system():
                                              t_min=0.0, t_max=2 * np.pi,
                                              max_epochs=10, )
 
-    assert isinstance(solution_pc, Solution)
+    assert isinstance(solution_pc, Solution1D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
     for key in keys:
@@ -136,7 +143,7 @@ def test_additional_loss_term():
         t_min=0.0, t_max=2.0,
         max_epochs=10,
     )
-    assert isinstance(solution_squarewell, Solution)
+    assert isinstance(solution_squarewell, Solution1D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
     for key in keys:
@@ -150,16 +157,16 @@ def test_solution():
     t1, u1 = np.random.rand() + 1, np.random.rand() + 1
     N_SAMPLES = 100
 
-    def get_solution(use_single: bool) -> Solution:
+    def get_solution(use_single: bool) -> Solution1D:
         conditions = [IVP(t0, u0), IVP(t1, u1)]
         if use_single:
             net = FCNN(1, 2)
             for i, cond in enumerate(conditions):
                 cond.set_impose_on(i)
-            return Solution(net, None, conditions)
+            return Solution1D(net, conditions)
         else:
             nets = [FCNN(1, 1), FCNN(1, 1)]
-            return Solution(None, nets, conditions)
+            return Solution1D(nets, conditions)
 
     def check_output(us, shape, type, msg=""):
         msg += " "

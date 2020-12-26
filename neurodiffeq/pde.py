@@ -1,4 +1,5 @@
 import torch
+import warnings
 import torch.optim as optim
 import torch.nn as nn
 
@@ -6,7 +7,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import matplotlib.tri as tri
 
 from .networks import FCNN
 from .neurodiffeq import safe_diff as diff
@@ -14,10 +14,14 @@ from .generators import Generator2D, PredefinedGenerator
 from ._version_utils import warn_deprecate_class
 from .conditions import IrregularBoundaryCondition
 from .conditions import NoCondition, DirichletBVP2D, IBVP1D
+from .monitors import Monitor2D
+from .solvers import Solution2D
+from .solvers import Solver2D
 from copy import deepcopy
 
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
 PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
+Solution = warn_deprecate_class(Solution2D)
 
 
 # Calculate the output of a neural network with 2 input.
@@ -47,176 +51,105 @@ def _trial_solution_2input(single_net, nets, xs, ys, conditions):
     return us
 
 
-class Monitor2D:
-    r"""A monitor for checking the status of the neural network during training.
-
-    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
-    :type xy_min: tuple[float, float], optional
-    :param xy_max: The upper boound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
-    :type xy_max: tuple[float, float], optional
-    :param check_every: The frequency of checking the neural network represented by the number of epochs between two checks, defaults to 100.
-    :type check_every: int, optional
-    """
-
-    def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
-        """Initializer method
-        """
-        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
-        self.check_every = check_every
-        self.fig = None
-        self.axs = []  # subplots
-        # self.caxs = []  # colorbars
-        self.cbs = []  # color bars
-        # input for neural network
-        if valid_generator is None:
-            valid_generator = Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
-        xs_ann, ys_ann = valid_generator.get_examples()
-        self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
-        self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
-        self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
-
-    # draw a contour plot of the surface (xs, ys) -> zs
-    @staticmethod
-    def _create_contour(ax, xs, ys, zs, condition):
-        triang = tri.Triangulation(xs, ys)
-        xs = xs[triang.triangles].mean(axis=1)
-        ys = ys[triang.triangles].mean(axis=1)
-        if condition:
-            xs, ys = torch.tensor(xs), torch.tensor(ys)
-            if isinstance(condition, IrregularBoundaryCondition):
-                in_domain = condition.in_domain(xs, ys)
-                triang.set_mask(~in_domain)
-
-        contour = ax.tricontourf(triang, zs, cmap='coolwarm')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_aspect('equal', adjustable='box')
-        return contour
-
-
-    def check(self, single_net, nets, conditions, history):
-        r"""Draw 2 plots: One shows the shape of the current solution (with heat map). The other shows the history training loss and validation loss.
-
-        :param single_net: The neural network that approximates the PDE.
-        :type single_net: `torch.nn.Module`
-        :param nets: The neural networks that approximates the PDE.
-        :type nets: list [`torch.nn.Module`]
-        :param conditions: The initial/boundary condition of the PDE.
-        :type conditions: list [`neurodiffeq.conditions.BaseCondition`]
-        :param history: The history of training loss and validation loss. The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
-        :type history: dict['train': list[float], 'valid': list[float]]
-
-        .. note::
-            `check` is meant to be called by the function `solve2D`.
-        """
-
-        if not self.fig:
-            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-            # size of the figure, number of the subplots, etc.
-            n_axs = len(conditions)+2  # one for each dependent variable, plus one for training and validation loss, plus one for metrics
-            n_row, n_col = (n_axs+1) // 2, 2
-            self.fig = plt.figure(figsize=(20, 8*n_row))
-            for i in range(n_axs):
-                self.axs.append( self.fig.add_subplot(n_row, n_col, i+1) )
-            for i in range(n_axs-2):
-                self.cbs.append(None)
-
-        us = _trial_solution_2input(single_net, nets, self.xs_ann, self.ys_ann, conditions)
-
-        for i, ax_u_con in enumerate( zip(self.axs[:-2], us, conditions) ):
-            ax, u, con = ax_u_con
-            ax.clear()
-            u = u.detach().cpu().numpy().flatten()
-            cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-            if self.cbs[i] is None:
-                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
-            else:
-                self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
-            ax.set_title(f'u[{i}](x, y)')
-
-        self.axs[-2].clear()
-        self.axs[-2].plot(history['train_loss'], label='training loss')
-        self.axs[-2].plot(history['valid_loss'], label='validation loss')
-        self.axs[-2].set_title('loss during training')
-        self.axs[-2].set_ylabel('loss')
-        self.axs[-2].set_xlabel('epochs')
-        self.axs[-2].set_yscale('log')
-        self.axs[-2].legend()
-
-        self.axs[-1].clear()
-        for metric_name, metric_values in history.items():
-            if metric_name == 'train_loss' or metric_name == 'valid_loss':
-                continue
-            self.axs[-1].plot(metric_values, label=metric_name)
-        self.axs[-1].set_title('metrics during training')
-        self.axs[-1].set_ylabel('metrics')
-        self.axs[-1].set_xlabel('epochs')
-        self.axs[-1].set_yscale('log')
-        # if there's not custom metrics, then there won't be any labels in this axis
-        if len(history) > 2:
-            self.axs[-1].legend()
-
-        self.fig.canvas.draw()
-        if not self.using_non_gui_backend:
-            plt.pause(0.05)
-
-
 def solve2D(
         pde, condition, xy_min=None, xy_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None, criterion=None, additional_loss_term=None, metrics=None,
+        net=None, train_generator=None, shuffle=True, valid_generator=None, optimizer=None,
+        criterion=None, additional_loss_term=None, metrics=None,
         batch_size=16,
         max_epochs=1000,
         monitor=None, return_internal=False, return_best=False
 ):
     r"""Train a neural network to solve a PDE with 2 independent variables.
 
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` where :math:`u` is the dependent variable and :math:`x` and :math:`y` are the independent variables,
+    :param pde:
+        The PDE to solve.
+        If the PDE is :math:`F(u, x, y) = 0`
+        where :math:`u` is the dependent variable and :math:`x` and :math:`y` are the independent variables,
         then `pde` should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: callable
-    :param condition: The initial/boundary condition.
+    :param condition:
+        The initial/boundary condition.
     :type condition: `neurodiffeq.conditions.BaseCondition`
-    :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator and valid_generator are not specified, defaults to None
+    :param xy_min:
+        The lower bound of 2 dimensions.
+        If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`,
+        then `xy_min` is `(x_0, y_0)`, only needed when ``train_generator`` and ``valid_generator`` are not specified.
+        Defaults to None
     :type xy_min: tuple[float, float], optional
-    :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator and valid_generator are not specified, defaults to None
+    :param xy_max:
+        The upper bound of 2 dimensions.
+        If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`,
+        then `xy_min` is `(x_1, y_1)`, only needed when ``train_generator`` and ``valid_generator`` are not specified.
+        Defaults to None
     :type xy_max: tuple[float, float], optional
-    :param net: The neural network used to approximate the solution, defaults to None.
+    :param net:
+        The neural network used to approximate the solution.
+        Defaults to None.
     :type net: `torch.nn.Module`, optional
-    :param train_generator: The example generator to generate 1-D training points, default to None.
-    :type train_generator: `neurodiffeq.generator.Generator2D`, optional
-    :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+    :param train_generator:
+        The example generator to generate 1-D training points.
+        Default to None.
+    :type train_generator: `neurodiffeq.generators.Generator2D`, optional
+    :param shuffle:
+        Whether to shuffle the training examples every epoch.
+        Defaults to True.
     :type shuffle: bool, optional
-    :param valid_generator: The example generator to generate 1-D validation points, default to None.
-    :type valid_generator: `neurodiffeq.generator.Generator2D`, optional
-    :param optimizer: The optimization method to use for training, defaults to None.
+    :param valid_generator:
+        The example generator to generate 1-D validation points.
+        Default to None.
+    :type valid_generator: `neurodiffeq.generators.Generator2D`, optional
+    :param optimizer:
+        The optimization method to use for training.
+        Defaults to None.
     :type optimizer: `torch.optim.Optimizer`, optional
-    :param criterion: The loss function to use for training, defaults to None.
+    :param criterion:
+        The loss function to use for training.
+        Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
+    :param additional_loss_term:
+        Extra terms to add to the loss function besides the part specified by `criterion`.
+        The input of `additional_loss_term` should be the same as `pde_system`.
     :type additional_loss_term: callable
-    :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-        The input functions should be the same as `pde` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+    :param metrics:
+        Metrics to keep track of during training.
+        The metrics should be passed as a dictionary where the keys are the names of the metrics,
+        and the values are the corresponding function.
+        The input functions should be the same as `pde` and the output should be a numeric value.
+        The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, callable]
-    :param batch_size: The size of the mini-batch to use, defaults to 16.
+    :param batch_size:
+        The size of the mini-batch to use.
+        Defaults to 16.
     :type batch_size: int, optional
-    :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+    :param max_epochs:
+        The maximum number of epochs to train.
+        Defaults to 1000.
     :type max_epochs: int, optional
-    :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+    :param monitor:
+        The monitor to check the status of neural network during training.
+        Defaults to None.
     :type monitor: `neurodiffeq.pde.Monitor2D`, optional
-    :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+    :param return_internal:
+        Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function.
+        Defaults to False.
     :type return_internal: bool, optional
-    :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+    :param return_best:
+        Whether to return the nets that achieved the lowest validation loss.
+        Defaults to False.
     :type return_best: bool, optional
-    :return: The solution of the PDE. The history of training loss and validation loss.
+    :return:
+        The solution of the PDE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
         The solution is a function that has the signature `solution(xs, ys, as_type)`.
-    :rtype: tuple[`neurodiffeq.pde.Solution`, dict]; or tuple[`neurodiffeq.pde.Solution`, dict, dict]
+    :rtype: tuple[`neurodiffeq.pde.Solution`, dict] or tuple[`neurodiffeq.pde.Solution`, dict, dict]
     """
     nets = None if not net else [net]
     return solve2D_system(
         pde_system=lambda u, x, y: [pde(u, x, y)], conditions=[condition],
         xy_min=xy_min, xy_max=xy_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics, batch_size=batch_size,
+        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics,
+        batch_size=batch_size,
         max_epochs=max_epochs, monitor=monitor, return_internal=return_internal, return_best=return_best
     )
 
@@ -230,246 +163,157 @@ def solve2D_system(
 ):
     r"""Train a neural network to solve a PDE with 2 independent variables.
 
-        :param pde_system: The PDE system to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0` where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
-            then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
+        :param pde_system:
+            The PDE system to solve.
+            If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0`
+            where :math:`u_i` is the i-th dependent variable and :math:`x` and :math:`y` are the independent variables,
+            then `pde_system` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)`
+            to a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
         :type pde_system: callable
-        :param conditions: The initial/boundary conditions. The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
+        :param conditions:
+            The initial/boundary conditions.
+            The ith entry of the conditions is the condition that :math:`x_i` should satisfy.
         :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-        :param xy_min: The lower bound of 2 dimensions, if we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`, only needed when train_generator or valid_generator are not specified, defaults to None
+        :param xy_min:
+            The lower bound of 2 dimensions.
+            If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`,
+            then `xy_min` is `(x_0, y_0)`.
+            Only needed when train_generator or valid_generator are not specified.
+            Defaults to None
         :type xy_min: tuple[float, float], optional
-        :param xy_max: The upper bound of 2 dimensions, if we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`, only needed when train_generator or valid_generator are not specified, defaults to None
+        :param xy_max:
+            The upper bound of 2 dimensions.
+            If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
+            Only needed when train_generator or valid_generator are not specified.
+            Defaults to None
         :type xy_max: tuple[float, float], optional
-        :param single_net: The single neural network used to approximate the solution. Only one of `single_net` and `nets` should be specified, defaults to None
+        :param single_net:
+            The single neural network used to approximate the solution.
+            Only one of `single_net` and `nets` should be specified.
+            Defaults to None
         :param single_net: `torch.nn.Module`, optional
-        :param nets: The neural networks used to approximate the solution, defaults to None.
+        :param nets:
+            The neural networks used to approximate the solution.
+            Defaults to None.
         :type nets: list[`torch.nn.Module`], optional
-        :param train_generator: The example generator to generate 1-D training points, default to None.
-        :type train_generator: `neurodiffeq.generator.Generator2D`, optional
-        :param shuffle: Whether to shuffle the training examples every epoch, defaults to True.
+        :param train_generator:
+            The example generator to generate 1-D training points.
+            Default to None.
+        :type train_generator: `neurodiffeq.generators.Generator2D`, optional
+        :param shuffle:
+            Whether to shuffle the training examples every epoch.
+            Defaults to True.
         :type shuffle: bool, optional
-        :param valid_generator: The example generator to generate 1-D validation points, default to None.
-        :type valid_generator: `neurodiffeq.generator.Generator2D`, optional
-        :param optimizer: The optimization method to use for training, defaults to None.
+        :param valid_generator:
+            The example generator to generate 1-D validation points.
+            Default to None.
+        :type valid_generator: `neurodiffeq.generators.Generator2D`, optional
+        :param optimizer:
+            The optimization method to use for training.
+            Defaults to None.
         :type optimizer: `torch.optim.Optimizer`, optional
-        :param criterion: The loss function to use for training, defaults to None.
+        :param criterion:
+            The loss function to use for training.
+            Defaults to None.
         :type criterion: `torch.nn.modules.loss._Loss`, optional
-        :param additional_loss_term: Extra terms to add to the loss function besides the part specified by `criterion`. The input of `additional_loss_term` should be the same as `pde_system`
+        :param additional_loss_term:
+            Extra terms to add to the loss function besides the part specified by `criterion`.
+            The input of `additional_loss_term` should be the same as `pde_system`.
         :type additional_loss_term: callable
-        :param metrics: Metrics to keep track of during training. The metrics should be passed as a dictionary where the keys are the names of the metrics, and the values are the corresponding function.
-            The input functions should be the same as `pde_system` and the output should be a numeric value. The metrics are evaluated on both the training set and validation set.
+        :param metrics:
+            Metrics to keep track of during training.
+            The metrics should be passed as a dictionary where the keys are the names of the metrics,
+            and the values are the corresponding function.
+            The input functions should be the same as `pde_system` and the output should be a numeric value.
+            The metrics are evaluated on both the training set and validation set.
         :type metrics: dict[string, callable]
-        :param batch_size: The size of the mini-batch to use, defaults to 16.
+        :param batch_size:
+            The size of the mini-batch to use.
+            Defaults to 16.
         :type batch_size: int, optional
-        :param max_epochs: The maximum number of epochs to train, defaults to 1000.
+        :param max_epochs:
+            The maximum number of epochs to train.
+            Defaults to 1000.
         :type max_epochs: int, optional
-        :param monitor: The monitor to check the status of nerual network during training, defaults to None.
+        :param monitor:
+            The monitor to check the status of nerual network during training.
+            Defaults to None.
         :type monitor: `neurodiffeq.pde.Monitor2D`, optional
-        :param return_internal: Whether to return the nets, conditions, training generator, validation generator, optimizer and loss function, defaults to False.
+        :param return_internal:
+            Whether to return the nets, conditions, training generator,
+            validation generator, optimizer and loss function.
+            Defaults to False.
         :type return_internal: bool, optional
-        :param return_best: Whether to return the nets that achieved the lowest validation loss, defaults to False.
+        :param return_best:
+            Whether to return the nets that achieved the lowest validation loss.
+            Defaults to False.
         :type return_best: bool, optional
-        :return: The solution of the PDE. The history of training loss and validation loss.
+        :return:
+            The solution of the PDE.
+            The history of training loss and validation loss.
             Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
             The solution is a function that has the signature `solution(xs, ys, as_type)`.
-        :rtype: tuple[`neurodiffeq.pde.Solution`, dict]; or tuple[`neurodiffeq.pde.Solution`, dict, dict]
+        :rtype: tuple[`neurodiffeq.pde.Solution`, dict] or tuple[`neurodiffeq.pde.Solution`, dict, dict]
         """
 
-    ########################################### subroutines ###########################################
-    # Train the neural network for 1 epoch, return the training loss and training metrics
-    def train(train_generator, net, nets, pde_system, conditions, criterion, additional_loss_term, metrics, shuffle, optimizer):
-        train_examples_x, train_examples_y = train_generator.get_examples()
-        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
-        n_examples_train = train_generator.size
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
-
-            train_loss_batch = calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term)
-
-            optimizer.zero_grad()
-            train_loss_batch.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
-        train_loss_epoch = calculate_loss(train_examples_x, train_examples_y, net, nets, pde_system, conditions, criterion, additional_loss_term)
-        train_loss_epoch = train_loss_epoch.item()
-
-        train_metrics_epoch = calculate_metrics(train_examples_x, train_examples_y, net, nets, conditions, metrics)
-        return train_loss_epoch, train_metrics_epoch
-
-    # Vliadate the neural network, return the validation loss and validation metrics
-    def valid(valid_generator, net, nets, pde_system, conditions, criterion, additional_loss_term, metrics):
-        valid_examples_x, valid_examples_y = valid_generator.get_examples()
-        valid_examples_x, valid_examples_y = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        valid_loss_epoch = calculate_loss(valid_examples_x, valid_examples_y, net, nets, pde_system, conditions, criterion, additional_loss_term)
-        valid_loss_epoch = valid_loss_epoch.item()
-
-        valid_metrics_epoch = calculate_metrics(valid_examples_x, valid_examples_y, net, nets, conditions, metrics)
-        return valid_loss_epoch, valid_metrics_epoch
-
-    # calculate the loss function
-    def calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term):
-        us = _trial_solution_2input(net, nets, xs, ys, conditions)
-        Fuxys = pde_system(*us, xs, ys)
-        loss = sum(
-            criterion(Fuxy, torch.zeros_like(xs))
-            for Fuxy in Fuxys
-        )
-        if additional_loss_term is not None:
-            loss += additional_loss_term(*us, xs, ys)
-        return loss
-
-    # caclulate the metrics
-    def calculate_metrics(xs, ys, net, nets, conditions, metrics):
-        us = _trial_solution_2input(net, nets, xs, ys, conditions)
-        metrics_ = {
-            metric_name: metric_function(*us, xs, ys).item()
-            for metric_name, metric_function in metrics.items()
-        }
-        return metrics_
-    ###################################################################################################
-
+    warnings.warn(
+        "The `solve2D_system` function is deprecated, use a `neurodiffeq.solvers.Solver2D` instance instead",
+        FutureWarning,
+    )
     if single_net and nets:
-        raise RuntimeError('Only one of net and nets should be specified')
-    # defaults to use a single neural network
+        raise ValueError('Only one of net and nets should be specified')
+
+    # For backward compatibility defaults to use a single neural network
     if (not single_net) and (not nets):
-        net = FCNN(
+        single_net = FCNN(
             n_input_units=2,
             n_output_units=len(conditions),
             hidden_units=(32, 32),
             actv=nn.Tanh,
         )
+
     if single_net:
         # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
-    if not train_generator:
-        if (xy_min is None) or (xy_max is None):
-            raise RuntimeError('Please specify xy_min and xy_max when train_generator is not specified')
-        train_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
-    if not valid_generator:
-        if (xy_min is None) or (xy_max is None):
-            raise RuntimeError('Please specify xy_min and xy_max when valid_generator is not specified')
-        valid_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced')
-    if (not optimizer) and single_net:  # using a single net
-        optimizer = optim.Adam(single_net.parameters(), lr=0.001)
-    if (not optimizer) and nets:  # using multiple nets
-        all_parameters = []
-        for net in nets:
-            all_parameters += list(net.parameters())
-        optimizer = optim.Adam(all_parameters, lr=0.001)
-    if not criterion:
-        criterion = nn.MSELoss()
-    if metrics is None:
-        metrics = {}
+        nets = [single_net] * len(conditions)
 
-    history = {}
-    history['train_loss'] = []
-    history['valid_loss'] = []
-    for metric_name, _ in metrics.items():
-        history['train__'+metric_name] = []
-        history['valid__'+metric_name] = []
-
-    if return_best:
-        valid_loss_epoch_min = np.inf
-        solution_min = None
-
-    for epoch in range(max_epochs):
-        train_loss_epoch, train_metrics_epoch = train(train_generator, single_net, nets, pde_system, conditions, criterion, additional_loss_term, metrics, shuffle, optimizer)
-        history['train_loss'].append(train_loss_epoch)
-        for metric_name, metric_value in train_metrics_epoch.items():
-            history['train__'+metric_name].append(metric_value)
-
-        valid_loss_epoch, valid_metrics_epoch = valid(valid_generator, single_net, nets, pde_system, conditions, criterion, additional_loss_term, metrics)
-        history['valid_loss'].append(valid_loss_epoch)
-        for metric_name, metric_value in valid_metrics_epoch.items():
-            history['valid__'+metric_name].append(metric_value)
-
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(single_net, nets, conditions, history)
-
-        if return_best and valid_loss_epoch < valid_loss_epoch_min:
-            valid_loss_epoch_min = valid_loss_epoch
-            solution_min = Solution(single_net, nets, conditions)
-
-    if return_best:
-        solution = solution_min
+    if additional_loss_term:
+        class CustomSolver2D(Solver2D):
+            def additional_loss(self, funcs, key):
+                return additional_loss_term(*funcs, *self._batch_examples[key])
     else:
-        solution = Solution(single_net, nets, conditions)
+        class CustomSolver2D(Solver2D):
+            pass
 
+    solver = CustomSolver2D(
+        pde_system=pde_system,
+        conditions=conditions,
+        xy_min=xy_min,
+        xy_max=xy_max,
+        nets=nets,
+        train_generator=train_generator,
+        valid_generator=valid_generator,
+        optimizer=optimizer,
+        criterion=criterion,
+        metrics=metrics,
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    solver.fit(max_epochs=max_epochs, monitor=monitor)
+    solution = solver.get_solution(copy=True, best=return_best)
+    ret = (solution, solver.metrics_history)
     if return_internal:
-        internal = {
-            'single_net': single_net,
-            'nets': nets,
-            'conditions': conditions,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
-        return solution, history, internal
-    else:
-        return solution, history
-
-
-class Solution:
-    r"""A solution to an PDE (system)
-
-    :param single_net: The neural networks that approximates the PDE.
-    :type single_net: `torch.nn.Module`
-    :param nets: The neural networks that approximates the PDE.
-    :type nets: list[`torch.nn.Module`]
-    :param conditions: The initial/boundary conditions of the ODE (system).
-    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
-    """
-    def __init__(self, single_net, nets, conditions):
-        """Initializer method
-        """
-        self.single_net = deepcopy(single_net)
-        self.nets = deepcopy(nets)
-        self.conditions = deepcopy(conditions)
-
-    def __call__(self, xs, ys, as_type='tf'):
-        """Evaluate the solution at certain points.
-
-        :param xs: the x-coordinates of points on which the dependent variables are evaluated.
-        :type xs: `torch.Tensor` or sequence of number
-        :param ys: the y-coordinates of points on which the dependent variables are evaluated.
-        :type ys: `torch.Tensor` or sequence of number
-        :param as_type: Whether the returned value is a `torch.Tensor` ('tf') or `numpy.array` ('np').
-        :type as_type: str
-        :return: dependent variables are evaluated at given points.
-        :rtype: list[`torch.Tensor` or `numpy.array` (when there is more than one dependent variables)
-            `torch.Tensor` or `numpy.array` (when there is only one dependent variable).
-        """
-        if not isinstance(xs, torch.Tensor):
-            xs = torch.tensor(xs)
-        if not isinstance(ys, torch.Tensor):
-            ys = torch.tensor(ys)
-        original_shape = xs.shape
-        xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
-        if as_type not in ('tf', 'np'):
-            raise ValueError("The valid return types are 'tf' and 'np'.")
-
-        us = _trial_solution_2input(self.single_net, self.nets, xs, ys, self.conditions)
-        us = [u.reshape(original_shape) for u in us]
-        if as_type == 'np':
-            us = [u.detach().cpu().numpy() for u in us]
-
-        return us if len(us) > 1 else us[0]
+        params = ['nets', 'conditions', 'train_generator', 'valid_generator', 'optimizer', 'criterion']
+        internals = solver.get_internals(params, return_type="dict")
+        ret = ret + (internals,)
+    return ret
 
 
 def make_animation(solution, xs, ts):
     r"""Create animation of 1-D time-dependent problems.
 
-    :param solution: solution function returned by `solve2D` (for a 1-D time-dependent problem).
+    :param solution: Solution function returned by `solve2D` (for a 1-D time-dependent problem).
     :type solution: callable
     :param xs: The locations to evaluate solution.
     :type xs: `numpy.array`
@@ -512,7 +356,7 @@ ALPHA = 5.0
 class Point:
     r"""A 2D point.
 
-    :param loc: the location of the point in the form of :math:`(x, y)`
+    :param loc: The location of the point in the form of :math:`(x, y)`.
     :type loc: tuple[float, float]
     """
 
@@ -527,9 +371,9 @@ class Point:
 class DirichletControlPoint(Point):
     r"""A 2D point on the Dirichlet boundary.
 
-    :param loc: the location of the point in the form of :math:`(x, y)`
+    :param loc: The location of the point in the form of :math:`(x, y)`.
     :type loc: tuple[float, float]
-    :param val: the expected value of :math:`u` at this location (:math:`u(x, y)` is the function we are solving for)
+    :param val: The expected value of :math:`u` at this location.(:math:`u(x, y)` is the function we are solving for)
     :type val: float
     """
 
@@ -545,9 +389,12 @@ class DirichletControlPoint(Point):
 class NeumannControlPoint(Point):
     r"""A 2D point on the Neumann boundary.
 
-    :param loc: the location of the point in the form of :math:`(x, y)`
+    :param loc:
+        The location of the point in the form of :math:`(x, y)`.
     :type loc: tuple[float, float]
-    :param val: the expected normal derivative of :math:`u` at this location (:math:`u(x, y)` is the function we are solving for)
+    :param val:
+        The expected normal derivative of :math:`u` at this location.
+        (:math:`u(x, y)` is the function we are solving for)
     :type val: float
     """
 
@@ -565,7 +412,9 @@ class NeumannControlPoint(Point):
 class CustomBoundaryCondition(IrregularBoundaryCondition):
     r"""A boundary condition with irregular shape.
 
-    :param center_point: A point that roughly locate at the center of the domain. It will be used to sort the control points 'clockwise'.
+    :param center_point:
+        A point that roughly locate at the center of the domain.
+        It will be used to sort the control points 'clockwise'.
     :type center_point: `pde.Point`
     :param dirichlet_control_points: a list of points on the Dirichlet boundary
     :type dirichlet_control_points: list[pde.DirichletControlPoint]
