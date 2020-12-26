@@ -21,7 +21,7 @@ class BaseMonitor(ABC):
     r"""A tool for checking the status of the neural network during training.
 
     A monitor keeps track of a matplotlib.figure.Figure instance and updates the plot
-    whenever its ``check()`` method is called (usually by a ``neurodiffeq.solvers.BaseSolver` instance).
+    whenever its ``check()`` method is called (usually by a ``neurodiffeq.solvers.BaseSolver`` instance).
 
     .. note::
         Currently, the ``check()`` method can only run synchronously.
