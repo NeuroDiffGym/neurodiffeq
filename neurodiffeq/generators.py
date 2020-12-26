@@ -586,3 +586,17 @@ class BatchGenerator(BaseGenerator):
             return batch[0]
         else:
             return batch
+
+
+class SamplerGenerator(BaseGenerator):
+    def __init__(self, generator):
+        super(SamplerGenerator, self).__init__()
+        self.generator = generator
+        self.size = generator.size
+
+    def get_examples(self) -> List[torch.Tensor]:
+        samples = self.generator.get_examples()
+        if isinstance(samples, torch.Tensor):
+            samples = [samples]
+        samples = [u.reshape(-1, 1) for u in samples]
+        return samples
