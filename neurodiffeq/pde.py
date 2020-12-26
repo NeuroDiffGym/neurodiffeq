@@ -1,4 +1,5 @@
 import torch
+import warnings
 import torch.optim as optim
 import torch.nn as nn
 
@@ -15,6 +16,7 @@ from .conditions import IrregularBoundaryCondition
 from .conditions import NoCondition, DirichletBVP2D, IBVP1D
 from .monitors import Monitor2D
 from .solvers import Solution2D
+from .solvers import Solver2D
 from copy import deepcopy
 
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
@@ -254,177 +256,58 @@ def solve2D_system(
         :rtype: tuple[`neurodiffeq.pde.Solution`, dict] or tuple[`neurodiffeq.pde.Solution`, dict, dict]
         """
 
-    ########################################### subroutines ###########################################
-    # Train the neural network for 1 epoch, return the training loss and training metrics
-    def train(train_generator, net, nets, pde_system, conditions,
-              criterion, additional_loss_term, metrics, shuffle, optimizer):
-        train_examples_x, train_examples_y = train_generator.get_examples()
-        train_examples_x, train_examples_y = train_examples_x.reshape((-1, 1)), train_examples_y.reshape((-1, 1))
-        n_examples_train = train_generator.size
-        idx = np.random.permutation(n_examples_train) if shuffle else np.arange(n_examples_train)
-
-        batch_start, batch_end = 0, batch_size
-        while batch_start < n_examples_train:
-            if batch_end > n_examples_train:
-                batch_end = n_examples_train
-            batch_idx = idx[batch_start:batch_end]
-            xs, ys = train_examples_x[batch_idx], train_examples_y[batch_idx]
-
-            train_loss_batch = \
-                calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term)
-
-            optimizer.zero_grad()
-            train_loss_batch.backward()
-            optimizer.step()
-
-            batch_start += batch_size
-            batch_end += batch_size
-
-        train_loss_epoch = \
-            calculate_loss(
-                train_examples_x,
-                train_examples_y,
-                net,
-                nets,
-                pde_system,
-                conditions,
-                criterion,
-                additional_loss_term
-            )
-        train_loss_epoch = train_loss_epoch.item()
-
-        train_metrics_epoch = calculate_metrics(train_examples_x, train_examples_y, net, nets, conditions, metrics)
-        return train_loss_epoch, train_metrics_epoch
-
-    # Vliadate the neural network, return the validation loss and validation metrics
-    def valid(valid_generator, net, nets, pde_system, conditions, criterion, additional_loss_term, metrics):
-        valid_examples_x, valid_examples_y = valid_generator.get_examples()
-        valid_examples_x, valid_examples_y = valid_examples_x.reshape((-1, 1)), valid_examples_y.reshape((-1, 1))
-        valid_loss_epoch = \
-            calculate_loss(
-                valid_examples_x,
-                valid_examples_y,
-                net,
-                nets,
-                pde_system,
-                conditions,
-                criterion,
-                additional_loss_term
-            )
-        valid_loss_epoch = valid_loss_epoch.item()
-
-        valid_metrics_epoch = calculate_metrics(valid_examples_x, valid_examples_y, net, nets, conditions, metrics)
-        return valid_loss_epoch, valid_metrics_epoch
-
-    # calculate the loss function
-    def calculate_loss(xs, ys, net, nets, pde_system, conditions, criterion, additional_loss_term):
-        us = _trial_solution_2input(net, nets, xs, ys, conditions)
-        Fuxys = pde_system(*us, xs, ys)
-        loss = sum(
-            criterion(Fuxy, torch.zeros_like(xs))
-            for Fuxy in Fuxys
-        )
-        if additional_loss_term is not None:
-            loss += additional_loss_term(*us, xs, ys)
-        return loss
-
-    # caclulate the metrics
-    def calculate_metrics(xs, ys, net, nets, conditions, metrics):
-        us = _trial_solution_2input(net, nets, xs, ys, conditions)
-        metrics_ = {
-            metric_name: metric_function(*us, xs, ys).item()
-            for metric_name, metric_function in metrics.items()
-        }
-        return metrics_
-    ###################################################################################################
-
+    warnings.warn(
+        "The `solve2D_system` function is deprecated, use a `neurodiffeq.solvers.Solver2D` instance instead",
+        FutureWarning,
+    )
     if single_net and nets:
-        raise RuntimeError('Only one of net and nets should be specified')
-    # defaults to use a single neural network
+        raise ValueError('Only one of net and nets should be specified')
+
+    # For backward compatibility defaults to use a single neural network
     if (not single_net) and (not nets):
-        net = FCNN(
+        single_net = FCNN(
             n_input_units=2,
             n_output_units=len(conditions),
             hidden_units=(32, 32),
             actv=nn.Tanh,
         )
+
     if single_net:
         # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
-    if not train_generator:
-        if (xy_min is None) or (xy_max is None):
-            raise RuntimeError('Please specify xy_min and xy_max when train_generator is not specified')
-        train_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced-noisy')
-    if not valid_generator:
-        if (xy_min is None) or (xy_max is None):
-            raise RuntimeError('Please specify xy_min and xy_max when valid_generator is not specified')
-        valid_generator = Generator2D((32, 32), xy_min, xy_max, method='equally-spaced')
-    if (not optimizer) and single_net:  # using a single net
-        optimizer = optim.Adam(single_net.parameters(), lr=0.001)
-    if (not optimizer) and nets:  # using multiple nets
-        all_parameters = []
-        for net in nets:
-            all_parameters += list(net.parameters())
-        optimizer = optim.Adam(all_parameters, lr=0.001)
-    if not criterion:
-        criterion = nn.MSELoss()
-    if metrics is None:
-        metrics = {}
+        nets = [single_net] * len(conditions)
 
-    history = {}
-    history['train_loss'] = []
-    history['valid_loss'] = []
-    for metric_name, _ in metrics.items():
-        history['train__'+metric_name] = []
-        history['valid__'+metric_name] = []
-
-    if return_best:
-        valid_loss_epoch_min = np.inf
-        solution_min = None
-
-    for epoch in range(max_epochs):
-        train_loss_epoch, train_metrics_epoch = train(
-            train_generator, single_net, nets, pde_system, conditions, criterion,
-            additional_loss_term, metrics, shuffle, optimizer
-        )
-        history['train_loss'].append(train_loss_epoch)
-        for metric_name, metric_value in train_metrics_epoch.items():
-            history['train__'+metric_name].append(metric_value)
-
-        valid_loss_epoch, valid_metrics_epoch = valid(
-            valid_generator, single_net, nets, pde_system, conditions, criterion,
-            additional_loss_term, metrics
-        )
-        history['valid_loss'].append(valid_loss_epoch)
-        for metric_name, metric_value in valid_metrics_epoch.items():
-            history['valid__'+metric_name].append(metric_value)
-
-        if monitor and epoch % monitor.check_every == 0:
-            monitor.check(single_net, nets, conditions, history)
-
-        if return_best and valid_loss_epoch < valid_loss_epoch_min:
-            valid_loss_epoch_min = valid_loss_epoch
-            solution_min = Solution(single_net, nets, conditions)
-
-    if return_best:
-        solution = solution_min
+    if additional_loss_term:
+        class CustomSolver2D(Solver2D):
+            def additional_loss(self, funcs, key):
+                return additional_loss_term(*funcs, *self._batch_examples[key])
     else:
-        solution = Solution(single_net, nets, conditions)
+        class CustomSolver2D(Solver2D):
+            pass
 
+    solver = CustomSolver2D(
+        pde_system=pde_system,
+        conditions=conditions,
+        xy_min=xy_min,
+        xy_max=xy_max,
+        nets=nets,
+        train_generator=train_generator,
+        valid_generator=valid_generator,
+        optimizer=optimizer,
+        criterion=criterion,
+        metrics=metrics,
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    solver.fit(max_epochs=max_epochs, monitor=monitor)
+    solution = solver.get_solution(copy=True, best=return_best)
+    ret = (solution, solver.metrics_history)
     if return_internal:
-        internal = {
-            'single_net': single_net,
-            'nets': nets,
-            'conditions': conditions,
-            'train_generator': train_generator,
-            'valid_generator': valid_generator,
-            'optimizer': optimizer,
-            'criterion': criterion
-        }
-        return solution, history, internal
-    else:
-        return solution, history
+        params = ['nets', 'conditions', 'train_generator', 'valid_generator', 'optimizer', 'criterion']
+        internals = solver.get_internals(params, return_type="dict")
+        ret = ret + (internals,)
+    return ret
 
 
 def make_animation(solution, xs, ts):
