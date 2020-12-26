@@ -11,6 +11,7 @@ from neurodiffeq._version_utils import deprecated_alias
 from neurodiffeq.generators import GeneratorSpherical
 from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import Generator1D
+from neurodiffeq.generators import Generator2D
 from neurodiffeq.function_basis import RealSphericalHarmonics
 
 
@@ -932,3 +933,162 @@ class Solver1D(BaseSolver):
 class Solution2D(BaseSolution):
     def _compute_u(self, net, condition, xs, ys):
         return condition.enforce(net, xs, ys)
+
+
+class Solver2D(BaseSolver):
+    r"""A solver class for solving PDEs in 2 dimensions.
+
+    :param pde_system:
+        The PDE system to solve, which maps two ``torch.Tensor``s to PDE residuals (``tuple[torch.Tensor]``),
+        both the input and output must have shape (n_samples, 1).
+    :type pde_system: callable
+    :param conditions:
+        List of conditions for each target function.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param xy_min:
+        The lower bound of 2 dimensions.
+        If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`,
+        then `xy_min` is `(x_0, y_0)`.
+        Only needed when train_generator or valid_generator are not specified.
+        Defaults to None
+    :type xy_min: tuple[float, float], optional
+    :param xy_max:
+        The upper bound of 2 dimensions.
+        If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
+        Only needed when train_generator or valid_generator are not specified.
+        Defaults to None
+    :type xy_max: tuple[float, float], optional
+    :param nets:
+        List of neural networks for parameterized solution.
+        If provided, length of ``nets`` must equal that of ``conditions``
+    :type nets: list[torch.nn.Module], optional
+    :param train_generator:
+        Generator for sampling training points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``train_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        Generator for sampling validation points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``valid_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param analytic_solutions:
+        Analytical solutions to be compared with neural net solutions.
+        It maps a torch.Tensor to a tuple of function values.
+        Output shape should match that of ``nets``.
+    :type analytic_solutions: callable, optional
+    :param optimizer:
+        Optimizer to be used for training.
+        Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+    :type optimizer: ``torch.nn.optim.Optimizer``, optional
+    :param criterion:
+        Function that maps a PDE residual tensor (of shape (-1, 1)) to a scalar loss.
+    :type criterion: callable, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``ode_system``.
+
+    :type metrics: dict[str, callable], optional
+    :param n_output_units:
+        Number of output units for each neural network.
+        Ignored if ``nets`` is specified.
+        Defaults to 1.
+    :type n_output_units: int, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+    """
+
+    def __init__(self, pde_system, conditions, xy_min, xy_max,
+                 nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
+                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 # deprecated arguments are listed below
+                 batch_size=None, shuffle=True):
+
+        if train_generator is None or valid_generator is None:
+            if xy_min is None or xy_max is None:
+                raise ValueError(f"Either generator is not provided, xy_min and xy_max should be both provided: \n"
+                                 f"got xy_min={xy_min}, xy_max={xy_max}, "
+                                 f"train_generator={train_generator}, valid_generator={valid_generator}")
+
+        if train_generator is None:
+            train_generator = Generator2D((32, 32), xy_min=xy_min, xy_max=xy_max, method='equally-spaced-noisy')
+        if valid_generator is None:
+            valid_generator = Generator2D((32, 32), xy_min=xy_min, xy_max=xy_max, method='equally-spaced')
+
+        self.xy_min, self.xy_max = xy_min, xy_max
+
+        super(Solver2D, self).__init__(
+            diff_eqs=pde_system,
+            conditions=conditions,
+            nets=nets,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
+            analytic_solutions=analytic_solutions,
+            optimizer=optimizer,
+            criterion=criterion,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            metrics=metrics,
+            n_input_units=2,
+            n_output_units=n_output_units,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
+
+    def get_solution(self, copy=True, best=True):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return:
+            A solution object which can be called.
+            To evaluate the solution on certain points,
+            you should pass the coordinates vector(s) to the returned solution.
+        :rtype: BaseSolution
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        return Solution2D(nets, conditions)
+
+    def _get_internal_variables(self):
+        available_variables = super(Solver2D, self)._get_internal_variables()
+        available_variables.update({
+            'xy_min': self.xy_min,
+            'xy_max': self.xy_max,
+        })
+        return available_variables
+
