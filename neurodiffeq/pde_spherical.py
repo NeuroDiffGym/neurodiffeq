@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from .function_basis import RealSphericalHarmonics
 
 from .networks import FCNN
-from ._version_utils import warn_deprecate_class
+from ._version_utils import warn_deprecate_class, deprecated_alias
 from .generators import Generator3D, GeneratorSpherical
 from .conditions import NoCondition, DirichletBVPSpherical, InfDirichletBVPSpherical
 from .conditions import DirichletBVPSphericalBasis, InfDirichletBVPSphericalBasis
@@ -338,7 +338,7 @@ class MonitorSpherical:
         self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
-        self.ax_analytic = None
+        self.ax_metrics = None
         self.ax_loss = None
         self.cbs = []  # color bars
         self.names = var_names
@@ -404,13 +404,17 @@ class MonitorSpherical:
             for net, cond in zip(nets, conditions)
         ]
 
-    def check(self, nets, conditions, loss_history, analytic_mse_history=None):
-        r"""Draw (3n + 2) plots:
-             1) For each function u(r, phi, theta), there are 3 axes:
-                a) one ax for u-r curves grouped by phi
-                b) one ax for u-r curves grouped by theta
-                c) one ax for u-theta-phi contour heat map
-             2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
+    @deprecated_alias(loss_history='history')
+    def check(self, nets, conditions, history, analytic_mse_history=None):
+        r"""Draw (3n + 2) plots
+
+         1. For each function :math:`u_i(r, \phi, \theta)`, there are 3 axes:
+
+            - one ax for :math:`u`-:math:`r` curves grouped by :math:`\phi`
+            - one ax for :math:`u`-:math:`r` curves grouped by :math:`\theta`
+            - one ax for :math:`u`-:math:`\theta`-:math:`\phi` contour heat map
+
+         2. Additionally, one ax for training and validaiton loss, another for the rest of the metrics
 
         :param nets:
             The neural networks that approximates the PDE.
@@ -418,40 +422,55 @@ class MonitorSpherical:
         :param conditions:
             The initial/boundary condition of the PDE.
         :type conditions: list [`neurodiffeq.conditions.BaseCondition`]
-        :param loss_history:
-            The history of training loss and validation loss.
-            The 'train' entry is a list of training loss and 'valid' entry is a list of validation loss.
-        :type loss_history: dict['train': list[float], 'valid': list[float]]
+        :param history:
+            A dict of history of training metrics and validation metrics,
+            where keys are metric names (str) and values are list of metrics values (list[float]).
+            It must contain a 'train_loss' key and a 'valid_loss' key.
+        :type history: dict[str, list[float]]
         :param analytic_mse_history:
-            The history of training and validation MSE against analytic solution.
-            The 'train' entry is a list of training analytic MSE and 'valid' entry is a list of validation analytic MSE.
-        :type analytic_mse_history: dict['train': list[float], 'valid': list[float]]
+            **[DEPRECATED]**
+            Include 'train_analytic_mse' and 'valid_analytic_mse' in ``history`` instead.
+        :type analytic_mse_history: dict['train': list[float], 'valid': list[float]], deprecated
 
         .. note::
-            `check` is meant to be called by the function `solve2D`.
+            ``check`` is meant to be called by ``neurodiffeq.solvers.BaseSolver``.
         """
+
+        for key in ['train', 'valid']:
+            if key in history:
+                warnings.warn(f'`{key}` is deprecated, use `{key}_loss` instead', FutureWarning)
+                history[key + '_loss'] = history.pop(key)
+
+        if ('train_loss' not in history) or ('valid_loss' not in history):
+            raise ValueError("Either 'train_loss' or 'valid_loss' not present in `history`.")
 
         # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
         # shape of the figure, number of the subplots, etc.
-        # Draw (3n + 2) plots:
-        #     1) For each function u(r, phi, theta), there are 3 axes:
-        #         a) one ax for u-r curves grouped by phi
-        #         b) one ax for u-r curves grouped by theta
-        #         c) one ax for u-theta-phi contour heat map
-        #     2) Additionally, one ax for MSE against analytic solution, another for training and validation loss
         n_vars = len(nets) if self.n_vars is None else self.n_vars
-        n_row = n_vars + 1
+        n_row = (n_vars + 2) if len(history) > 2 else (n_vars + 1)
         n_col = 3
+
+        if analytic_mse_history is not None:
+            warnings.warn(
+                "`analytic_mse_history` is deprecated. "
+                "Include 'train_analytic_mse' and 'valid_analytic_mse' in ``history`` instead.",
+                FutureWarning,
+            )
+            history['train_analytic_mse'] = analytic_mse_history['train']
+            history['valid_analytic_mse'] = analytic_mse_history['valid']
+
         if not self.fig:
             self.fig = plt.figure(figsize=(24, 6 * n_row))
             self.fig.tight_layout()
             self.axs = self.fig.subplots(nrows=n_row, ncols=n_col, gridspec_kw={'width_ratios': [1, 1, 2]})
-            for ax in self.axs[n_row - 1]:
-                ax.remove()
+            # remove 1-1-2 empty axes, which will be replaced by ax_loss and ax_metrics
+            for row in self.axs[n_vars:]:
+                for ax in row:
+                    ax.remove()
             self.cbs = [None] * n_vars
-            if analytic_mse_history is not None:
-                self.ax_analytic = self.fig.add_subplot(n_row, 2, n_row * 2 - 1)
-                self.ax_loss = self.fig.add_subplot(n_row, 2, n_row * 2)
+            if len(history) > 2:
+                self.ax_loss = self.fig.add_subplot(n_row, 1, n_row - 1)
+                self.ax_metrics = self.fig.add_subplot(n_row, 1, n_row)
             else:
                 self.ax_loss = self.fig.add_subplot(n_row, 1, n_row)
 
@@ -484,12 +503,22 @@ class MonitorSpherical:
             ax = self.axs[i][2]
             self._update_contourf(var_name, ax, u_across_r, colorbar_index=i)
 
-        if analytic_mse_history is not None:
-            self._update_history(self.ax_analytic, analytic_mse_history, y_label='MSE',
-                                 title='MSE against analytic solution')
-            self._update_history(self.ax_loss, loss_history, y_label='Loss', title='Loss')
-        else:
-            self._update_history(self.ax_loss, loss_history)
+        self._refresh_history(
+            self.ax_loss,
+            {name: history[name] for name in history if name in ['train_loss', 'valid_loss']},
+            x_label='Epochs',
+            y_label='Loss Value',
+            title='Loss (Mean Squared Residual)',
+        )
+
+        if len(history) > 2:
+            self._refresh_history(
+                self.ax_metrics,
+                {name: history[name] for name in history if name not in ['train_loss', 'valid_loss']},
+                x_label='Epochs',
+                y_label='Metric Values',
+                title='Other metrics',
+            )
 
         self.customization()
         self.fig.canvas.draw()
@@ -548,13 +577,15 @@ class MonitorSpherical:
         self.cbs[colorbar_index] = self.fig.colorbar(cax, ax=ax)
 
     @staticmethod
-    def _update_history(ax, history, x_label='Epochs', y_label=None, title=None):
+    def _refresh_history(ax, history, x_label='Epochs', y_label=None, title=None):
         ax.clear()
         ax.set_title(title)
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
-        ax.plot(history['train'], label='train')
-        ax.plot(history['valid'], label='valid')
+        for metric in history:
+            ax.plot(history[metric], label=metric)
+        # By default, metrics are plotted using log-scale
+        # If there are negative values in metrics, override `self.customization()` to change to linear-scale
         ax.set_yscale('log')
         ax.legend()
 
@@ -562,7 +593,7 @@ class MonitorSpherical:
         self.fig = None
         self.axs = []
         self.cbs = []
-        self.ax_analytic = None
+        self.ax_metrics = None
         self.ax_loss = None
         return self
 
@@ -731,7 +762,7 @@ class MonitorCallback:
         self.monitor.check(
             solver.nets,
             solver.conditions,
-            loss_history=solver.loss,
+            history=solver.loss,
             analytic_mse_history=solver.analytic_solutions
         )
         if self.fig_dir:

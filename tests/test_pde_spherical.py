@@ -5,7 +5,7 @@ import matplotlib
 
 matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
 from math import erf, sqrt
-from pytest import raises
+from pytest import raises, warns
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.generators import GeneratorSpherical, Generator3D
 from neurodiffeq.conditions import NoCondition
@@ -147,12 +147,23 @@ def test_monitor_spherical():
         'train': list(np.random.rand(10)),
         'valid': list(np.random.rand(10)),
     }
-    monitor.check(
-        nets,
-        conditions,
-        loss_history=loss_history,
-        analytic_mse_history=analytic_mse_history,
-    )
+    history = {
+        'train_loss': list(np.random.rand(10)),
+        'valid_loss': list(np.random.rand(10)),
+        'train_foo': list(np.random.rand(10)),
+        'valid_foo': list(np.random.rand(10)),
+        'train_bar': list(np.random.rand(10)),
+        'valid_bar': list(np.random.rand(10)),
+    }
+    with warns(FutureWarning):
+        monitor.check(nets, conditions, history=history, analytic_mse_history=analytic_mse_history)
+    with warns(FutureWarning):
+        monitor.check(nets, conditions, history=loss_history)
+    with warns(FutureWarning):
+        monitor.check(nets, conditions, history=loss_history, analytic_mse_history=analytic_mse_history)
+    with raises(ValueError):
+        monitor.check(nets, conditions, history={'train_foo': [], 'valid_foo': []})
+    monitor.check(nets, conditions, history=history)
 
 
 def test_solve_spherical_system():
