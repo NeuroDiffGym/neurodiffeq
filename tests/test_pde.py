@@ -10,6 +10,7 @@ from neurodiffeq.networks import FCNN
 from neurodiffeq.pde import DirichletControlPoint, NeumannControlPoint, Point, CustomBoundaryCondition
 from neurodiffeq.pde import solve2D, solve2D_system, Monitor2D, make_animation
 from neurodiffeq.pde import Solution
+from neurodiffeq.pde import Solution2D
 from neurodiffeq.generators import PredefinedGenerator, Generator2D
 from neurodiffeq.conditions import DirichletBVP2D, DirichletBVP
 
@@ -456,7 +457,7 @@ def test_solution():
     ux0, ux1, uy0, uy1 = get_all_boundary_funcs(u00, u01, u10, u11)
     vx0, vx1, vy0, vy1 = get_all_boundary_funcs(v00, v01, v10, v11)
 
-    def get_solution(use_single: bool) -> Solution:
+    def get_solution(use_single: bool) -> Solution2D:
         conditions = [
             DirichletBVP2D(x0, ux0, x1, ux1, y0, uy0, y1, uy1),
             DirichletBVP2D(x0, vx0, x1, vx1, y0, vy0, y1, vy1),
@@ -465,10 +466,10 @@ def test_solution():
             net = FCNN(2, 2)
             for i, cond in enumerate(conditions):
                 cond.set_impose_on(i)
-            return Solution(net, None, conditions)
+            return Solution2D(net, conditions)
         else:
             nets = [FCNN(2, 1), FCNN(2, 1)]
-            return Solution(None, nets, conditions)
+            return Solution2D(nets, conditions)
 
     def check_output(uv, shape, type, msg=""):
         msg += " "
