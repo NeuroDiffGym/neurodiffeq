@@ -257,7 +257,7 @@ def solve_system(
     if additional_loss_term:
         class CustomSolver1D(Solver1D):
             def additional_loss(self, funcs, key):
-                return additional_loss_term(*funcs, self._batch_examples[key])
+                return additional_loss_term(*funcs, *self._batch_examples[key])
     else:
         class CustomSolver1D(Solver1D):
             pass
