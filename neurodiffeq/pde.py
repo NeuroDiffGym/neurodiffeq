@@ -140,7 +140,7 @@ def solve2D(
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -151,6 +151,10 @@ def solve2D(
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
         The solution is a function that has the signature `solution(xs, ys, as_type)`.
     :rtype: tuple[`neurodiffeq.pde.Solution`, dict] or tuple[`neurodiffeq.pde.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver2D`` instead.
     """
     nets = None if not net else [net]
     return solve2D_system(
@@ -260,7 +264,7 @@ def solve2D_system(
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -272,6 +276,10 @@ def solve2D_system(
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
         The solution is a function that has the signature `solution(xs, ys, as_type)`.
     :rtype: tuple[`neurodiffeq.pde.Solution`, dict] or tuple[`neurodiffeq.pde.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver2D`` instead.
     """
 
     warnings.warn(

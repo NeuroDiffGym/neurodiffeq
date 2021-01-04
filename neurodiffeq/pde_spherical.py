@@ -128,7 +128,7 @@ def solve_spherical(
     :type shuffle: bool
 
     .. note::
-        This function is deprecated, use a `SphericalSolver` instead
+        This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
 
     warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
@@ -242,7 +242,7 @@ def solve_spherical_system(
 
 
     .. note::
-        This function is deprecated, use a `SphericalSolver` instead
+        This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 

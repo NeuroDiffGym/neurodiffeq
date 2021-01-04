@@ -74,7 +74,7 @@ class BaseSolver(ABC):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -611,7 +611,7 @@ class SolverSpherical(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -845,7 +845,7 @@ class Solver1D(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -1008,7 +1008,7 @@ class Solver2D(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**

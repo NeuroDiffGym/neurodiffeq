@@ -119,7 +119,7 @@ def solve(
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -130,6 +130,10 @@ def solve(
         The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver1D`` instead.
     """
     nets = None if not net else [net]
     return solve_system(
@@ -237,7 +241,7 @@ def solve_system(
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -247,6 +251,10 @@ def solve_system(
         The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver1D`` instead.
     """
 
     warnings.warn(
