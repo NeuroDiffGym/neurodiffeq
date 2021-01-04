@@ -87,7 +87,7 @@ class BaseSolver(ABC):
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
                  metrics=None, n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
-                 shuffle=False, batch_size=None):
+                 shuffle=None, batch_size=None):
         # deprecate argument `shuffle`
         if shuffle:
             warnings.warn(
@@ -624,7 +624,7 @@ class SolverSpherical(BaseSolver):
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
-                 shuffle=False, batch_size=None):
+                 shuffle=None, batch_size=None):
 
         if train_generator is None or valid_generator is None:
             if r_min is None or r_max is None:
@@ -857,7 +857,7 @@ class Solver1D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=True):
+                 batch_size=None, shuffle=None):
 
         if train_generator is None or valid_generator is None:
             if t_min is None or t_max is None:
@@ -1020,7 +1020,7 @@ class Solver2D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=True):
+                 batch_size=None, shuffle=None):
 
         if train_generator is None or valid_generator is None:
             if xy_min is None or xy_max is None:
