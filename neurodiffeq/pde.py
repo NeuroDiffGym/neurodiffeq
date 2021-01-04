@@ -352,7 +352,7 @@ def make_animation(solution, xs, ts):
     """
 
     xx, tt = np.meshgrid(xs, ts)
-    sol_net = solution(xx, tt, as_type='np')
+    sol_net = solution(xx, tt, to_numpy=True)
 
     def u_gen():
         for i in range(len(sol_net)):
