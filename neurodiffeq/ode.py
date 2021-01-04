@@ -36,8 +36,8 @@ def _trial_solution(single_net, nets, ts, conditions):
 def solve(
         ode, condition, t_min=None, t_max=None,
         net=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
-        max_epochs=1000,
+        optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+        additional_loss_term=None, metrics=None, batch_size=16, max_epochs=1000,
         monitor=None, return_internal=False,
         return_best=False
 ):
@@ -86,6 +86,14 @@ def solve(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
     :param additional_loss_term:
         Extra terms to add to the loss function besides the part specified by `criterion`.
         The input of `additional_loss_term` should be the same as `ode`.
@@ -128,7 +136,8 @@ def solve(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics,
+        optimizer=optimizer, criterion=criterion, n_batches_train=n_batches_train, n_batches_valid=n_batches_valid,
+        additional_loss_term=additional_loss_term, metrics=metrics,
         batch_size=batch_size, max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
@@ -137,8 +146,9 @@ def solve(
 def solve_system(
         ode_system, conditions, t_min, t_max,
         single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
-        max_epochs=1000, monitor=None, return_internal=False,
+        optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+        additional_loss_term=None, metrics=None, batch_size=16, max_epochs=1000, monitor=None,
+        return_internal=False,
         return_best=False,
 ):
     r"""Train a neural network to solve an ODE.
@@ -189,6 +199,14 @@ def solve_system(
         The loss function to use for training.
         Defaults to None and sum of square of the output of `ode_system` will be used.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
     :param additional_loss_term:
         Extra terms to add to the loss function besides the part specified by `criterion`.
         The input of `additional_loss_term` should be the same as `ode_system`.
@@ -272,6 +290,8 @@ def solve_system(
         valid_generator=valid_generator,
         optimizer=optimizer,
         criterion=criterion,
+        n_batches_train=n_batches_train,
+        n_batches_valid=n_batches_valid,
         metrics=metrics,
         batch_size=batch_size,
         shuffle=shuffle,
