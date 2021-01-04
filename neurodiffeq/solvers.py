@@ -430,7 +430,7 @@ class BaseSolver(ABC):
             "n_funcs": self.n_funcs,
             "nets": self.nets,
             "optimizer": self.optimizer,
-            "pdes": self.diff_eqs,
+            "diff_eqs": self.diff_eqs,
             "generator": self.generator,
         }
 
