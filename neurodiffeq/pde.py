@@ -57,7 +57,7 @@ def solve2D(
         net=None, train_generator=None, valid_generator=None, optimizer=None,
         criterion=None, n_batches_train=1, n_batches_valid=4,
         additional_loss_term=None, metrics=None, max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=True
+        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve a PDE with 2 independent variables.
 
@@ -168,7 +168,7 @@ def solve2D_system(
         single_net=None, nets=None, train_generator=None, valid_generator=None,
         optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
         additional_loss_term=None, metrics=None, max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=True,
+        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve a PDE with 2 independent variables.
 

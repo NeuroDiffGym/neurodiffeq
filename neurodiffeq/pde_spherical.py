@@ -43,9 +43,9 @@ SphericalSolver = warn_deprecate_class(SolverSpherical)
 
 def solve_spherical(
         pde, condition, r_min=None, r_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solution=None,
-        optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False, harmonics_fn=None,
+        net=None, train_generator=None, valid_generator=None, analytic_solution=None,
+        optimizer=None, criterion=None, max_epochs=1000,
+        monitor=None, return_internal=False, return_best=False, harmonics_fn=None, batch_size=None, shuffle=None,
 ):
     r"""[**DEPRECATED**, use SphericalSolver class instead]
     Train a neural network to solve one PDE with spherical inputs in 3D space.
@@ -77,10 +77,6 @@ def solve_spherical(
         The example generator to generate 3-D validation points.
         Default to None.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
-    :param shuffle:
-        Whether to shuffle the training examples every epoch.
-        Defaults to True.
-    :type shuffle: bool, optional
     :param analytic_solution:
         Analytic solution to the pde system, used for testing purposes.
         It should map (``rs``, ``thetas``, ``phis``) to u.
@@ -93,10 +89,6 @@ def solve_spherical(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -125,7 +117,15 @@ def solve_spherical(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
-
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
 
     .. note::
         This function is deprecated, use a `SphericalSolver` instead
@@ -151,9 +151,9 @@ def solve_spherical(
 
 def solve_spherical_system(
         pde_system, conditions, r_min=None, r_max=None,
-        nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
-        optimizer=None, criterion=None, batch_size=None,
-        max_epochs=1000, monitor=None, return_internal=False, return_best=False, harmonics_fn=None
+        nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
+        optimizer=None, criterion=None, max_epochs=1000, monitor=None, return_internal=False,
+        return_best=False, harmonics_fn=None, batch_size=None, shuffle=None,
 ):
     r"""[**DEPRECATED**, use SphericalSolver class instead]
     Train a neural network to solve a PDE system with spherical inputs in 3D space
@@ -190,10 +190,6 @@ def solve_spherical_system(
         The example generator to generate 3-D validation points.
         Default to None.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
-    :param shuffle:
-        **[DEPRECATED and IGNORED]** Don't use this.
-        Shuffling should be performed by generators.
-    :type shuffle: bool, optional
     :param analytic_solutions:
         Analytic solution to the pde system, used for testing purposes.
         It should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n].
@@ -206,10 +202,6 @@ def solve_spherical_system(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -238,6 +230,16 @@ def solve_spherical_system(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+
 
     .. note::
         This function is deprecated, use a `SphericalSolver` instead

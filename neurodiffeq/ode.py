@@ -35,11 +35,10 @@ def _trial_solution(single_net, nets, ts, conditions):
 
 def solve(
         ode, condition, t_min=None, t_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None,
+        net=None, train_generator=None, valid_generator=None,
         optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
-        additional_loss_term=None, metrics=None, batch_size=16, max_epochs=1000,
-        monitor=None, return_internal=False,
-        return_best=False
+        additional_loss_term=None, metrics=None, max_epochs=1000,
+        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve an ODE.
 
@@ -70,10 +69,6 @@ def solve(
         The example generator to generate 1-D training points.
         Default to None.
     :type train_generator: `neurodiffeq.generators.Generator1D`, optional
-    :param shuffle:
-        Whether to shuffle the training examples every epoch.
-        Defaults to True.
-    :type shuffle: bool, optional
     :param valid_generator:
         The example generator to generate 1-D validation points.
         Default to None.
@@ -105,10 +100,6 @@ def solve(
         The input functions should be the same as `ode` and the output should be a numeric value.
         The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, callable]
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -125,6 +116,15 @@ def solve(
         Whether to return the nets that achieved the lowest validation loss.
         Defaults to False.
     :type return_best: bool, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
     :return:
         The solution of the ODE.
         The history of training loss and validation loss.
@@ -145,11 +145,10 @@ def solve(
 
 def solve_system(
         ode_system, conditions, t_min, t_max,
-        single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
+        single_net=None, nets=None, train_generator=None, valid_generator=None,
         optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
-        additional_loss_term=None, metrics=None, batch_size=16, max_epochs=1000, monitor=None,
-        return_internal=False,
-        return_best=False,
+        additional_loss_term=None, metrics=None, max_epochs=1000, monitor=None,
+        return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve an ODE.
 
