@@ -281,33 +281,3 @@ def solve_spherical_system(
         ret = ret + (internals,)
     return ret
 
-# callbacks to be passed to SphericalSolver.fit()
-
-
-class CheckpointCallback:
-    def __init__(self, ckpt_dir):
-        self.ckpt_dir = ckpt_dir
-
-    def __call__(self, solver):
-        if solver.local_epoch == solver._max_local_epoch - 1:
-            now = datetime.now()
-            timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
-            fname = os.path.join(self.ckpt_dir, timestr + ".internals")
-            with open(fname, 'wb') as f:
-                dill.dump(solver.get_internals("all"), f)
-                logging.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
-                             f"(global epoch = {solver.global_epoch})")
-
-
-class ReportOnFitCallback:
-    def __call__(self, solver):
-        if solver.local_epoch == 0:
-            logging.info(
-                f"Starting from global epoch {solver.global_epoch - 1}, training on {(solver.r_min, solver.r_max)}")
-            tb = solver.generator['train'].size
-            ntb = solver.n_batches['train']
-            t = tb * ntb
-            vb = solver.generator['valid'].size
-            nvb = solver.n_batches['valid']
-            v = vb * nvb
-            logging.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
