@@ -151,7 +151,13 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-        self.criterion = criterion if criterion else lambda r: (r ** 2).mean()
+
+        if criterion is None:
+            self.criterion = lambda r: (r ** 2).mean()
+        elif isinstance(criterion, nn.modules.loss._Loss):
+            self.criterion = lambda r: criterion(r, torch.zeros_like(r))
+        else:
+            self.criterion = criterion
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
