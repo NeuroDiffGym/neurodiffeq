@@ -443,7 +443,7 @@ class BaseSolver(ABC):
         }
 
     @deprecated_alias(param_names='var_names')
-    def get_internals(self, var_names, return_type='list'):
+    def get_internals(self, var_names=None, return_type='list'):
         r"""Return internal variable(s) of the solver
 
         - If var_names == 'all', return all internal variables as a dict.
@@ -461,7 +461,7 @@ class BaseSolver(ABC):
 
         available_variables = self._get_internal_variables()
 
-        if var_names == "all":
+        if var_names == "all" or var_names is None:
             return available_variables
 
         if isinstance(var_names, str):
