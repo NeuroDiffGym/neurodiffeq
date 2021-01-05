@@ -438,6 +438,8 @@ class BaseSolver(ABC):
             "optimizer": self.optimizer,
             "diff_eqs": self.diff_eqs,
             "generator": self.generator,
+            "train_generator": self.generator['train'],
+            "valid_generator": self.generator['valid'],
         }
 
     @deprecated_alias(param_names='var_names')
