@@ -13,6 +13,10 @@ from . import pde
 from . import ode
 from . import pde_spherical
 from . import temporal
+from . import solvers
+from . import callbacks
+from . import monitors
+from . import utils
 
 # Set default float type to 64 bits
 _set_tensor_type(float_bits=64)
