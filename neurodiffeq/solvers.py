@@ -74,7 +74,7 @@ class BaseSolver(ABC):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -87,7 +87,7 @@ class BaseSolver(ABC):
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
                  metrics=None, n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
-                 shuffle=False, batch_size=None):
+                 shuffle=None, batch_size=None):
         # deprecate argument `shuffle`
         if shuffle:
             warnings.warn(
@@ -151,7 +151,13 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-        self.criterion = criterion if criterion else lambda r: (r ** 2).mean()
+
+        if criterion is None:
+            self.criterion = lambda r: (r ** 2).mean()
+        elif isinstance(criterion, nn.modules.loss._Loss):
+            self.criterion = lambda r: criterion(r, torch.zeros_like(r))
+        else:
+            self.criterion = criterion
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -430,12 +436,14 @@ class BaseSolver(ABC):
             "n_funcs": self.n_funcs,
             "nets": self.nets,
             "optimizer": self.optimizer,
-            "pdes": self.diff_eqs,
+            "diff_eqs": self.diff_eqs,
             "generator": self.generator,
+            "train_generator": self.generator['train'],
+            "valid_generator": self.generator['valid'],
         }
 
     @deprecated_alias(param_names='var_names')
-    def get_internals(self, var_names, return_type='list'):
+    def get_internals(self, var_names=None, return_type='list'):
         r"""Return internal variable(s) of the solver
 
         - If var_names == 'all', return all internal variables as a dict.
@@ -453,7 +461,7 @@ class BaseSolver(ABC):
 
         available_variables = self._get_internal_variables()
 
-        if var_names == "all":
+        if var_names == "all" or var_names is None:
             return available_variables
 
         if isinstance(var_names, str):
@@ -611,7 +619,7 @@ class SolverSpherical(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -624,7 +632,7 @@ class SolverSpherical(BaseSolver):
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
-                 shuffle=False, batch_size=None):
+                 shuffle=None, batch_size=None):
 
         if train_generator is None or valid_generator is None:
             if r_min is None or r_max is None:
@@ -845,7 +853,7 @@ class Solver1D(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -857,7 +865,7 @@ class Solver1D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=True):
+                 batch_size=None, shuffle=None):
 
         if train_generator is None or valid_generator is None:
             if t_min is None or t_max is None:
@@ -1008,7 +1016,7 @@ class Solver2D(BaseSolver):
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -1020,7 +1028,7 @@ class Solver2D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=True):
+                 batch_size=None, shuffle=None):
 
         if train_generator is None or valid_generator is None:
             if xy_min is None or xy_max is None:

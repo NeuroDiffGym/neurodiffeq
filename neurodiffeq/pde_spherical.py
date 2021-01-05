@@ -43,9 +43,9 @@ SphericalSolver = warn_deprecate_class(SolverSpherical)
 
 def solve_spherical(
         pde, condition, r_min=None, r_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solution=None,
-        optimizer=None, criterion=None, batch_size=16, max_epochs=1000,
-        monitor=None, return_internal=False, return_best=False, harmonics_fn=None,
+        net=None, train_generator=None, valid_generator=None, analytic_solution=None,
+        optimizer=None, criterion=None, max_epochs=1000,
+        monitor=None, return_internal=False, return_best=False, harmonics_fn=None, batch_size=None, shuffle=None,
 ):
     r"""[**DEPRECATED**, use SphericalSolver class instead]
     Train a neural network to solve one PDE with spherical inputs in 3D space.
@@ -77,10 +77,6 @@ def solve_spherical(
         The example generator to generate 3-D validation points.
         Default to None.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
-    :param shuffle:
-        Whether to shuffle the training examples every epoch.
-        Defaults to True.
-    :type shuffle: bool, optional
     :param analytic_solution:
         Analytic solution to the pde system, used for testing purposes.
         It should map (``rs``, ``thetas``, ``phis``) to u.
@@ -93,10 +89,6 @@ def solve_spherical(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -125,10 +117,18 @@ def solve_spherical(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
-
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
 
     .. note::
-        This function is deprecated, use a `SphericalSolver` instead
+        This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
 
     warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
@@ -151,9 +151,9 @@ def solve_spherical(
 
 def solve_spherical_system(
         pde_system, conditions, r_min=None, r_max=None,
-        nets=None, train_generator=None, shuffle=True, valid_generator=None, analytic_solutions=None,
-        optimizer=None, criterion=None, batch_size=None,
-        max_epochs=1000, monitor=None, return_internal=False, return_best=False, harmonics_fn=None
+        nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
+        optimizer=None, criterion=None, max_epochs=1000, monitor=None, return_internal=False,
+        return_best=False, harmonics_fn=None, batch_size=None, shuffle=None,
 ):
     r"""[**DEPRECATED**, use SphericalSolver class instead]
     Train a neural network to solve a PDE system with spherical inputs in 3D space
@@ -190,10 +190,6 @@ def solve_spherical_system(
         The example generator to generate 3-D validation points.
         Default to None.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
-    :param shuffle:
-        **[DEPRECATED and IGNORED]** Don't use this.
-        Shuffling should be performed by generators.
-    :type shuffle: bool, optional
     :param analytic_solutions:
         Analytic solution to the pde system, used for testing purposes.
         It should map (rs, thetas, phis) to a list of [u_1, u_2, ..., u_n].
@@ -206,10 +202,6 @@ def solve_spherical_system(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -238,9 +230,19 @@ def solve_spherical_system(
     :rtype:
         tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict]
         or tuple[`neurodiffeq.pde_spherical.SolutionSpherical`, dict, dict]
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify n_batches_train and n_batches_valid instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+
 
     .. note::
-        This function is deprecated, use a `SphericalSolver` instead
+        This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
     warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
 
@@ -279,84 +281,3 @@ def solve_spherical_system(
         ret = ret + (internals,)
     return ret
 
-# callbacks to be passed to SphericalSolver.fit()
-
-
-class MonitorCallback:
-    """A callback for updating the monitor plots (and optionally saving the fig to disk).
-
-    :param monitor: The underlying monitor responsible for plotting solutions.
-    :type monitor: MonitorSpherical
-    :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
-    :type fig_dir: str
-    :param check_against: Which epoch count to check against; either 'local' (default) or 'global'.
-    :type check_against: str
-    :param repaint_last: Whether to update the plot on the last local epoch, defaults to True.
-    :type repaint_last: bool
-    """
-
-    def __init__(self, monitor, fig_dir=None, check_against='local', repaint_last=True):
-        self.monitor = monitor
-        self.fig_dir = fig_dir
-        self.repaint_last = repaint_last
-        if check_against not in ['local', 'global']:
-            raise ValueError(f'unknown check_against type = {check_against}')
-        self.check_against = check_against
-
-    def to_repaint(self, solver):
-        if self.check_against == 'local':
-            epoch_now = solver.local_epoch + 1
-        elif self.check_against == 'global':
-            epoch_now = solver.global_epoch + 1
-        else:
-            raise ValueError(f'unknown check_against type = {self.check_against}')
-
-        if epoch_now % self.monitor.check_every == 0:
-            return True
-        if self.repaint_last and solver.local_epoch == solver._max_local_epoch - 1:
-            return True
-
-        return False
-
-    def __call__(self, solver):
-        if not self.to_repaint(solver):
-            return
-
-        self.monitor.check(
-            solver.nets,
-            solver.conditions,
-            history=solver.loss,
-            analytic_mse_history=solver.analytic_solutions
-        )
-        if self.fig_dir:
-            pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.png")
-            self.monitor.fig.savefig(pic_path)
-
-
-class CheckpointCallback:
-    def __init__(self, ckpt_dir):
-        self.ckpt_dir = ckpt_dir
-
-    def __call__(self, solver):
-        if solver.local_epoch == solver._max_local_epoch - 1:
-            now = datetime.now()
-            timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
-            fname = os.path.join(self.ckpt_dir, timestr + ".internals")
-            with open(fname, 'wb') as f:
-                dill.dump(solver.get_internals("all"), f)
-                logging.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
-                             f"(global epoch = {solver.global_epoch})")
-
-
-class ReportOnFitCallback:
-    def __call__(self, solver):
-        if solver.local_epoch == 0:
-            logging.info(
-                f"Starting from global epoch {solver.global_epoch - 1}, training on {(solver.r_min, solver.r_max)}")
-            tb = solver.generator['train'].size
-            ntb = solver.n_batches['train']
-            t = tb * ntb
-            vb = solver.generator['valid'].size
-            nvb = solver.n_batches['valid']
-            v = vb * nvb
-            logging.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")

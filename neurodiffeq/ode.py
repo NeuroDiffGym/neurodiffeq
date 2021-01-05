@@ -35,11 +35,10 @@ def _trial_solution(single_net, nets, ts, conditions):
 
 def solve(
         ode, condition, t_min=None, t_max=None,
-        net=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
-        max_epochs=1000,
-        monitor=None, return_internal=False,
-        return_best=False
+        net=None, train_generator=None, valid_generator=None,
+        optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+        additional_loss_term=None, metrics=None, max_epochs=1000,
+        monitor=None, return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve an ODE.
 
@@ -70,10 +69,6 @@ def solve(
         The example generator to generate 1-D training points.
         Default to None.
     :type train_generator: `neurodiffeq.generators.Generator1D`, optional
-    :param shuffle:
-        Whether to shuffle the training examples every epoch.
-        Defaults to True.
-    :type shuffle: bool, optional
     :param valid_generator:
         The example generator to generate 1-D validation points.
         Default to None.
@@ -86,6 +81,14 @@ def solve(
         The loss function to use for training.
         Defaults to None.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
     :param additional_loss_term:
         Extra terms to add to the loss function besides the part specified by `criterion`.
         The input of `additional_loss_term` should be the same as `ode`.
@@ -97,10 +100,6 @@ def solve(
         The input functions should be the same as `ode` and the output should be a numeric value.
         The metrics are evaluated on both the training set and validation set.
     :type metrics: dict[string, callable]
-    :param batch_size:
-        The size of the mini-batch to use.
-        Defaults to 16.
-    :type batch_size: int, optional
     :param max_epochs:
         The maximum number of epochs to train.
         Defaults to 1000.
@@ -117,18 +116,32 @@ def solve(
         Whether to return the nets that achieved the lowest validation loss.
         Defaults to False.
     :type return_best: bool, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
     :return:
         The solution of the ODE.
         The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver1D`` instead.
     """
     nets = None if not net else [net]
     return solve_system(
         ode_system=lambda x, t: [ode(x, t)], conditions=[condition],
         t_min=t_min, t_max=t_max, nets=nets,
         train_generator=train_generator, shuffle=shuffle, valid_generator=valid_generator,
-        optimizer=optimizer, criterion=criterion, additional_loss_term=additional_loss_term, metrics=metrics,
+        optimizer=optimizer, criterion=criterion, n_batches_train=n_batches_train, n_batches_valid=n_batches_valid,
+        additional_loss_term=additional_loss_term, metrics=metrics,
         batch_size=batch_size, max_epochs=max_epochs, monitor=monitor, return_internal=return_internal,
         return_best=return_best
     )
@@ -136,10 +149,10 @@ def solve(
 
 def solve_system(
         ode_system, conditions, t_min, t_max,
-        single_net=None, nets=None, train_generator=None, shuffle=True, valid_generator=None,
-        optimizer=None, criterion=None, additional_loss_term=None, metrics=None, batch_size=16,
-        max_epochs=1000, monitor=None, return_internal=False,
-        return_best=False,
+        single_net=None, nets=None, train_generator=None, valid_generator=None,
+        optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+        additional_loss_term=None, metrics=None, max_epochs=1000, monitor=None,
+        return_internal=False, return_best=False, batch_size=None, shuffle=None,
 ):
     r"""Train a neural network to solve an ODE.
 
@@ -189,6 +202,14 @@ def solve_system(
         The loss function to use for training.
         Defaults to None and sum of square of the output of `ode_system` will be used.
     :type criterion: `torch.nn.modules.loss._Loss`, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
     :param additional_loss_term:
         Extra terms to add to the loss function besides the part specified by `criterion`.
         The input of `additional_loss_term` should be the same as `ode_system`.
@@ -220,7 +241,7 @@ def solve_system(
     :param batch_size:
         **[DEPRECATED and IGNORED]**
         Each batch will use all samples generated.
-        Please specify n_batches_train and n_batches_valid instead.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
     :type batch_size: int
     :param shuffle:
         **[DEPRECATED and IGNORED]**
@@ -230,6 +251,10 @@ def solve_system(
         The solution of the ODE. The history of training loss and validation loss.
         Optionally, the nets, conditions, training generator, validation generator, optimizer and loss function.
     :rtype: tuple[`neurodiffeq.ode.Solution`, dict] or tuple[`neurodiffeq.ode.Solution`, dict, dict]
+
+
+    .. note::
+        This function is deprecated, use a ``neurodiffeq.solvers.Solver1D`` instead.
     """
 
     warnings.warn(
@@ -272,6 +297,8 @@ def solve_system(
         valid_generator=valid_generator,
         optimizer=optimizer,
         criterion=criterion,
+        n_batches_train=n_batches_train,
+        n_batches_valid=n_batches_valid,
         metrics=metrics,
         batch_size=batch_size,
         shuffle=shuffle,
