@@ -11,8 +11,8 @@ from neurodiffeq.networks import FCNN, SinActv
 from neurodiffeq.ode import IVP, DirichletBVP
 from neurodiffeq.ode import solve, solve_system, Monitor
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.solvers import Solution1D
-from neurodiffeq.generators import Generator1D
+from neurodiffeq.solvers import Solution1D, Solver1D
+from neurodiffeq.generators import Generator1D, BaseGenerator
 
 import torch
 
@@ -190,3 +190,33 @@ def test_solution():
         check_output(us, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
         us = solution(ts, as_type='np')
         check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
+
+
+def test_get_internals():
+    parametric_circle = lambda x1, x2, t: [diff(x1, t) - x2, diff(x2, t) + x1]
+
+    init_vals_pc = [
+        IVP(t_0=0.0, u_0=0.0),
+        IVP(t_0=0.0, u_0=1.0),
+    ]
+
+    solver = Solver1D(
+        ode_system=parametric_circle,
+        conditions=init_vals_pc,
+        t_min=0.0,
+        t_max=2*np.pi,
+    )
+
+    solver.fit(max_epochs=1)
+    internals = solver.get_internals()
+    assert isinstance(internals, dict)
+    internals = solver.get_internals(return_type='list')
+    assert isinstance(internals, dict)
+    internals = solver.get_internals(return_type='dict')
+    assert isinstance(internals, dict)
+    internals = solver.get_internals(['generator', 'n_batches'], return_type='dict')
+    assert isinstance(internals, dict)
+    internals = solver.get_internals(['generator', 'n_batches'], return_type='list')
+    assert isinstance(internals, list)
+    internals = solver.get_internals('train_generator')
+    assert isinstance(internals, BaseGenerator)
