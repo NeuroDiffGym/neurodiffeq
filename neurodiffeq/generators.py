@@ -408,7 +408,7 @@ class TransformGenerator(BaseGenerator):
         self.generator = generator
         self.size = generator.size
         if transforms is not None and transform is not None:
-            raise ValueError("transform and transforms cannout be both specified")
+            raise ValueError("transform and transforms cannot be both specified")
         if transforms is not None:
             self.trans = [
                 (lambda x: x) if t is None else t
