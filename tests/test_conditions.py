@@ -11,6 +11,7 @@ from neurodiffeq.conditions import InfDirichletBVPSpherical
 from neurodiffeq.conditions import DirichletBVPSphericalBasis
 from neurodiffeq.conditions import InfDirichletBVPSphericalBasis
 from neurodiffeq.conditions import IBVP1D
+from neurodiffeq.conditions import DoubleEndedBVP1D
 from neurodiffeq.networks import FCNN
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from pytest import raises, warns, deprecated_call
@@ -355,3 +356,34 @@ def test_inf_dirichlet_bvp_spherical_basis():
     assert all_close(condition.enforce(net, r), R0), "inner Dirichlet BC not satisfied"
     r = r_inf * ones
     assert all_close(condition.enforce(net, r), R_inf), "Infinity Dirichlet BC not satisfied"
+
+
+def test_ibvp_ode():
+    x0, x1 = random.random(), random.random() + 1
+    u0, u0_prime = random.random(), random.random()
+    u1, u1_prime = random.random(), random.random()
+    net = FCNN(1, 1)
+    # test Dirichlet-Dirichlet
+    condition = DoubleEndedBVP1D(x_min=x0, x_max=x1, x_min_val=u0, x_max_val=u1)
+    x = x0 * ones
+    assert all_close(condition.enforce(net, x), u0), 'left Dirichlet BC not satisfied'
+    x = x1 * ones
+    assert all_close(condition.enforce(net, x), u1), 'right Dirichlet BC not satisfied'
+    # test Dirichlet-Neumann
+    condition = DoubleEndedBVP1D(x_min=x0, x_max=x1, x_min_val=u0, x_max_prime=u1_prime)
+    x = x0 * ones
+    assert all_close(condition.enforce(net, x), u0), 'left Dirichlet BC not satisfied'
+    x = x1 * ones
+    assert all_close(diff(condition.enforce(net, x), x), u1_prime), 'right Neumann BC not satisfied'
+    # test Neumann-Dirichlet
+    condition = DoubleEndedBVP1D(x_min=x0, x_max=x1, x_min_prime=u0_prime, x_max_val=u1)
+    x = x0 * ones
+    assert all_close(diff(condition.enforce(net, x), x), u0_prime), 'left Neumann BC not satisfied'
+    x = x1 * ones
+    assert all_close(condition.enforce(net, x), u1), 'right Dirichlet BC not satisfied'
+    # test Neumann-Neumann
+    condition = DoubleEndedBVP1D(x_min=x0, x_max=x1, x_min_prime=u0_prime, x_max_prime=u1_prime)
+    x = x0 * ones
+    assert all_close(diff(condition.enforce(net, x), x), u0_prime), 'left Neumann BC not satisfied'
+    x = x1 * ones
+    assert all_close(diff(condition.enforce(net, x), x), u1_prime), 'right Neumann BC not satisfied'
