@@ -524,6 +524,176 @@ class IBVP1D(BaseCondition):
         )
 
 
+class DoubleEndedBVP1D(BaseCondition):
+      
+    r"""A boundary condition on a 1-D range where :math:`x\in[x_0, x_1]`.
+    The conditions should have the following parts:
+
+    - :math:`u(x_0)=u_0` or :math:`u'_x(x_0)=u'_0`,
+    - :math:`u(x_1)=u_1` or :math:`u'_x(x_1)=u'_1`,
+
+    where :math:`\displaystyle u'_x=\frac{\partial u}{\partial x}`.
+
+    :param x_min: The lower bound of x, the :math:`x_0`.
+    :type x_min: float
+    :param x_max: The upper bound of x, the :math:`x_1`.
+    :type x_max: float
+    :param x_min_val: The Dirichlet boundary condition when :math:`x = x_0`, the :math:`u(x_0)`, defaults to None.
+    :type x_min_val: callable, optional
+    :param x_min_prime: The Neumann boundary condition when :math:`x = x_0`, the :math:`u'_x(x_0)`, defaults to None.
+    :type x_min_prime: callable, optional
+    :param x_max_val: The Dirichlet boundary condition when :math:`x = x_1`, the :math:`u(x_1)`, defaults to None.
+    :type x_max_val: callable, optional
+    :param x_max_prime: The Neumann boundary condition when :math:`x = x_1`, the :math:`u'_x(x_1)`, defaults to None.
+    :type x_max_prime: callable, optional
+    :raises NotImplementedError: When unimplemented boundary conditions are configured.
+
+    .. note::
+        This condition cannot be passed to ``neurodiffeq.conditions.EnsembleCondition`` unless both boundaries uses
+        Dirichlet conditions (by specifying only ``x_min_val`` and ``x_max_val``) and ``force`` is set to True in
+        EnsembleCondition's constructor.
+    """
+    def __init__(
+            self, x_min, x_max,
+            x_min_val=None, x_min_prime=None,
+            x_max_val=None, x_max_prime=None,
+    ):
+        super().__init__()
+        n_conditions = sum(c is not None for c in [x_min_val, x_min_prime, x_max_val, x_max_prime])
+        if n_conditions != 2 or (x_min_val and x_min_prime) or (x_max_val and x_max_prime):
+            raise NotImplementedError('Sorry, this boundary condition is not implemented.')
+        self.x_min, self.x_min_val, self.x_min_prime = x_min, x_min_val, x_min_prime
+        self.x_max, self.x_max_val, self.x_max_prime = x_max, x_max_val, x_max_prime
+
+    def enforce(self, net, x):
+        r"""Enforces this condition on a network with inputs `x`
+
+        :param net: The network whose output is to be re-parameterized.
+        :type net: `torch.nn.Module`
+        :param x: The :math:`x`-coordinates of the samples; i.e., the spatial coordinates.
+        :type x: `torch.Tensor`
+        :return: The re-parameterized output, where the condition is automatically satisfied.
+        :rtype: `torch.Tensor`
+
+        .. note::
+            This method overrides the default method of ``neurodiffeq.conditions.BaseCondition`` .
+            In general, you should avoid overriding ``enforce`` when implementing custom boundary conditions.
+        """
+
+        def ANN(x):
+            out = net(torch.cat([x], dim=1))
+            if self.ith_unit is not None:
+                out = out[:, self.ith_unit].view(-1, 1)
+            return out
+        ux = ANN(x)
+        if self.x_min_val is not None and self.x_max_val is not None:
+            return self.parameterize(ux, x)
+        elif self.x_min_val is not None and self.x_max_prime is not None:
+            x1 = self.x_max * torch.ones_like(x, requires_grad=True)
+            ux1 = ANN(x1)
+            return self.parameterize(ux, x, ux1, x1)
+        elif self.x_min_prime is not None and self.x_max_val is not None:
+            x0 = self.x_min * torch.ones_like(x, requires_grad=True)
+            ux0 = ANN(x0)
+            return self.parameterize(ux, x, ux0, x0)
+        elif self.x_min_prime is not None and self.x_max_prime is not None:
+            x0 = self.x_min * torch.ones_like(x, requires_grad=True)
+            x1 = self.x_max * torch.ones_like(x, requires_grad=True)
+            ux0 = ANN(x0)
+            ux1 = ANN(x1)
+            return self.parameterize(ux, x, ux0, x0, ux1, x1)
+        else:
+            raise NotImplementedError('Sorry, this boundary condition is not implemented.')
+    
+    def parameterize(self, u, x, *additional_tensors):
+        r"""Re-parameterizes outputs such that the boundary conditions are satisfied.
+
+        There are four boundary conditions that are
+        currently implemented:
+
+        - For Dirichlet-Dirichlet boundary condition :math:`u(x_0)=u_0` and :math:`u(x_1)=u_1`:
+
+          The re-parameterization is
+          :math:`\displaystyle u(x)=A+\tilde{x}\big(1-\tilde{x}\big)\mathrm{ANN}(x)`,
+          where :math:`\displaystyle A=\big(1-\tilde{x}\big)u_0+\big(\tilde{x}\big)u_1`.
+
+        - For Dirichlet-Neumann boundary condition :math:`u(x_0)=u_0` and :math:`u'_x(x_1)=u'_1`:
+
+          The re-parameterization is
+          :math:`\displaystyle u(x)=A(x)+\tilde{x}\Big(\mathrm{ANN}(x)-\mathrm{ANN}(x_1)+x_0 - \big(x_1-x_0\big)\mathrm{ANN}'_x(x_1)\Big)`,
+          where :math:`\displaystyle A(x)=\big(1-\tilde{x}\big)u_0+\frac{1}{2}\tilde{x}^2\big(x_1-x_0\big)u'_1`.
+
+        - For Neumann-Dirichlet boundary condition :math:`u'_x(x_0)=u'_0` and :math:`u(x_1)=u_1`:
+
+          The re-parameterization is
+          :math:`\displaystyle u(x)=A(x)+\big(1-\tilde{x}\big)\Big(\mathrm{ANN}(x)-\mathrm{ANN}(x_0)+x_1 + \big(x_1-x_0\big)\mathrm{ANN}'_x(x_0)\Big)`,
+          where :math:`\displaystyle A(x)=\tilde{x}u_1-\frac{1}{2}\big(1-\tilde{x}\big)^2\big(x_1-x_0\big)u'_0`.
+
+        - For Neumann-Neumann boundary condition :math:`u'_x(x_0)=u'_0` and :math:`u'_x(x_1)=u'_1`:
+
+          The re-parameterization is
+          :math:`\displaystyle u(x)=A(x)+\frac{1}{2}\tilde{x}^2\big(\mathrm{ANN}(x)-\mathrm{ANN}(x_1)-\frac{1}{2}\mathrm{ANN}'_x(x_1)\big(x_1-x_0\big)\big),
+          +\frac{1}{2}\big(1-\tilde{x}\big)^2\big(\mathrm{ANN}(x)-\mathrm{ANN}(x_0)+\frac{1}{2}\mathrm{ANN}'_x(x_0)\big(x_1-x_0\big)\big)`,
+          where :math:`\displaystyle A(x)=\frac{1}{2}\tilde{x}^2\big(x_1-x_0\big)u'_1 - \frac{1}{2}\big(1-\tilde{x}\big)^2\big(x_1-x_0\big)u'_0`.
+
+
+        Notations:
+
+        - :math:`\displaystyle\tilde{x}=\frac{x-x_0}{x_1-x_0}`,
+        - :math:`\displaystyle\mathrm{ANN}` is the neural network,
+        - and :math:`\displaystyle\mathrm{ANN}'_x=\frac{\partial ANN}{\partial x}`.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param x: The :math:`x`-coordinates of the samples; i.e., the spatial coordinates.
+        :type x: `torch.Tensor`
+        :param additional_tensors: additional tensors that will be passed by ``enforce``
+        :type additional_tensors: `torch.Tensor`
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+
+        x_tilde = (x - self.x_min) / (self.x_max - self.x_min)
+        if self.x_min_val is not None and self.x_max_val is not None:
+            return self._parameterize_dd(u, x, x_tilde)
+        elif self.x_min_val is not None and self.x_max_prime is not None:
+            return self._parameterize_dn(u, x, x_tilde, *additional_tensors)
+        elif self.x_min_prime is not None and self.x_max_val is not None:
+            return self._parameterize_nd(u, x, x_tilde, *additional_tensors)
+        elif self.x_min_prime is not None and self.x_max_prime is not None:
+            return self._parameterize_nn(u, x, x_tilde, *additional_tensors)
+        else:
+            raise NotImplementedError('Sorry, this boundary condition is not implemented.')
+    
+    
+    # When we have Dirichlet boundary conditions on both ends of the domain:
+    def _parameterize_dd(self, ux, x, x_tilde):
+        Ax = self.x_min_val * (1-x_tilde) + self.x_max_val * (x_tilde)
+        return Ax + x_tilde * (1 - x_tilde) * ux
+    
+    # When we have Dirichlet boundary condition on the left end of the domain
+    # and Neumann boundary condition on the right end of the domain:
+    def _parameterize_dn(self, ux, x, x_tilde, ux1, x1):
+        Ax = (1 - x_tilde) * self.x_min_val + 0.5 * x_tilde ** 2 * self.x_max_prime * (self.x_max - self.x_min)
+        return Ax + x_tilde * (ux - ux1 + self.x_min_val - diff(ux1, x1) * (self.x_max - self.x_min))
+        #Ax = self.x_min_val + (x - self.x_min) * self.x_max_prime
+        #return Ax + x_tilde * (ux - (self.x_max - self.x_min) * diff(ux1, x1) - ux1)
+    
+    # When we have Neumann boundary condition on the left end of the domain
+    # and Dirichlet boundary condition on the right end of the domain:
+    def _parameterize_nd(self, ux, x, x_tilde, ux0, x0):
+        Ax = x_tilde * self.x_max_val - 0.5 * (1 - x_tilde) ** 2 * self.x_min_prime * (self.x_max - self.x_min)
+        return Ax + (1 - x_tilde) * (ux - ux0 + self.x_max_val + diff(ux0, x0) * (self.x_max - self.x_min))
+        #Ax = self.x_max_val + (x - self.x_max) * self.x_min_prime
+        #return Ax + (1 - x_tilde) * (ux + (self.x_max - self.x_min) * diff(ux0, x0) - ux0)
+    
+    # When we have Neumann boundary conditions on both ends of the domain:
+    def _parameterize_nn(self, ux, x, x_tilde, ux0, x0, ux1, x1):
+        Ax = - 0.5 * (1 - x_tilde) ** 2 * (self.x_max - self.x_min) * self.x_min_prime + 0.5 * x_tilde ** 2 * (self.x_max - self.x_min) * self.x_max_prime
+        return Ax + 0.5 * x_tilde  ** 2 * (ux - ux1 - 0.5 * diff(ux1, x1)*(self.x_max - self.x_min)) + \
+            0.5 * (1 - x_tilde) ** 2 * (ux - ux0 + 0.5 * diff(ux0, x0)*(self.x_max - self.x_min))
+
+
 # TODO: reduce duplication
 class DirichletBVPSpherical(BaseCondition):
     r"""The Dirichlet boundary condition for the interior and exterior boundary of the sphere,
