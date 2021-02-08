@@ -28,12 +28,16 @@ class BaseMonitor(ABC):
         It blocks the training / validation process, so don't call the ``check()`` method too often.
     """
 
+    def __init__(self):
+        self.check_every = ...
+
     @abstractmethod
     def check(self, nets, conditions, history):
         pass
 
 
-class MonitorSpherical:
+# noinspection PyMissingConstructor
+class MonitorSpherical(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
 
     :param r_min:
@@ -470,6 +474,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         return ret
 
 
+# noinspection PyMissingConstructor
 class Monitor1D(BaseMonitor):
     """A monitor for checking the status of the neural network during training.
 
@@ -555,6 +560,7 @@ class Monitor1D(BaseMonitor):
             plt.pause(0.05)
 
 
+# noinspection PyMissingConstructor
 class Monitor2D(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
 
