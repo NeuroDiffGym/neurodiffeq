@@ -2,6 +2,7 @@ import os
 import dill
 from datetime import datetime
 import logging
+from .utils import safe_mkdir as _safe_mkdir
 
 
 class MonitorCallback:
@@ -20,6 +21,8 @@ class MonitorCallback:
     def __init__(self, monitor, fig_dir=None, check_against='local', repaint_last=True):
         self.monitor = monitor
         self.fig_dir = fig_dir
+        if fig_dir:
+            _safe_mkdir(fig_dir)
         self.repaint_last = repaint_last
         if check_against not in ['local', 'global']:
             raise ValueError(f'unknown check_against type = {check_against}')

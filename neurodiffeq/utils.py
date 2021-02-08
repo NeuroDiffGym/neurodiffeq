@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 
 
@@ -32,3 +33,7 @@ def set_tensor_type(device=None, float_bits=32):
         raise ValueError(f"Unknown device '{device}'; device must be either 'cuda' or 'cpu'")
 
     torch.set_default_tensor_type(type_string)
+
+
+def safe_mkdir(path):
+    Path(path).mkdir(parents=True, exist_ok=True)
