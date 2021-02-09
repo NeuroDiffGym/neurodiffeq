@@ -109,7 +109,10 @@ class ReportOnFitCallback(BaseCallback):
     def __call__(self, solver):
         if solver.local_epoch == 0:
             self.logger.info(
-                f"Starting from global epoch {solver.global_epoch - 1}, training on {(solver.r_min, solver.r_max)}")
+                f"Starting from global epoch {solver.global_epoch - 1}\n"
+                f"training with {solver.generator['train']}\n"
+                f"validating with {solver.generator['valid']}\n"
+            )
             tb = solver.generator['train'].size
             ntb = solver.n_batches['train']
             t = tb * ntb
