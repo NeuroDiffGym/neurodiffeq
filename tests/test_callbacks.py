@@ -1,4 +1,5 @@
 import torch
+import dill
 import shutil
 from pathlib import Path
 import os
@@ -56,3 +57,24 @@ def test_monitor_callback(solver, tmp_dir):
     callback(solver)
 
     assert tmp_dir.exists() and tmp_dir.is_dir()
+
+
+def test_checkpoint_callback(solver, tmp_dir):
+    callback = CheckpointCallback(ckpt_dir=tmp_dir)
+    solver._max_local_epoch = 50
+    solver.local_epoch = 48
+    callback(solver)
+    assert os.listdir(tmp_dir) == []
+
+    solver.local_epoch = 49
+    callback(solver)
+    content = os.listdir(tmp_dir)
+    assert len(content) == 1 and content[0].endswith('.internals')
+
+    with open(tmp_dir / content[0], 'rb') as f:
+        internals = dill.load(f)
+
+    assert isinstance(internals, dict)
+    assert isinstance(internals.get('nets'), list)
+    for net in internals.get('nets'):
+        assert isinstance(net, torch.nn.Module)
