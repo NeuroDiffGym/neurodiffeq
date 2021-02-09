@@ -8,7 +8,7 @@ from neurodiffeq import diff
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback
+from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback
 
 
 @pytest.fixture
@@ -78,3 +78,8 @@ def test_checkpoint_callback(solver, tmp_dir):
     assert isinstance(internals.get('nets'), list)
     for net in internals.get('nets'):
         assert isinstance(net, torch.nn.Module)
+
+
+def test_report_on_fit_callback(solver):
+    callback = ReportOnFitCallback()
+    callback(solver)
