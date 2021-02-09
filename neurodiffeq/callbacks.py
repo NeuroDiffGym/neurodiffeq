@@ -92,6 +92,7 @@ class CheckpointCallback(BaseCallback):
     def __init__(self, ckpt_dir, logger=None):
         super(CheckpointCallback, self).__init__(logger=logger)
         self.ckpt_dir = ckpt_dir
+        _safe_mkdir(ckpt_dir)
 
     def __call__(self, solver):
         if solver.local_epoch == solver._max_local_epoch - 1:
