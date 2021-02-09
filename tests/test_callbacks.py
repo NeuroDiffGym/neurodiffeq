@@ -8,7 +8,8 @@ from neurodiffeq import diff
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback
+from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
+from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
 
 
 @pytest.fixture
@@ -27,6 +28,25 @@ def solver():
         t_min=0.0,
         t_max=1.0,
     )
+
+
+@pytest.fixture
+def dummy_cb():
+    class PassCallback(BaseCallback):
+        def __call__(self, solver):
+            pass
+
+    return PassCallback()
+
+
+@pytest.fixture
+def true_cb():
+    return TrueCallback()
+
+
+@pytest.fixture
+def false_cb():
+    return FalseCallback()
 
 
 def test_monitor_callback(solver, tmp_dir):
@@ -83,3 +103,37 @@ def test_checkpoint_callback(solver, tmp_dir):
 def test_report_on_fit_callback(solver):
     callback = ReportOnFitCallback()
     callback(solver)
+
+
+def test_true_callback(solver, true_cb):
+    assert true_cb.condition(solver)
+
+
+def test_false_callback(solver, false_cb):
+    assert not false_cb.condition(dummy_cb)
+
+
+def test_and_callback(solver, true_cb, false_cb):
+    assert (true_cb & true_cb).condition(solver)
+    assert not (false_cb & false_cb).condition(solver)
+    assert not (true_cb & false_cb).condition(solver)
+    assert not (false_cb & true_cb).condition(solver)
+
+
+def test_or_callback(solver, true_cb, false_cb):
+    assert (true_cb | true_cb).condition(solver)
+    assert (true_cb | false_cb).condition(solver)
+    assert (false_cb | true_cb).condition(solver)
+    assert not (false_cb | false_cb).condition(solver)
+
+
+def test_not_callback(solver, true_cb, false_cb):
+    assert not (~true_cb).condition(solver)
+    assert (~false_cb).condition(solver)
+
+
+def test_xor_callback(solver, true_cb, false_cb):
+    assert not (true_cb ^ true_cb).condition(solver)
+    assert (true_cb ^ false_cb).condition(solver)
+    assert (false_cb ^ true_cb).condition(solver)
+    assert not (false_cb ^ false_cb).condition(solver)
