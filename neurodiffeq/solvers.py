@@ -411,13 +411,13 @@ class BaseSolver(ABC):
             you should pass the coordinates vector(s) to the returned solution.
         :rtype: BaseSolution
         """
-        pass
+        pass  # pragma: no cover
 
     def _get_internal_variables(self):
         r"""Get a dict of all available internal variables.
 
         :return:
-            All available interal parameters,
+            All available internal variables,
             where keys are variable names and values are the corresponding variables.
         :rtype: dict
 
@@ -515,7 +515,7 @@ class BaseSolution(ABC):
 
     @abstractmethod
     def _compute_u(self, net, condition, *coords):
-        pass
+        pass  # pragma: no cover
 
     @deprecated_alias(as_type='to_numpy')
     def __call__(self, *coords, to_numpy=False):
@@ -1099,4 +1099,3 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
-
