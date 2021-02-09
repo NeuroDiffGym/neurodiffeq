@@ -120,3 +120,91 @@ class ReportOnFitCallback(BaseCallback):
             nvb = solver.n_batches['valid']
             v = vb * nvb
             self.logger.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
+
+
+class ConditionMetaCallback(BaseCallback):
+    def __init__(self, logger=None):
+        super(ConditionMetaCallback, self).__init__(logger=logger)
+        self.action_callback = None
+
+    def set_action_callback(self, callback):
+        self.action_callback = callback
+
+    @abstractmethod
+    def condition(self, solver) -> bool:
+        pass  # pragma: no cover
+
+    def __call__(self, solver):
+        if self.condition(solver):
+            if self.action_callback:
+                self.logger.info(f"condition of {self} met, running the underlying callback {self.action_callback}")
+                self.action_callback(solver)
+            else:
+                self.logger.warning(f"condition of {self} met, but no underlying action callback is set; skipping")
+        else:
+            self.logger.info(f"condition of {self} not met")
+
+    def __and__(self, other):
+        return AndCallback(condition_callbacks=[self, other], logger=self.logger)
+
+    def __or__(self, other):
+        return OrCallback(condition_callbacks=[self, other], logger=self.logger)
+
+    def __invert__(self):
+        return NotCallback(condition_callback=self, logger=self.logger)
+
+    def __xor__(self, other):
+        return XorCallback(condition_callbacks=[self, other], logger=self.logger)
+
+
+class AndCallback(ConditionMetaCallback):
+    def __init__(self, condition_callbacks, logger=None):
+        super(AndCallback, self).__init__(logger=logger)
+        self.condition_callbacks = condition_callbacks
+
+    def condition(self, solver) -> bool:
+        for cond_cb in self.condition_callbacks:
+            c = cond_cb.condition(solver)
+            if not c:
+                return False
+        return True
+
+
+class OrCallback(ConditionMetaCallback):
+    def __init__(self, condition_callbacks, logger=None):
+        super(OrCallback, self).__init__(logger=logger)
+        self.condition_callbacks = condition_callbacks
+
+    def condition(self, solver) -> bool:
+        for cond_cb in self.condition_callbacks:
+            if cond_cb.condition(solver):
+                return True
+        return False
+
+
+class NotCallback(ConditionMetaCallback):
+    def __init__(self, condition_callback, logger=None):
+        super(NotCallback, self).__init__(logger=logger)
+        self.condition_callback = condition_callback
+
+    def condition(self, solver) -> bool:
+        return not self.condition_callback.condition(solver)
+
+
+class XorCallback(ConditionMetaCallback):
+    def __init__(self, condition_callbacks, logger=None):
+        super(XorCallback, self).__init__(logger=logger)
+        self.condition_callbacks = condition_callbacks
+
+    def condition(self, solver) -> bool:
+        return sum(1 for cond_cb in self.condition_callbacks if cond_cb.condition(solver)) % 2 == 1
+
+
+class TrueCallback(ConditionMetaCallback):
+    def condition(self, solver) -> bool:
+        return True
+
+
+class FalseCallback(ConditionMetaCallback):
+    def condition(self, solver) -> bool:
+        return False
