@@ -30,6 +30,7 @@ class BaseMonitor(ABC):
 
     def __init__(self):
         self.check_every = ...  # pragma: no cover
+        self.fig = ...  # pragma: no cover
 
     @abstractmethod
     def check(self, nets, conditions, history):
