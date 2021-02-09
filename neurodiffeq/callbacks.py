@@ -1,11 +1,33 @@
 import os
 import dill
+import warnings
 from datetime import datetime
 import logging
 from .utils import safe_mkdir as _safe_mkdir
+from ._version_utils import deprecated_alias
+from abc import ABC, abstractmethod
 
 
-class MonitorCallback:
+class _LoggerMixin:
+    def __init__(self, logger=None):
+        if not logger:
+            self.logger = logging.getLogger('root')
+        elif isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
+        else:
+            self.logger = logger
+
+
+class BaseCallback(ABC, _LoggerMixin):
+    def __init__(self, logger=None):
+        _LoggerMixin.__init__(self, logger=logger)
+
+    @abstractmethod
+    def __call__(self, solver):
+        pass  # pragma: no cover
+
+
+class MonitorCallback(BaseCallback):
     """A callback for updating the monitor plots (and optionally saving the fig to disk).
 
     :param monitor: The underlying monitor responsible for plotting solutions.
@@ -18,23 +40,31 @@ class MonitorCallback:
     :type repaint_last: bool
     """
 
-    def __init__(self, monitor, fig_dir=None, check_against='local', repaint_last=True):
+    @deprecated_alias(check_against='check_against_local')
+    def __init__(self, monitor, fig_dir=None, check_against_local=True, repaint_last=True, logger=None):
+        super(MonitorCallback, self).__init__(logger=logger)
         self.monitor = monitor
         self.fig_dir = fig_dir
         if fig_dir:
             _safe_mkdir(fig_dir)
         self.repaint_last = repaint_last
-        if check_against not in ['local', 'global']:
-            raise ValueError(f'unknown check_against type = {check_against}')
-        self.check_against = check_against
+
+        if isinstance(check_against_local, bool):
+            self.check_against_local = check_against_local
+        elif check_against_local in ['local', 'global']:
+            warnings.warn(
+                '`check_against` is deprecated use `check_against_local={True, False}` in stead',
+                FutureWarning
+            )
+            self.check_against_local = (check_against_local == 'local')
+        else:
+            raise TypeError(f"pass `check_against_local={{True, False}}` instead of {check_against_local}")
 
     def to_repaint(self, solver):
-        if self.check_against == 'local':
+        if self.check_against_local:
             epoch_now = solver.local_epoch + 1
-        elif self.check_against == 'global':
-            epoch_now = solver.global_epoch + 1
         else:
-            raise ValueError(f'unknown check_against type = {self.check_against}')
+            epoch_now = solver.global_epoch + 1
 
         if epoch_now % self.monitor.check_every == 0:
             return True
@@ -55,10 +85,12 @@ class MonitorCallback:
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.png")
             self.monitor.fig.savefig(pic_path)
+            self.logger.info(f'plot saved to {pic_path}')
 
 
-class CheckpointCallback:
-    def __init__(self, ckpt_dir):
+class CheckpointCallback(BaseCallback):
+    def __init__(self, ckpt_dir, logger=None):
+        super(CheckpointCallback, self).__init__(logger=logger)
         self.ckpt_dir = ckpt_dir
 
     def __call__(self, solver):
@@ -68,14 +100,14 @@ class CheckpointCallback:
             fname = os.path.join(self.ckpt_dir, timestr + ".internals")
             with open(fname, 'wb') as f:
                 dill.dump(solver.get_internals("all"), f)
-                logging.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
-                             f"(global epoch = {solver.global_epoch})")
+                self.logger.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
+                                 f"(global epoch = {solver.global_epoch})")
 
 
-class ReportOnFitCallback:
+class ReportOnFitCallback(BaseCallback):
     def __call__(self, solver):
         if solver.local_epoch == 0:
-            logging.info(
+            self.logger.info(
                 f"Starting from global epoch {solver.global_epoch - 1}, training on {(solver.r_min, solver.r_max)}")
             tb = solver.generator['train'].size
             ntb = solver.n_batches['train']
@@ -83,4 +115,4 @@ class ReportOnFitCallback:
             vb = solver.generator['valid'].size
             nvb = solver.n_batches['valid']
             v = vb * nvb
-            logging.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
+            self.logger.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
