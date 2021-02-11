@@ -34,17 +34,24 @@ class MonitorCallback(BaseCallback):
     :type monitor: `neurodiffeq.monitors.BaseMonitor`
     :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
     :type fig_dir: str
-    :param check_against: Which epoch count to check against; either 'local' (default) or 'global'.
-    :type check_against: str
+    :param check_against_local:
+        Whether to check against *local* (default) or *global* epoch count.
+
+        - The *local epoch* is the epoch index w.r.t. the current ``.fit()`` call;
+        - The *global epoch* is the epoch index w.r.t. all preceding ``.fit()`` calls plus the current one.
+    :type check_against_local: bool
+    :param format: Format for saving figures: {'jpg', 'png' (default), ...}.
+    :type fig_dir: str
     :param repaint_last: Whether to update the plot on the last local epoch, defaults to True.
     :type repaint_last: bool
     """
 
     @deprecated_alias(check_against='check_against_local')
-    def __init__(self, monitor, fig_dir=None, check_against_local=True, repaint_last=True, logger=None):
+    def __init__(self, monitor, fig_dir=None, check_against_local=True, repaint_last=True, format=None, logger=None):
         super(MonitorCallback, self).__init__(logger=logger)
         self.monitor = monitor
         self.fig_dir = fig_dir
+        self.format = format or 'png'
         if fig_dir:
             _safe_mkdir(fig_dir)
         self.repaint_last = repaint_last
@@ -83,7 +90,7 @@ class MonitorCallback(BaseCallback):
             history=solver.metrics_history,
         )
         if self.fig_dir:
-            pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.png")
+            pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.{self.format}")
             self.monitor.fig.savefig(pic_path)
             self.logger.info(f'plot saved to {pic_path}')
 
