@@ -28,6 +28,14 @@ class BaseGenerator:
         self.check_generator(other)
         return EnsembleGenerator(self, other)
 
+    def _internal_vars(self) -> dict:
+        return dict(size=self.size)
+
+    def __repr__(self):
+        d = self._internal_vars()
+        keys = ', '.join(f'{k}={d[k]}' for k in d)
+        return f'{self.__class__.__name__}({keys})'
+
 
 class Generator1D(BaseGenerator):
     """An example generator for generating 1-D training points.
@@ -64,6 +72,11 @@ class Generator1D(BaseGenerator):
         """
         self.size = size
         self.t_min, self.t_max = t_min, t_max
+        self.method = method
+        if noise_std:
+            self.noise_std = noise_std
+        else:
+            self.noise_std = ((t_max - t_min) / size) / 4.0
         if method == 'uniform':
             self.examples = torch.zeros(self.size, requires_grad=True)
             self.getter = lambda: self.examples + torch.rand(self.size) * (self.t_max - self.t_min) + self.t_min
@@ -72,26 +85,28 @@ class Generator1D(BaseGenerator):
             self.getter = lambda: self.examples
         elif method == 'equally-spaced-noisy':
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            if noise_std:
-                self.noise_std = noise_std
-            else:
-                self.noise_std = ((t_max - t_min) / size) / 4.0
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         elif method == 'log-spaced':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.getter = lambda: self.examples
         elif method == 'log-spaced-noisy':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
-            if noise_std:
-                self.noise_std = noise_std
-            else:
-                self.noise_std = ((t_max - t_min) / size) / 4.0
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         else:
             raise ValueError(f'Unknown method: {method}')
 
     def get_examples(self):
         return self.getter()
+
+    def _internal_vars(self):
+        d = super(Generator1D, self)._internal_vars()
+        d.update(dict(
+            t_min=self.t_min,
+            t_max=self.t_max,
+            method=self.method,
+            noise_std=self.noise_std,
+        ))
+        return d
 
 
 class Generator2D(BaseGenerator):
@@ -137,7 +152,12 @@ class Generator2D(BaseGenerator):
             It will be called by the function `solve2D`.
         """
         super(Generator2D, self).__init__()
+        self.grid = grid
         self.size = grid[0] * grid[1]
+        self.xy_min = xy_min
+        self.xy_max = xy_max
+        self.method = method
+        self.xy_noise_std = xy_noise_std
 
         if method == 'equally-spaced':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
@@ -169,6 +189,17 @@ class Generator2D(BaseGenerator):
 
     def get_examples(self):
         return self.getter()
+
+    def _internal_vars(self) -> dict:
+        d = super(Generator2D, self)._internal_vars()
+        d.update(dict(
+            grid=self.grid,
+            xy_min=self.xy_min,
+            xy_max=self.xy_max,
+            method=self.method,
+            xy_noise_std=self.xy_noise_std,
+        ))
+        return d
 
 
 class Generator3D(BaseGenerator):
@@ -212,6 +243,10 @@ class Generator3D(BaseGenerator):
         """
         super(Generator3D, self).__init__()
         self.size = grid[0] * grid[1] * grid[2]
+        self.grid = grid
+        self.xyz_min = xyz_min
+        self.xyz_max = xyz_max
+        self.method = method
 
         x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
         y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
@@ -239,6 +274,16 @@ class Generator3D(BaseGenerator):
 
     def get_examples(self):
         return self.getter()
+
+    def _internal_vars(self) -> dict:
+        d = super(Generator3D, self)._internal_vars()
+        d.update(dict(
+            grid=self.grid,
+            xyz_min=self.xyz_min,
+            xyz_max=self.xyz_max,
+            method=self.method,
+        ))
+        return d
 
 
 class GeneratorSpherical(BaseGenerator):
@@ -286,6 +331,9 @@ class GeneratorSpherical(BaseGenerator):
             raise ValueError(f'Unknown method: {method}')
 
         self.size = size  # stored for `solve_spherical_system` to access
+        self.r_min = r_min
+        self.r_max = r_max
+        self.method = method
         self.shape = (size,)  # used for `self.get_example()`
 
     def get_examples(self):
@@ -314,6 +362,15 @@ class GeneratorSpherical(BaseGenerator):
 
         return r, theta, phi
 
+    def _internal_vars(self) -> dict:
+        d = super(GeneratorSpherical, self)._internal_vars()
+        d.update(dict(
+            r_min=self.r_min,
+            r_max=self.r_max,
+            method=self.method,
+        ))
+        return d
+
 
 class ConcatGenerator(BaseGenerator):
     r"""An concatenated generator for sampling points,
@@ -340,6 +397,13 @@ class ConcatGenerator(BaseGenerator):
         segmented = zip(*all_examples)
         return [torch.cat(seg) for seg in segmented]
 
+    def _internal_vars(self) -> dict:
+        d = super(ConcatGenerator, self)._internal_vars()
+        d.update(dict(
+            generators=self.generators,
+        ))
+        return d
+
 
 class StaticGenerator(BaseGenerator):
     """A generator that returns the same samples every time.
@@ -351,11 +415,20 @@ class StaticGenerator(BaseGenerator):
 
     def __init__(self, generator):
         super(StaticGenerator, self).__init__()
+        self.generator = generator
         self.size = generator.size
         self.examples = generator.get_examples()
 
     def get_examples(self):
         return self.examples
+
+    def _internal_vars(self) -> dict:
+        d = super(StaticGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+            examples=self.examples,
+        ))
+        return d
 
 
 class PredefinedGenerator(BaseGenerator):
@@ -386,6 +459,13 @@ class PredefinedGenerator(BaseGenerator):
             :rtype: tuple[`torch.Tensor`]
         """
         return self.xs
+
+    def _internal_vars(self) -> dict:
+        d = super(PredefinedGenerator, self)._internal_vars()
+        d.update(dict(
+            xs=self.xs,
+        ))
+        return d
 
 
 class TransformGenerator(BaseGenerator):
@@ -431,6 +511,14 @@ class TransformGenerator(BaseGenerator):
         else:
             return tuple(t(x) for t, x in zip(self.trans, xs))
 
+    def _internal_vars(self) -> dict:
+        d = super(TransformGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+            trans=self.trans,
+        ))
+        return d
+
 
 class EnsembleGenerator(BaseGenerator):
     r"""A generator for sampling points whose `get_examples` method returns all the samples of its sub-generators.
@@ -451,11 +539,11 @@ class EnsembleGenerator(BaseGenerator):
         for i, gen in enumerate(generators):
             if gen.size != self.size:
                 raise ValueError(f"gens[{i}].size ({gen.size}) != gens[0].size ({self.size})")
-        self.gens = generators
+        self.generators = generators
 
     def get_examples(self):
         ret = tuple()
-        for g in self.gens:
+        for g in self.generators:
             ex = g.get_examples()
             if isinstance(ex, list):
                 ex = tuple(ex)
@@ -467,6 +555,13 @@ class EnsembleGenerator(BaseGenerator):
             return ret[0]
         else:
             return ret
+
+    def _internal_vars(self) -> dict:
+        d = super(EnsembleGenerator, self)._internal_vars()
+        d.update(dict(
+            generators=self.generators,
+        ))
+        return d
 
 
 class FilterGenerator(BaseGenerator):
@@ -511,6 +606,14 @@ class FilterGenerator(BaseGenerator):
         else:
             return xs
 
+    def _internal_vars(self) -> dict:
+        d = super(FilterGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+            filter_fn=self.filter_fn,
+        ))
+        return d
+
 
 class ResampleGenerator(BaseGenerator):
     """A generator whose output is shuffled and resampled every time
@@ -543,6 +646,14 @@ class ResampleGenerator(BaseGenerator):
             return xs[indices]
         else:
             return [x[indices] for x in xs]
+
+    def _internal_vars(self) -> dict:
+        d = super(ResampleGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+            replacement=self.replacement,
+        ))
+        return d
 
 
 class BatchGenerator(BaseGenerator):
@@ -587,6 +698,13 @@ class BatchGenerator(BaseGenerator):
         else:
             return batch
 
+    def _internal_vars(self) -> dict:
+        d = super(BatchGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+        ))
+        return d
+
 
 class SamplerGenerator(BaseGenerator):
     def __init__(self, generator):
@@ -600,3 +718,10 @@ class SamplerGenerator(BaseGenerator):
             samples = [samples]
         samples = [u.reshape(-1, 1) for u in samples]
         return samples
+
+    def _internal_vars(self) -> dict:
+        d = super(SamplerGenerator, self)._internal_vars()
+        d.update(dict(
+            generator=self.generator,
+        ))
+        return d
