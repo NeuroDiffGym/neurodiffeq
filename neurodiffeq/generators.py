@@ -31,9 +31,29 @@ class BaseGenerator:
     def _internal_vars(self) -> dict:
         return dict(size=self.size)
 
+    @staticmethod
+    def _obj_repr(obj) -> str:
+        if isinstance(obj, tuple):
+            return '(' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + ')'
+        if isinstance(obj, list):
+            return '[' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + ']'
+        if isinstance(obj, set):
+            return '{' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + '}'
+        if isinstance(obj, dict):
+            return '{' + ', '.join(
+                BaseGenerator._obj_repr(k) + ': ' + BaseGenerator._obj_repr(obj[k])
+                for k in obj
+            ) + '}'
+
+        if isinstance(obj, torch.Tensor):
+            return f'tensor(shape={tuple(obj.shape)})'
+        if isinstance(obj, np.ndarray):
+            return f'ndarray(shape={tuple(obj.shape)})'
+        return repr(obj)
+
     def __repr__(self):
         d = self._internal_vars()
-        keys = ', '.join(f'{k}={d[k]}' for k in d)
+        keys = ', '.join(f'{k}={self._obj_repr(d[k])}' for k in d)
         return f'{self.__class__.__name__}({keys})'
 
 
