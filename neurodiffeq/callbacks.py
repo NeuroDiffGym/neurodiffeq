@@ -217,3 +217,36 @@ class TrueCallback(ConditionMetaCallback):
 class FalseCallback(ConditionMetaCallback):
     def condition(self, solver) -> bool:
         return False
+
+
+class OnFirstLocal(ConditionMetaCallback):
+    def condition(self, solver) -> bool:
+        return solver.local_epoch == 1
+
+
+class OnFirstGlobal(ConditionMetaCallback):
+    def condition(self, solver) -> bool:
+        return solver.global_epoch == 1
+
+
+class OnLastLocal(ConditionMetaCallback):
+    def condition(self, solver) -> bool:
+        return solver.local_epoch == solver._max_local_epoch
+
+
+class PeriodLocal(ConditionMetaCallback):
+    def __init__(self, period, logger=None):
+        super(PeriodLocal, self).__init__(logger=logger)
+        self.period = period
+
+    def condition(self, solver) -> bool:
+        return solver.local_epoch % self.period == 0
+
+
+class PeriodGlobal(ConditionMetaCallback):
+    def __init__(self, period, logger=None):
+        super(PeriodGlobal, self).__init__(logger=logger)
+        self.period = period
+
+    def condition(self, solver) -> bool:
+        return solver.global_epoch % self.period == 0
