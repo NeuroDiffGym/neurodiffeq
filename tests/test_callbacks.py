@@ -10,6 +10,7 @@ from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
 from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
 from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
+from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 
 
 @pytest.fixture
@@ -49,9 +50,13 @@ def false_cb():
     return FalseCallback()
 
 
+def _set_global_epoch(solver, epoch):
+    solver.metrics_history['train_loss'] = [0.0] * epoch
+
+
 def test_monitor_callback(solver, tmp_dir):
     # pretend we have trained for 100 epochs
-    solver.metrics_history['train_loss'] = [0.0] * 100
+    _set_global_epoch(solver, 100)
     solver.local_epoch = 1
     assert solver.global_epoch == 100
 
@@ -139,3 +144,51 @@ def test_xor_callback(solver, true_cb, false_cb):
     assert (true_cb ^ false_cb).condition(solver)
     assert (false_cb ^ true_cb).condition(solver)
     assert not (false_cb ^ false_cb).condition(solver)
+
+
+def test_on_first_local(solver):
+    solver.local_epoch = 1
+    assert OnFirstLocal().condition(solver)
+    solver.local_epoch = 2
+    assert not OnFirstLocal().condition(solver)
+
+
+def test_on_first_global(solver):
+    _set_global_epoch(solver, 1)
+    assert OnFirstGlobal().condition(solver)
+    _set_global_epoch(solver, 2)
+    assert not OnFirstGlobal().condition(solver)
+
+
+def test_on_last_local(solver):
+    solver.local_epoch = 9
+    solver._max_local_epoch = 10
+    assert not OnLastLocal().condition(solver)
+    solver.local_epoch = 10
+    assert OnLastLocal().condition(solver)
+
+
+def test_period_local(solver):
+    period = 3
+    n_periods = 10
+    for i in range(1, n_periods):
+        solver.local_epoch = i * period
+        assert PeriodLocal(period=period).condition(solver)
+
+    for offset in range(1, period):
+        for i in range(n_periods):
+            solver.local_epoch = i * period + offset
+            assert not PeriodLocal(period=period).condition(solver)
+
+
+def test_period_global(solver):
+    period = 3
+    n_periods = 10
+    for i in range(1, n_periods):
+        _set_global_epoch(solver, i * period)
+        assert PeriodGlobal(period=period).condition(solver)
+
+    for offset in range(1, period):
+        for i in range(n_periods):
+            _set_global_epoch(solver, i * period + offset)
+            assert not PeriodGlobal(period=period).condition(solver)
