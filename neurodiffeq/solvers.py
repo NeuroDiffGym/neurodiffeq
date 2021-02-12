@@ -366,12 +366,12 @@ class BaseSolver(ABC):
                           "use a MonitorCallback and pass a list of callbacks instead")
 
         for local_epoch in range(max_epochs):
-            # stops training if self._stop_training is set to True by a callback
+            # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
 
-            # register local epoch so it can be accessed by callbacks
-            self.local_epoch = local_epoch
+            # register local epoch (starting from 1 instead of 0) so it can be accessed by callbacks
+            self.local_epoch = local_epoch + 1
             self.run_train_epoch()
             self.run_valid_epoch()
 
@@ -380,7 +380,7 @@ class BaseSolver(ABC):
                     cb(self)
 
             if monitor:
-                if (local_epoch + 1) % monitor.check_every == 0 or local_epoch == max_epochs - 1:
+                if self.local_epoch % monitor.check_every == 0 or self.local_epoch == max_epochs:
                     monitor.check(
                         self.nets,
                         self.conditions,

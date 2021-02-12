@@ -1,6 +1,8 @@
 import os
 import dill
 import warnings
+import random
+import numpy as np
 from datetime import datetime
 import logging
 from .utils import safe_mkdir as _safe_mkdir
@@ -69,13 +71,13 @@ class MonitorCallback(BaseCallback):
 
     def to_repaint(self, solver):
         if self.check_against_local:
-            epoch_now = solver.local_epoch + 1
+            epoch_now = solver.local_epoch
         else:
-            epoch_now = solver.global_epoch + 1
+            epoch_now = solver.global_epoch
 
         if epoch_now % self.monitor.check_every == 0:
             return True
-        if self.repaint_last and solver.local_epoch == solver._max_local_epoch - 1:
+        if self.repaint_last and solver.local_epoch == solver._max_local_epoch:
             return True
 
         return False
@@ -102,7 +104,7 @@ class CheckpointCallback(BaseCallback):
         _safe_mkdir(ckpt_dir)
 
     def __call__(self, solver):
-        if solver.local_epoch == solver._max_local_epoch - 1:
+        if solver.local_epoch == solver._max_local_epoch:
             now = datetime.now()
             timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
             fname = os.path.join(self.ckpt_dir, timestr + ".internals")
@@ -114,7 +116,7 @@ class CheckpointCallback(BaseCallback):
 
 class ReportOnFitCallback(BaseCallback):
     def __call__(self, solver):
-        if solver.local_epoch == 0:
+        if solver.local_epoch == 1:
             self.logger.info(
                 f"Starting from global epoch {solver.global_epoch - 1}\n"
                 f"training with {solver.generator['train']}\n"
