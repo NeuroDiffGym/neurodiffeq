@@ -250,3 +250,23 @@ class PeriodGlobal(ConditionMetaCallback):
 
     def condition(self, solver) -> bool:
         return solver.global_epoch % self.period == 0
+
+
+class ClosedIntervalLocal(ConditionMetaCallback):
+    def __init__(self, min=None, max=None, logger=None):
+        super(ClosedIntervalLocal, self).__init__(logger=logger)
+        self.min = - np.inf if min is None else min
+        self.max = np.inf if max is None else max
+
+    def condition(self, solver) -> bool:
+        return self.min <= solver.local_epoch <= self.max
+
+
+class ClosedIntervalGlobal(ConditionMetaCallback):
+    def __init__(self, min=None, max=None, logger=None):
+        super(ClosedIntervalGlobal, self).__init__(logger=logger)
+        self.min = - np.inf if min is None else min
+        self.max = np.inf if max is None else max
+
+    def condition(self, solver) -> bool:
+        return self.min <= solver.global_epoch <= self.max
