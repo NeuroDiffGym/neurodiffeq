@@ -11,6 +11,7 @@ from neurodiffeq.monitors import Monitor1D
 from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
 from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
+from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal
 
 
 @pytest.fixture
@@ -192,3 +193,41 @@ def test_period_global(solver):
         for i in range(n_periods):
             _set_global_epoch(solver, i * period + offset)
             assert not PeriodGlobal(period=period).condition(solver)
+
+
+def test_closed_interval_local(solver):
+    e_min, e_max = [5, 7]
+    test_range = list(range(1, 10))
+    callback = ClosedIntervalLocal(min=e_min, max=e_max)
+    for e in test_range:
+        solver.local_epoch = e
+        assert callback.condition(solver) == (e_min <= e <= e_max)
+
+    callback = ClosedIntervalLocal(min=e_min)
+    for e in test_range:
+        solver.local_epoch = e
+        assert callback.condition(solver) == (e_min <= e)
+
+    callback = ClosedIntervalLocal(max=e_max)
+    for e in test_range:
+        solver.local_epoch = e
+        assert callback.condition(solver) == (e <= e_max)
+
+
+def test_closed_interval_global(solver):
+    e_min, e_max = [5, 7]
+    test_range = list(range(1, 10))
+    callback = ClosedIntervalGlobal(min=e_min, max=e_max)
+    for e in test_range:
+        _set_global_epoch(solver, e)
+        assert callback.condition(solver) == (e_min <= e <= e_max)
+
+    callback = ClosedIntervalGlobal(min=e_min)
+    for e in test_range:
+        _set_global_epoch(solver, e)
+        assert callback.condition(solver) == (e_min <= e)
+
+    callback = ClosedIntervalGlobal(max=e_max)
+    for e in test_range:
+        _set_global_epoch(solver, e)
+        assert callback.condition(solver) == (e <= e_max)
