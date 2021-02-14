@@ -11,7 +11,7 @@ from neurodiffeq.monitors import Monitor1D
 from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
 from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
-from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal
+from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 
 
 @pytest.fixture
@@ -231,3 +231,14 @@ def test_closed_interval_global(solver):
     for e in test_range:
         _set_global_epoch(solver, e)
         assert callback.condition(solver) == (e <= e_max)
+
+
+def test_random(solver):
+    callback = Random(0.5)
+    callback.condition(solver)
+    Random(0.0)
+    Random(1.0)
+    with pytest.raises(ValueError):
+        Random(-0.1)
+    with pytest.raises(ValueError):
+        Random(1.1)
