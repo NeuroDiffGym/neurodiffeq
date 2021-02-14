@@ -138,6 +138,7 @@ class ConditionMetaCallback(BaseCallback):
 
     def set_action_callback(self, callback):
         self.action_callback = callback
+        return self
 
     @abstractmethod
     def condition(self, solver) -> bool:
@@ -270,3 +271,14 @@ class ClosedIntervalGlobal(ConditionMetaCallback):
 
     def condition(self, solver) -> bool:
         return self.min <= solver.global_epoch <= self.max
+
+
+class Random(ConditionMetaCallback):
+    def __init__(self, probability, logger=None):
+        super(Random, self).__init__(logger=logger)
+        if probability < 0  or probability > 1:
+            raise ValueError('probability must lie in [0, 1]')
+        self.probability = probability
+
+    def condition(self, solver) -> bool:
+        return random.random() < self.probability
