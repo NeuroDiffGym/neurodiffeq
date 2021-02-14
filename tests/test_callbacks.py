@@ -59,29 +59,15 @@ def _set_global_epoch(solver, epoch):
 
 
 def test_monitor_callback(solver, tmp_dir):
-    # pretend we have trained for 100 epochs
-    _set_global_epoch(solver, 100)
-    solver.local_epoch = 1
-    assert solver.global_epoch == 100
-
-    monitor = Monitor1D(0, 1, check_every=100)
-    assert not MonitorCallback(monitor, check_against_local=True).to_repaint(solver)
-    assert MonitorCallback(monitor, check_against_local=False).to_repaint(solver)
-
-    # pretend we're training for the last epoch
-    solver._max_local_epoch = 50
-    solver.local_epoch = 50
     monitor = Monitor1D(0, 1, check_every=30)
-    assert MonitorCallback(monitor, check_against_local=True, repaint_last=True).to_repaint(solver)
-
     with pytest.warns(FutureWarning):
-        callback = MonitorCallback(monitor, check_against='local')
-        assert callback.check_against_local
+        MonitorCallback(monitor, check_against_local=True)
     with pytest.warns(FutureWarning):
-        callback = MonitorCallback(monitor, check_against='global')
-        assert not callback.check_against_local
-    with pytest.raises(TypeError), pytest.warns(FutureWarning):
-        MonitorCallback(monitor, check_against='something else')
+        MonitorCallback(monitor, check_against='local')
+    with pytest.warns(FutureWarning):
+        MonitorCallback(monitor, check_against='global')
+    with pytest.warns(FutureWarning):
+        MonitorCallback(monitor, repaint_last=True)
 
     callback = MonitorCallback(monitor, fig_dir=tmp_dir)
     assert callback.logger
@@ -92,12 +78,6 @@ def test_monitor_callback(solver, tmp_dir):
 
 def test_checkpoint_callback(solver, tmp_dir):
     callback = CheckpointCallback(ckpt_dir=tmp_dir)
-    solver._max_local_epoch = 50
-    solver.local_epoch = 49
-    callback(solver)
-    assert os.listdir(tmp_dir) == []
-
-    solver.local_epoch = 50
     callback(solver)
     content = os.listdir(tmp_dir)
     assert len(content) == 1 and content[0].endswith('.internals')

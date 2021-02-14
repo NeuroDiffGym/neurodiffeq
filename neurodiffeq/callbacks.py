@@ -29,63 +29,52 @@ class BaseCallback(ABC, _LoggerMixin):
         pass  # pragma: no cover
 
 
-class MonitorCallback(BaseCallback):
+class ActionCallback(BaseCallback):
+    def conditioned_on(self, condition_callback):
+        if not isinstance(condition_callback, ConditionMetaCallback):
+            raise TypeError(f'{condition_callback} is not an instance of ConditionMetaCallback')
+        return condition_callback.set_action_callback(self)
+
+
+class MonitorCallback(ActionCallback):
     """A callback for updating the monitor plots (and optionally saving the fig to disk).
 
     :param monitor: The underlying monitor responsible for plotting solutions.
     :type monitor: `neurodiffeq.monitors.BaseMonitor`
     :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
     :type fig_dir: str
-    :param check_against_local:
-        Whether to check against *local* (default) or *global* epoch count.
-
-        - The *local epoch* is the epoch index w.r.t. the current ``.fit()`` call;
-        - The *global epoch* is the epoch index w.r.t. all preceding ``.fit()`` calls plus the current one.
-    :type check_against_local: bool
     :param format: Format for saving figures: {'jpg', 'png' (default), ...}.
-    :type fig_dir: str
-    :param repaint_last: Whether to update the plot on the last local epoch, defaults to True.
-    :type repaint_last: bool
+    :type format: str
     """
 
-    @deprecated_alias(check_against='check_against_local')
-    def __init__(self, monitor, fig_dir=None, check_against_local=True, repaint_last=True, format=None, logger=None):
+    def __init__(self, monitor, fig_dir=None, format=None, logger=None, **kwargs):
         super(MonitorCallback, self).__init__(logger=logger)
         self.monitor = monitor
         self.fig_dir = fig_dir
         self.format = format or 'png'
+
+        # deprecation warnings
+        for kw in ['check_against_local', 'check_against']:
+            if kwargs.pop(kw, None) is not None:
+                warnings.warn(
+                    f'`Passing {kw}` is deprecated and ignored, '
+                    f'use a `PeriodLocal` or `PeriodGlobal` to control how frequently the callback is run',
+                    FutureWarning,
+                )
+        if kwargs.pop('repaint_last', None) is not None:
+            warnings.warn(
+                f'`Passing repaint_last is deprecated and ignored, '
+                f'Use a `OnLastLocal` callback to plot on last epoch',
+                FutureWarning,
+            )
+        if kwargs:
+            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
+
+        # make dir for figs
         if fig_dir:
             _safe_mkdir(fig_dir)
-        self.repaint_last = repaint_last
-
-        if isinstance(check_against_local, bool):
-            self.check_against_local = check_against_local
-        elif check_against_local in ['local', 'global']:
-            warnings.warn(
-                '`check_against` is deprecated use `check_against_local={True, False}` in stead',
-                FutureWarning
-            )
-            self.check_against_local = (check_against_local == 'local')
-        else:
-            raise TypeError(f"pass `check_against_local={{True, False}}` instead of {check_against_local}")
-
-    def to_repaint(self, solver):
-        if self.check_against_local:
-            epoch_now = solver.local_epoch
-        else:
-            epoch_now = solver.global_epoch
-
-        if epoch_now % self.monitor.check_every == 0:
-            return True
-        if self.repaint_last and solver.local_epoch == solver._max_local_epoch:
-            return True
-
-        return False
 
     def __call__(self, solver):
-        if not self.to_repaint(solver):
-            return
-
         self.monitor.check(
             solver.nets,
             solver.conditions,
@@ -97,38 +86,36 @@ class MonitorCallback(BaseCallback):
             self.logger.info(f'plot saved to {pic_path}')
 
 
-class CheckpointCallback(BaseCallback):
+class CheckpointCallback(ActionCallback):
     def __init__(self, ckpt_dir, logger=None):
         super(CheckpointCallback, self).__init__(logger=logger)
         self.ckpt_dir = ckpt_dir
         _safe_mkdir(ckpt_dir)
 
     def __call__(self, solver):
-        if solver.local_epoch == solver._max_local_epoch:
-            now = datetime.now()
-            timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
-            fname = os.path.join(self.ckpt_dir, timestr + ".internals")
-            with open(fname, 'wb') as f:
-                dill.dump(solver.get_internals("all"), f)
-                self.logger.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
-                                 f"(global epoch = {solver.global_epoch})")
+        now = datetime.now()
+        timestr = now.strftime("%Y-%m-%d_%H-%M-%S")
+        fname = os.path.join(self.ckpt_dir, timestr + ".internals")
+        with open(fname, 'wb') as f:
+            dill.dump(solver.get_internals("all"), f)
+            self.logger.info(f"Saved checkpoint to {fname} at local epoch = {solver.local_epoch} "
+                             f"(global epoch = {solver.global_epoch})")
 
 
-class ReportOnFitCallback(BaseCallback):
+class ReportOnFitCallback(ActionCallback):
     def __call__(self, solver):
-        if solver.local_epoch == 1:
-            self.logger.info(
-                f"Starting from global epoch {solver.global_epoch - 1}\n"
-                f"training with {solver.generator['train']}\n"
-                f"validating with {solver.generator['valid']}\n"
-            )
-            tb = solver.generator['train'].size
-            ntb = solver.n_batches['train']
-            t = tb * ntb
-            vb = solver.generator['valid'].size
-            nvb = solver.n_batches['valid']
-            v = vb * nvb
-            self.logger.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
+        self.logger.info(
+            f"Starting from global epoch {solver.global_epoch - 1}\n"
+            f"training with {solver.generator['train']}\n"
+            f"validating with {solver.generator['valid']}\n"
+        )
+        tb = solver.generator['train'].size
+        ntb = solver.n_batches['train']
+        t = tb * ntb
+        vb = solver.generator['valid'].size
+        nvb = solver.n_batches['valid']
+        v = vb * nvb
+        self.logger.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
 
 
 class ConditionMetaCallback(BaseCallback):
@@ -136,8 +123,10 @@ class ConditionMetaCallback(BaseCallback):
         super(ConditionMetaCallback, self).__init__(logger=logger)
         self.action_callback = None
 
-    def set_action_callback(self, callback):
-        self.action_callback = callback
+    def set_action_callback(self, action_callback):
+        if not isinstance(action_callback, ActionCallback):
+            raise TypeError(f'{action_callback} if not an instance of ActionCallback')
+        self.action_callback = action_callback
         return self
 
     @abstractmethod
@@ -276,7 +265,7 @@ class ClosedIntervalGlobal(ConditionMetaCallback):
 class Random(ConditionMetaCallback):
     def __init__(self, probability, logger=None):
         super(Random, self).__init__(logger=logger)
-        if probability < 0  or probability > 1:
+        if probability < 0 or probability > 1:
             raise ValueError('probability must lie in [0, 1]')
         self.probability = probability
 
