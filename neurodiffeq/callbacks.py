@@ -282,3 +282,68 @@ class Random(ConditionMetaCallback):
 
     def condition(self, solver) -> bool:
         return random.random() < self.probability
+
+
+class _RepeatedMetricChange(ConditionMetaCallback):
+    def __init__(self, use_train=True, metric='loss', repetition=1, logger=None):
+        super(_RepeatedMetricChange, self).__init__(logger=logger)
+        key = 'train' if use_train else 'valid'
+        self.key = f'{key}_{metric}'
+        self.times_required = repetition
+        self.so_far = 0
+
+    @abstractmethod
+    def _last_satisfied(self, last, second2last):
+        return last > second2last
+
+    def condition(self, solver) -> bool:
+        history = solver.metrics_history[self.key]
+        if len(history) >= 2 and self._last_satisfied(last=history[-1], second2last=history[-2]):
+            self.so_far += 1
+        else:
+            self.so_far = 0
+        return self.so_far >= self.times_required
+
+
+class RepeatedMetricUp(_RepeatedMetricChange):
+    def __init__(self, at_least_by=0.0, use_train=True, metric='loss', repetition=1, logger=None):
+        super(RepeatedMetricUp, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.at_least_by = at_least_by
+
+    def _last_satisfied(self, last, second2last):
+        return last >= second2last + self.at_least_by
+
+
+class RepeatedMetricDown(_RepeatedMetricChange):
+    def __init__(self, at_least_by=0.0, use_train=True, metric='loss', repetition=1, logger=None):
+        super(RepeatedMetricDown, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.at_least_by = at_least_by
+
+    def _last_satisfied(self, last, second2last):
+        return last <= second2last - self.at_least_by
+
+
+class RepeatedMetricConverge(_RepeatedMetricChange):
+    def __init__(self, epsilon, use_train=True, metric='loss', repetition=1, logger=None):
+        super(RepeatedMetricConverge, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.epsilon = abs(epsilon)
+
+    def _last_satisfied(self, last, second2last):
+        return abs(last - second2last) < self.epsilon
+
+
+class RepeatedMetricDiverge(_RepeatedMetricChange):
+    def __init__(self, gap, use_train=True, metric='loss', repetition=1, logger=None):
+        super(RepeatedMetricDiverge, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.gap = abs(gap)
+
+    def _last_satisfied(self, last, second2last):
+        return abs(last - second2last) > self.gap
