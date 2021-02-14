@@ -28,16 +28,23 @@ class BaseMonitor(ABC):
         It blocks the training / validation process, so don't call the ``check()`` method too often.
     """
 
-    def __init__(self):
-        self.check_every = ...  # pragma: no cover
+    def __init__(self, check_every=None):
+        if check_every is not None:
+            warnings.warn('`check_every` is deprecated. Use a `PeriodLocal` callback instead\n'
+                          'e.g.: cb = PeriodLocal(period=100).set_action_callback(monitor.to_callback())\n'
+                          '      solver.fit(max_epoch=..., callbacks=[cb, ...])')
+        self.check_every = check_every  # pragma: no cover
         self.fig = ...  # pragma: no cover
 
     @abstractmethod
     def check(self, nets, conditions, history):
         pass  # pragma: no cover
 
+    def to_callback(self, fig_dir=None, format=None, logger=None):
+        from .callbacks import MonitorCallback  # to avoid circular import
+        return MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
 
-# noinspection PyMissingConstructor
+
 class MonitorSpherical(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
 
@@ -50,6 +57,7 @@ class MonitorSpherical(BaseMonitor):
         i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
+        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -85,16 +93,16 @@ class MonitorSpherical(BaseMonitor):
     :type phi_max: float
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
+    def __init__(self, r_min, r_max, check_every=None, var_names=None, shape=(10, 10, 10), r_scale='linear',
                  theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2):
         """Initializer method
         """
+        super(MonitorSpherical, self).__init__(check_every=check_every)
         self.contour_plot_available = self._matplotlib_version_satisfies()
         if not self.contour_plot_available:
             warnings.warn("Warning: contourf plot only available for matplotlib version >= v3.3.0 "
                           "switching to matshow instead")
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
-        self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
         self.ax_metrics = None
@@ -388,6 +396,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         The upper bound of radius, i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
+        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -429,7 +438,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
     :type max_degree: int
     """
 
-    def __init__(self, r_min, r_max, check_every=100, var_names=None, shape=(10, 10, 10), r_scale='linear',
+    def __init__(self, r_min, r_max, check_every=None, var_names=None, shape=(10, 10, 10), r_scale='linear',
                  harmonics_fn=None, theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2,
                  # DEPRECATED
                  max_degree=None):
@@ -475,7 +484,6 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         return ret
 
 
-# noinspection PyMissingConstructor
 class Monitor1D(BaseMonitor):
     """A monitor for checking the status of the neural network during training.
 
@@ -486,16 +494,17 @@ class Monitor1D(BaseMonitor):
         The upper bound of time domain that we want to monitor.
     :type t_max: float
     :param check_every:
+        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
     """
 
-    def __init__(self, t_min, t_max, check_every=100):
+    def __init__(self, t_min, t_max, check_every=None):
         """Initializer method
         """
+        super(Monitor1D, self).__init__(check_every=check_every)
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
-        self.check_every = check_every
         self.fig = plt.figure(figsize=(30, 8))
         self.ax1 = self.fig.add_subplot(131)
         self.ax2 = self.fig.add_subplot(132)
@@ -561,7 +570,6 @@ class Monitor1D(BaseMonitor):
             plt.pause(0.05)
 
 
-# noinspection PyMissingConstructor
 class Monitor2D(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
 
@@ -574,16 +582,17 @@ class Monitor2D(BaseMonitor):
         If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
     :type xy_max: tuple[float, float], optional
     :param check_every:
+        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
     """
 
-    def __init__(self, xy_min, xy_max, check_every=100, valid_generator=None):
+    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None):
         """Initializer method
         """
+        super(Monitor2D, self).__init__(check_every=check_every)
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
-        self.check_every = check_every
         self.fig = None
         self.axs = []  # subplots
         # self.caxs = []  # colorbars

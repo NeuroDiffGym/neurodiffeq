@@ -86,6 +86,11 @@ class MonitorCallback(ActionCallback):
             self.logger.info(f'plot saved to {pic_path}')
 
 
+class StopCallback(ActionCallback):
+    def __call__(self, solver):
+        solver._stop_training = True
+
+
 class CheckpointCallback(ActionCallback):
     def __init__(self, ckpt_dir, logger=None):
         super(CheckpointCallback, self).__init__(logger=logger)
