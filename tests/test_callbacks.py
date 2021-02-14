@@ -1,3 +1,4 @@
+from random import random
 import torch
 import dill
 import shutil
@@ -12,6 +13,8 @@ from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnF
 from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
+from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
+from neurodiffeq.callbacks import _RepeatedMetricChange
 
 
 @pytest.fixture
@@ -242,3 +245,74 @@ def test_random(solver):
         Random(-0.1)
     with pytest.raises(ValueError):
         Random(1.1)
+
+
+def test_repeated_metric_change(solver):
+    class Callback(_RepeatedMetricChange):
+        def _last_satisfied(self, last, second2last):
+            return True
+
+    for phase in ['train', 'valid']:
+        use_train = (phase == 'train')
+        for metric in ['loss', 'mse', 'something_else']:
+            for repetition in range(1, 5):
+                callback = Callback(use_train=use_train, metric=metric, repetition=repetition)
+                assert callback.key == f'{phase}_{metric}'
+                assert callback.times_required == repetition
+                assert callback.so_far == 0
+
+
+def test_repeated_metric_down(solver):
+    repetition = 10
+    value = 0.0
+    at_least_by = 1.0
+    callback = RepeatedMetricDown(at_least_by=at_least_by, use_train=True, metric='loss', repetition=repetition)
+    for i in range(repetition + 1):
+        value -= at_least_by
+        solver.metrics_history['train_loss'].append(value)
+        if i == repetition:
+            assert callback.condition(solver)
+        else:
+            assert not callback.condition(solver)
+
+
+def test_repeated_metric_up(solver):
+    repetition = 10
+    value = 0.0
+    at_least_by = 1.0
+    callback = RepeatedMetricUp(at_least_by=at_least_by, use_train=True, metric='loss', repetition=repetition)
+    for i in range(repetition + 1):
+        value += at_least_by
+        solver.metrics_history['train_loss'].append(value)
+        if i == repetition:
+            assert callback.condition(solver)
+        else:
+            assert not callback.condition(solver)
+
+
+def test_repeat_converge(solver):
+    repetition = 10
+    value = 0.0
+    epsilon = 0.01
+    callback = RepeatedMetricConverge(epsilon=epsilon, use_train=True, metric='loss', repetition=repetition)
+    for i in range(repetition + 1):
+        value += random() * epsilon * (-1) ** int(random() < 0.5)
+        solver.metrics_history['train_loss'].append(value)
+        if i == repetition:
+            assert callback.condition(solver)
+        else:
+            assert not callback.condition(solver)
+
+
+def test_repeat_diverge(solver):
+    repetition = 10
+    value = 0.0
+    gap = 10.0
+    callback = RepeatedMetricDiverge(gap=gap, use_train=True, metric='loss', repetition=repetition)
+    for i in range(repetition + 1):
+        value += (gap / random()) * (-1) ** int(random() < 0.5)
+        solver.metrics_history['train_loss'].append(value)
+        if i == repetition:
+            assert callback.condition(solver)
+        else:
+            assert not callback.condition(solver)
