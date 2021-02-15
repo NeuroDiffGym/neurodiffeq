@@ -15,6 +15,7 @@ from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, Peri
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
+from neurodiffeq.callbacks import EveCallback
 
 
 @pytest.fixture
@@ -296,3 +297,13 @@ def test_repeat_diverge(solver):
             assert callback.condition(solver)
         else:
             assert not callback.condition(solver)
+
+
+def test_eve_callback(solver):
+    BASE_VALUE = 1000.0
+    DOUBLE_AT = 0.5
+    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT)
+    for i in range(5):
+        solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** i)]
+        callback(solver)
+        assert solver.n_batches['train'] == 2 ** i
