@@ -147,7 +147,7 @@ class ConditionMetaCallback(BaseCallback):
 
     def set_action_callback(self, action_callback):
         if not isinstance(action_callback, ActionCallback):
-            raise TypeError(f'{action_callback} if not an instance of ActionCallback')
+            raise TypeError(f'{action_callback} is not an instance of ActionCallback')
         self.action_callback = action_callback
         return self
 
