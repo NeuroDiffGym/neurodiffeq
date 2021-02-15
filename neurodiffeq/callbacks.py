@@ -141,12 +141,12 @@ class ConditionMetaCallback(BaseCallback):
     def __call__(self, solver):
         if self.condition(solver):
             if self.action_callback:
-                self.logger.info(f"condition of {self} met, running the underlying callback {self.action_callback}")
+                self.logger.debug(f"condition of {self} met, running the underlying callback {self.action_callback}")
                 self.action_callback(solver)
             else:
                 self.logger.warning(f"condition of {self} met, but no underlying action callback is set; skipping")
         else:
-            self.logger.info(f"condition of {self} not met")
+            self.logger.debug(f"condition of {self} not met")
 
     def __and__(self, other):
         return AndCallback(condition_callbacks=[self, other], logger=self.logger)
