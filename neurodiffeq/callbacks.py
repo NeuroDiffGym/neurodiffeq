@@ -123,6 +123,23 @@ class ReportOnFitCallback(ActionCallback):
         self.logger.info(f"train size = {tb} x {ntb} = {t}, valid_size = {vb} x {nvb} = {v}")
 
 
+class EveCallback(ActionCallback):
+    EPS = 1e-4
+
+    def __init__(self, base_value=1.0, double_at=0.1, use_train=True, metric='loss', logger=None):
+        super(EveCallback, self).__init__(logger=logger)
+        self.base_value = base_value
+        self.double_at = double_at
+        key = 'train' if use_train else 'valid'
+        self.key = f'{key}_{metric}'
+
+    def __call__(self, solver):
+        value = solver.metrics_history[self.key][-1]
+        double_times = int(self.__class__.EPS + (np.log(value) - np.log(self.base_value)) / np.log(self.double_at))
+        double_times = max(double_times, 0)
+        solver.n_batches['train'] = 2 ** double_times
+
+
 class ConditionMetaCallback(BaseCallback):
     def __init__(self, logger=None):
         super(ConditionMetaCallback, self).__init__(logger=logger)
