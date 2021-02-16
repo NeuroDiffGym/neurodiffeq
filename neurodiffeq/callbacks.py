@@ -247,21 +247,23 @@ class OnLastLocal(ConditionMetaCallback):
 
 
 class PeriodLocal(ConditionMetaCallback):
-    def __init__(self, period, logger=None):
+    def __init__(self, period, offset=0, logger=None):
         super(PeriodLocal, self).__init__(logger=logger)
         self.period = period
+        self.offset = offset % period
 
     def condition(self, solver) -> bool:
-        return solver.local_epoch % self.period == 0
+        return solver.local_epoch % self.period == self.offset
 
 
 class PeriodGlobal(ConditionMetaCallback):
-    def __init__(self, period, logger=None):
+    def __init__(self, period, offset=0, logger=None):
         super(PeriodGlobal, self).__init__(logger=logger)
         self.period = period
+        self.offset = offset % period
 
     def condition(self, solver) -> bool:
-        return solver.global_epoch % self.period == 0
+        return solver.global_epoch % self.period == self.offset
 
 
 class ClosedIntervalLocal(ConditionMetaCallback):
