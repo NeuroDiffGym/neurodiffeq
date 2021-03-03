@@ -31,8 +31,8 @@ class BaseCallback(ABC, _LoggerMixin):
 
 class ActionCallback(BaseCallback):
     def conditioned_on(self, condition_callback):
-        if not isinstance(condition_callback, ConditionMetaCallback):
-            raise TypeError(f'{condition_callback} is not an instance of ConditionMetaCallback')
+        if not isinstance(condition_callback, ConditionCallback):
+            raise TypeError(f'{condition_callback} is not an instance of ConditionCallback')
         return condition_callback.set_action_callback(self)
 
 
@@ -140,9 +140,9 @@ class EveCallback(ActionCallback):
         solver.n_batches['train'] = 2 ** double_times
 
 
-class ConditionMetaCallback(BaseCallback):
+class ConditionCallback(BaseCallback):
     def __init__(self, logger=None):
-        super(ConditionMetaCallback, self).__init__(logger=logger)
+        super(ConditionCallback, self).__init__(logger=logger)
         self.action_callback = None
 
     def set_action_callback(self, action_callback):
@@ -178,7 +178,7 @@ class ConditionMetaCallback(BaseCallback):
         return XorCallback(condition_callbacks=[self, other], logger=self.logger)
 
 
-class AndCallback(ConditionMetaCallback):
+class AndCallback(ConditionCallback):
     def __init__(self, condition_callbacks, logger=None):
         super(AndCallback, self).__init__(logger=logger)
         self.condition_callbacks = condition_callbacks
@@ -191,7 +191,7 @@ class AndCallback(ConditionMetaCallback):
         return True
 
 
-class OrCallback(ConditionMetaCallback):
+class OrCallback(ConditionCallback):
     def __init__(self, condition_callbacks, logger=None):
         super(OrCallback, self).__init__(logger=logger)
         self.condition_callbacks = condition_callbacks
@@ -203,7 +203,7 @@ class OrCallback(ConditionMetaCallback):
         return False
 
 
-class NotCallback(ConditionMetaCallback):
+class NotCallback(ConditionCallback):
     def __init__(self, condition_callback, logger=None):
         super(NotCallback, self).__init__(logger=logger)
         self.condition_callback = condition_callback
@@ -212,7 +212,7 @@ class NotCallback(ConditionMetaCallback):
         return not self.condition_callback.condition(solver)
 
 
-class XorCallback(ConditionMetaCallback):
+class XorCallback(ConditionCallback):
     def __init__(self, condition_callbacks, logger=None):
         super(XorCallback, self).__init__(logger=logger)
         self.condition_callbacks = condition_callbacks
@@ -221,32 +221,32 @@ class XorCallback(ConditionMetaCallback):
         return sum(1 for cond_cb in self.condition_callbacks if cond_cb.condition(solver)) % 2 == 1
 
 
-class TrueCallback(ConditionMetaCallback):
+class TrueCallback(ConditionCallback):
     def condition(self, solver) -> bool:
         return True
 
 
-class FalseCallback(ConditionMetaCallback):
+class FalseCallback(ConditionCallback):
     def condition(self, solver) -> bool:
         return False
 
 
-class OnFirstLocal(ConditionMetaCallback):
+class OnFirstLocal(ConditionCallback):
     def condition(self, solver) -> bool:
         return solver.local_epoch == 1
 
 
-class OnFirstGlobal(ConditionMetaCallback):
+class OnFirstGlobal(ConditionCallback):
     def condition(self, solver) -> bool:
         return solver.global_epoch == 1
 
 
-class OnLastLocal(ConditionMetaCallback):
+class OnLastLocal(ConditionCallback):
     def condition(self, solver) -> bool:
         return solver.local_epoch == solver._max_local_epoch
 
 
-class PeriodLocal(ConditionMetaCallback):
+class PeriodLocal(ConditionCallback):
     def __init__(self, period, offset=0, logger=None):
         super(PeriodLocal, self).__init__(logger=logger)
         self.period = period
@@ -256,7 +256,7 @@ class PeriodLocal(ConditionMetaCallback):
         return solver.local_epoch % self.period == self.offset
 
 
-class PeriodGlobal(ConditionMetaCallback):
+class PeriodGlobal(ConditionCallback):
     def __init__(self, period, offset=0, logger=None):
         super(PeriodGlobal, self).__init__(logger=logger)
         self.period = period
@@ -266,7 +266,7 @@ class PeriodGlobal(ConditionMetaCallback):
         return solver.global_epoch % self.period == self.offset
 
 
-class ClosedIntervalLocal(ConditionMetaCallback):
+class ClosedIntervalLocal(ConditionCallback):
     def __init__(self, min=None, max=None, logger=None):
         super(ClosedIntervalLocal, self).__init__(logger=logger)
         self.min = - np.inf if min is None else min
@@ -276,7 +276,7 @@ class ClosedIntervalLocal(ConditionMetaCallback):
         return self.min <= solver.local_epoch <= self.max
 
 
-class ClosedIntervalGlobal(ConditionMetaCallback):
+class ClosedIntervalGlobal(ConditionCallback):
     def __init__(self, min=None, max=None, logger=None):
         super(ClosedIntervalGlobal, self).__init__(logger=logger)
         self.min = - np.inf if min is None else min
@@ -286,7 +286,7 @@ class ClosedIntervalGlobal(ConditionMetaCallback):
         return self.min <= solver.global_epoch <= self.max
 
 
-class Random(ConditionMetaCallback):
+class Random(ConditionCallback):
     def __init__(self, probability, logger=None):
         super(Random, self).__init__(logger=logger)
         if probability < 0 or probability > 1:
@@ -297,7 +297,7 @@ class Random(ConditionMetaCallback):
         return random.random() < self.probability
 
 
-class _RepeatedMetricChange(ConditionMetaCallback):
+class _RepeatedMetricChange(ConditionCallback):
     def __init__(self, use_train=True, metric='loss', repetition=1, logger=None):
         super(_RepeatedMetricChange, self).__init__(logger=logger)
         key = 'train' if use_train else 'valid'

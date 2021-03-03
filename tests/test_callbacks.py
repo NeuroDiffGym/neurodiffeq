@@ -10,17 +10,17 @@ from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
 from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
-from neurodiffeq.callbacks import AndCallback, OrCallback, NotCallback, XorCallback, TrueCallback, FalseCallback
+from neurodiffeq.callbacks import TrueCallback, FalseCallback, ConditionCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
-from neurodiffeq.callbacks import EveCallback
+from neurodiffeq.callbacks import EveCallback, StopCallback
 
 
 @pytest.fixture
 def tmp_dir():
-    tmp = Path('./test-tmp')
+    tmp = Path('.') / 'test-tmp'
     yield tmp
     if tmp.exists() and tmp.is_dir():
         shutil.rmtree(tmp)
@@ -38,7 +38,7 @@ def solver():
 
 @pytest.fixture
 def dummy_cb():
-    class PassCallback(BaseCallback):
+    class PassCallback(ConditionCallback):
         def __call__(self, solver):
             pass
 
@@ -271,7 +271,7 @@ def test_repeated_metric_up(solver):
             assert not callback.condition(solver)
 
 
-def test_repeat_converge(solver):
+def test_repeated_converge(solver):
     repetition = 10
     value = 0.0
     epsilon = 0.01
@@ -285,7 +285,7 @@ def test_repeat_converge(solver):
             assert not callback.condition(solver)
 
 
-def test_repeat_diverge(solver):
+def test_repeated_diverge(solver):
     repetition = 10
     value = 0.0
     gap = 10.0
@@ -307,3 +307,9 @@ def test_eve_callback(solver):
         solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** i)]
         callback(solver)
         assert solver.n_batches['train'] == 2 ** i
+
+
+def test_stop_callback(solver):
+    callback = StopCallback()
+    callback(solver)
+    assert solver._stop_training
