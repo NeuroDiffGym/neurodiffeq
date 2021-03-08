@@ -85,6 +85,13 @@ API Reference
     :inherited-members:
     :members:
 
+`neurodiffeq.callbacks`
+------------------------------------------------------
+.. automodule:: neurodiffeq.callbacks
+    :show-inheritance:
+    :inherited-members:
+    :members:
+
 `neurodiffeq.utils`
 ------------------------------------------------------
 .. automodule:: neurodiffeq.utils
