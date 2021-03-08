@@ -111,8 +111,8 @@ class ReportOnFitCallback(ActionCallback):
     def __call__(self, solver):
         self.logger.info(
             f"Starting from global epoch {solver.global_epoch - 1}\n"
-            f"training with {solver.generator['train']}\n"
-            f"validating with {solver.generator['valid']}\n"
+            f"    training with {solver.generator['train']}\n"
+            f"    validating with {solver.generator['valid']}"
         )
         tb = solver.generator['train'].size
         ntb = solver.n_batches['train']
