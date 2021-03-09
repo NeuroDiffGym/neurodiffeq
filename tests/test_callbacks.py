@@ -302,17 +302,18 @@ def test_repeated_diverge(solver):
 def test_eve_callback(solver):
     BASE_VALUE = 1000.0
     DOUBLE_AT = 0.5
-    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT)
+    N_0 = 3
+    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT, n_0=N_0)
     for i in range(5):
         solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** i)]
         callback(solver)
-        assert solver.n_batches['train'] == 2 ** i
+        assert solver.n_batches['train'] == (2 ** i) * N_0
 
-    CAP = 16
-    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT, cap=CAP)
+    N_MAX = 16
+    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT, n_max=N_MAX)
     solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** 10)]
     callback(solver)
-    assert solver.n_batches['train'] == CAP
+    assert solver.n_batches['train'] == N_MAX
 
 
 def test_stop_callback(solver):
