@@ -183,7 +183,7 @@ ReportOnFitCallback = warn_deprecate_class(ReportCallback)
 
 class EveCallback(ActionCallback):
     r"""A callback that readjusts the number of batches based on latest value of a specified metric.
-    The number of batches will be :math:`\displaystyle{2^n}`,
+    The number of batches will be :math:`\displaystyle{2^n}` or ``cap`` (if specified), whichever is lower,
 
     where :math:`\displaystyle{n=\max\left(0,\left\lfloor\log_p{\frac{v}{v_0}}\right\rfloor\right)}`
     and :math:`v` is the value of the metric in the last epoch.
@@ -196,6 +196,8 @@ class EveCallback(ActionCallback):
         The ratio at which the batch number will be doubled (:math:`p` in the above equation).
         When :math:`\displaystyle{\frac{v}{v_0}=p^n}`, the number of batches will be :math:`\displaystyle{2^n}`.
     :type double_at: float
+    :param cap: Maximum number of batches. Defaults to None (unbounded).
+    :type cap: int
     :param use_train: Whether to use the training (instead of validation) phase value of the metric. Defaults to True.
     :type use_train: bool
     :param metric:
@@ -206,10 +208,11 @@ class EveCallback(ActionCallback):
     """
     EPS = 1e-4
 
-    def __init__(self, base_value=1.0, double_at=0.1, use_train=True, metric='loss', logger=None):
+    def __init__(self, base_value=1.0, double_at=0.1, cap=None, use_train=True, metric='loss', logger=None):
         super(EveCallback, self).__init__(logger=logger)
         self.base_value = base_value
         self.double_at = double_at
+        self.cap = cap or np.inf
         key = 'train' if use_train else 'valid'
         self.key = f'{key}_{metric}'
 
@@ -217,7 +220,7 @@ class EveCallback(ActionCallback):
         value = solver.metrics_history[self.key][-1]
         double_times = int(self.__class__.EPS + (np.log(value) - np.log(self.base_value)) / np.log(self.double_at))
         double_times = max(double_times, 0)
-        solver.n_batches['train'] = 2 ** double_times
+        solver.n_batches['train'] = min(2 ** double_times, self.cap)
 
 
 class ConditionCallback(BaseCallback):
