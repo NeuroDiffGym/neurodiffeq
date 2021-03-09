@@ -566,7 +566,7 @@ class DoubleEndedBVP1D(BaseCondition):
         self.x_max, self.x_max_val, self.x_max_prime = x_max, x_max_val, x_max_prime
 
     def enforce(self, net, x):
-        r"""Enforces this condition on a network with inputs `x`
+        r"""Enforces this condition on a network with inputs `x`.
 
         :param net: The network whose output is to be re-parameterized.
         :type net: `torch.nn.Module`

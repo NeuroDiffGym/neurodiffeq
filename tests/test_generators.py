@@ -16,6 +16,7 @@ from neurodiffeq.generators import EnsembleGenerator
 from neurodiffeq.generators import FilterGenerator
 from neurodiffeq.generators import ResampleGenerator
 from neurodiffeq.generators import BatchGenerator
+from neurodiffeq.generators import SamplerGenerator
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -85,7 +86,8 @@ def test_generator1d():
 
     with raises(ValueError):
         generator = Generator1D(size=size, t_min=0.0, t_max=2.0, method='magic')
-    print('ExampleGenerator test passed.')
+
+    print('testing generator name: ', generator)
 
 
 def test_generator2d():
@@ -109,6 +111,8 @@ def test_generator2d():
     assert _check_shape_and_grad(generator, size, x, y)
     assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
 
+    print('testing generator name: ', generator)
+
 
 def test_generator3d():
     grid = (5, 6, 7)
@@ -128,6 +132,8 @@ def test_generator3d():
     assert _check_shape_and_grad(generator, size, x, y, z)
     assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
 
+    print('testing generator name: ', generator)
+
 
 def test_generator_spherical():
     size = 64
@@ -142,6 +148,8 @@ def test_generator_spherical():
     r, theta, phi = generator.get_examples()
     assert _check_shape_and_grad(generator, size, r, theta, phi)
     assert _check_boundary((r, theta, phi), (r_min, 0.0, 0.0), (r_max, np.pi, np.pi * 2))
+
+    print('testing generator name: ', generator)
 
 
 def test_concat_generator():
@@ -166,6 +174,8 @@ def test_concat_generator():
     r, theta, phi = added_generator.get_examples()
     assert _check_shape_and_grad(added_generator, size1 + size2 + size3, r, theta, phi)
 
+    print('testing generator name: ', concat_generator)
+
 
 def test_static_generator():
     size = 100
@@ -185,6 +195,8 @@ def test_static_generator():
     assert _check_shape_and_grad(generator, size)
     assert _check_shape_and_grad(static_generator, size, r1, theta1, phi1, r2, theta2, phi2)
     assert (r1 == r2).all() and (theta1 == theta2).all() and (phi1 == phi2).all()
+
+    print('testing generator name: ', static_generator)
 
 
 def test_predefined_generator():
@@ -218,6 +230,8 @@ def test_predefined_generator():
     assert _check_iterable_equal(z_array, z)
     assert _check_iterable_equal(w_tensor, w)
 
+    print('testing generator name: ', predefined_generator)
+
 
 def test_transform_generator():
     size = 100
@@ -250,6 +264,9 @@ def test_transform_generator():
     assert _check_iterable_equal(y, y_expected)
     assert _check_iterable_equal(z, z_expected)
 
+    print('testing generator name: ', transform_generator)
+
+
 def test_ensemble_generator():
     size = 100
 
@@ -280,6 +297,8 @@ def test_ensemble_generator():
     assert _check_shape_and_grad(product_generator, size, x, y)
     assert _check_iterable_equal(old_x, x)
     assert _check_iterable_equal(old_y, y)
+
+    print('testing generator name: ', ensemble_generator)
 
 
 def test_filter_generator():
@@ -320,6 +339,8 @@ def test_filter_generator():
     for _ in range(5):
         assert _check_shape_and_grad(filter_generator, fixed_size)
         filter_generator.get_examples()
+
+    print('testing generator name: ', filter_generator)
 
 
 def test_resample_generator():
@@ -366,6 +387,8 @@ def test_resample_generator():
     assert _check_iterable_equal(y + 100, z)
     assert len(torch.unique(x.detach())) < len(x)
 
+    print('testing generator name: ', resample_generator)
+
 
 def test_batch_generator():
     size = 10
@@ -399,6 +422,20 @@ def test_batch_generator():
         # update answer for next iteration
         answer_x = (answer_x + batch_size) % size
         answer_y = (answer_y + batch_size) % size
+
+    print('testing generator name: ', batch_generator)
+
+
+def test_sampler_geneartor():
+    size = 10
+    generator = Generator1D(size)
+    sampler_generator = SamplerGenerator(generator)
+    x = sampler_generator.get_examples()
+    assert isinstance(x, (list, tuple))
+    x, = x
+    assert x.shape == (size, 1)
+
+    print('testing generator name: ', sampler_generator)
 
 
 def test_legacy_module():
