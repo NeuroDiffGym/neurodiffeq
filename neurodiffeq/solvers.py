@@ -13,7 +13,7 @@ from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
 from neurodiffeq.function_basis import RealSphericalHarmonics
-
+from neurodiffeq.solvers_utils import PretrainedSolver
 
 class BaseSolver(ABC):
     r"""A class for solving ODE/PDE systems.
@@ -337,7 +337,7 @@ class BaseSolver(ABC):
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, callbacks=(), **kwargs):
+    def fit(self, max_epochs, callbacks=None, monitor=None):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
 
         If ``callbacks`` is passed, callbacks are run, one at a time,
@@ -345,6 +345,10 @@ class BaseSolver(ABC):
 
         :param max_epochs: Number of epochs to run.
         :type max_epochs: int
+        :param monitor:
+            **[DEPRECATED]** use a MonitorCallback instance instead.
+            The monitor for visualizing solution and metrics.
+        :rtype monitor: `neurodiffeq.pde_spherical.MonitorSpherical`
         :param callbacks:
             A list of callback functions.
             Each function should accept the ``solver`` instance itself as its **only** argument.
@@ -356,33 +360,27 @@ class BaseSolver(ABC):
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
-
-        monitor = kwargs.pop('monitor', None)
+        print('this is the new solver')
         if monitor:
-            warnings.warn("Passing `monitor` is deprecated and ignored, "
+            warnings.warn("Passing `monitor` is deprecated, "
                           "use a MonitorCallback and pass a list of callbacks instead")
-            if not getattr(monitor, 'check_every', None):
-                raise AttributeError(f'{monitor} doesn\'t have a `check_every` attribute')
-            if monitor.check_every is None:
-                monitor.check_every = 100  # legacy default `check_every` for monitors
-        if kwargs:
-            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
 
         for local_epoch in range(max_epochs):
-            # stop training if self._stop_training is set to True by a callback
+            # stops training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
 
-            # register local epoch (starting from 1 instead of 0) so it can be accessed by callbacks
-            self.local_epoch = local_epoch + 1
+            # register local epoch so it can be accessed by callbacks
+            self.local_epoch = local_epoch
             self.run_train_epoch()
             self.run_valid_epoch()
 
-            for cb in callbacks:
-                cb(self)
+            if callbacks:
+                for cb in callbacks:
+                    cb(self)
 
             if monitor:
-                if self.local_epoch % monitor.check_every == 0 or self.local_epoch == max_epochs:
+                if (local_epoch + 1) % monitor.check_every == 0 or local_epoch == max_epochs - 1:
                     monitor.check(
                         self.nets,
                         self.conditions,
@@ -413,13 +411,13 @@ class BaseSolver(ABC):
             you should pass the coordinates vector(s) to the returned solution.
         :rtype: BaseSolution
         """
-        pass  # pragma: no cover
+        pass
 
     def _get_internal_variables(self):
         r"""Get a dict of all available internal variables.
 
         :return:
-            All available internal variables,
+            All available interal parameters,
             where keys are variable names and values are the corresponding variables.
         :rtype: dict
 
@@ -488,7 +486,21 @@ class BaseSolver(ABC):
         :rtype: torch.Tensor
         """
         return 0.0
-
+#    def save_state(self,filename,):
+	    #save_keys = ['diff_eqs','metrics','global_epoch','nets','conditions','criterion','optimizer','generator'] #'criterion','optimizer','generator',
+#        save_dict = {
+#            "metrics": self.metrics_fn,
+#            "criterion": self.criterion,
+#            "conditions": self.conditions,
+#            "global_epoch": self.global_epoch, #loss_history
+#            "nets": self.nets,
+#            "optimizer": self.optimizer,
+#            "diff_eqs": self.diff_eqs,
+#            "generator": self.generator
+#            }
+#        print('this is in solver file')
+#        with open(filename,'wb') as file:
+#            dill.dump(save_dict,file)
 
 class BaseSolution(ABC):
     r"""A solution to a PDE/ODE (system).
@@ -517,7 +529,7 @@ class BaseSolution(ABC):
 
     @abstractmethod
     def _compute_u(self, net, condition, *coords):
-        pass  # pragma: no cover
+        pass
 
     @deprecated_alias(as_type='to_numpy')
     def __call__(self, *coords, to_numpy=False):
@@ -787,7 +799,7 @@ class Solution1D(BaseSolution):
         return condition.enforce(net, ts)
 
 
-class Solver1D(BaseSolver):
+class Solver1D(BaseSolver,PretrainedSolver):
     r"""A solver class for solving ODEs (single-input differential equations)
 
     :param ode_system:
@@ -1101,3 +1113,5 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
+
+    
