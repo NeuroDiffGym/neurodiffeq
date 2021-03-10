@@ -42,3 +42,17 @@ class PretrainedSolver(ABC):
                      t_max = t_max)
 					 
         return solver
+		
+		
+
+def save_solver(solver,filename):
+
+    with open(filename,'wb') as file:
+        dill.dump(solver,file)
+		
+def load_solver(path):
+
+    with open(path,'rb') as file:
+        solver = dill.load(file)
+		
+    return solver
