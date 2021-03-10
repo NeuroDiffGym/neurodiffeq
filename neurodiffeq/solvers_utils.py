@@ -8,14 +8,14 @@ class PretrainedSolver(ABC):
     def save(self,filename):
 	    #save_keys = ['diff_eqs','metrics','global_epoch','nets','conditions','criterion','optimizer','generator'] #'criterion','optimizer','generator',
         save_dict = {
-        "metrics": self.metrics_fn,
-        "criterion": self.criterion,
-        "conditions": self.conditions,
-        "global_epoch": self.global_epoch, #loss_history
-        "nets": self.nets,
-        "optimizer": self.optimizer,
-        "diff_eqs": self.diff_eqs,
-        "generator": self.generator
+            "metrics": self.metrics_fn,
+            "criterion": self.criterion,
+            "conditions": self.conditions,
+            "global_epoch": self.global_epoch, #loss_history
+            "nets": self.nets,
+            "optimizer": self.optimizer,
+            "diff_eqs": self.diff_eqs,
+            "generator": self.generator
         }
 	    #print('this is in solver file')
         with open(filename,'wb') as file:
