@@ -12,6 +12,10 @@ matplotlib = "*"
 numpy = "*"
 torch = "*"
 scipy = "*"
+pytest = "*"
+pandas = "*"
+seaborn = "*"
+dill = "*"
 
 [requires]
 python_version = "3.8"
