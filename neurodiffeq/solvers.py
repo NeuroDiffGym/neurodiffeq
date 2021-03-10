@@ -360,7 +360,6 @@ class BaseSolver(ABC):
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
-        print('this is the new solver')
         if monitor:
             warnings.warn("Passing `monitor` is deprecated, "
                           "use a MonitorCallback and pass a list of callbacks instead")
