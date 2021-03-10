@@ -6,7 +6,7 @@ class PretrainedSolver(ABC):
 
     
     def save(self,filename):
-	#save_keys = ['diff_eqs','metrics','global_epoch','nets','conditions','criterion','optimizer','generator'] #'criterion','optimizer','generator',
+	    #save_keys = ['diff_eqs','metrics','global_epoch','nets','conditions','criterion','optimizer','generator'] #'criterion','optimizer','generator',
         save_dict = {
         "metrics": self.metrics_fn,
         "criterion": self.criterion,
@@ -17,7 +17,7 @@ class PretrainedSolver(ABC):
         "diff_eqs": self.diff_eqs,
         "generator": self.generator
         }
-	#print('this is in solver file')
+	    #print('this is in solver file')
         with open(filename,'wb') as file:
             dill.dump(save_dict,file)
 			
