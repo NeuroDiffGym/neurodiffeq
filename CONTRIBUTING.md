@@ -4,7 +4,7 @@ These guidelines are *debatable*. If you have a better idea, feel free to discus
 
 ## Rules of Thumb
 
-1. **No two people should work on the same branch.** Only work on the branch you created. If you really want to makes changes to someone else's branch, create a new branch (or a fork) and open a Pull Request to that branch.
+1. **No two people should work on the same branch.** Only work on branches *you created*. To make changes to another contributor's branch, create a new branch (or a fork) and open a Pull Request to that person's branch.
 2. **Always write unit tests and make sure they pass.** Unit tests in the `tests` folder are automatically run on [Travis-CI](https://travis-ci.org) when you push a commit or make a PR. Make sure they pass and aim for a high code coverage.
 3. **Document your code.** Detail and complete documentation helps others, future contributors, and your future self understand what is going on.
 
@@ -12,7 +12,7 @@ These guidelines are *debatable*. If you have a better idea, feel free to discus
 
 ### Python
 
-We suggest **sticking to the [PEP-8](https://www.python.org/dev/peps/pep-0008/) for code style and naming convention**, with a maximum line width of 120 characters. (Again, this is debatable. At least for me, an 80-char line wrap seems too restrictive in the 2020s.)
+We generally **follow [PEP-8](https://www.python.org/dev/peps/pep-0008/) for code style and naming convention**, with a maximum line width of 120 characters instead of 80. (Again, this is debatable. At least for me, an 80-char line wrap is too restrictive in the 2020s.)
 
 **Exceptions may be made consistently when necessary. But PEP-8 style should be the first choice.**
 
@@ -32,13 +32,13 @@ Possible choices of `action`s are:
 |    **to**    | Partially fix a bug. The bug is not completely resolved after the commit. |
 | **enhance**  | Improve an existing functionality.                           |
 |   **feat**   | Implement a new feature.                                     |
-| **refactor** | Refactor the logic/structure of the code so that it's more SOLID or DRY. <br />*Renaming also count as **refactor***. |
+| **refactor** | Refactor the logic/structure of the code so that it's more SOLID or DRY. <br />*Renaming also counts as **refactor***. |
 |  **style**   | Improve the style of the code for consistency.               |
-|   **typo**   | Fix a typo.                                                  |
+|   **typo**   | Fix one or more typos.                                       |
 |   **docs**   | Add or improve documentation.                                |
 |   **test**   | Add or improve test cases.                                   |
-|  **chore**   | Maintenance relate to the Github Repo, PyPI registery, etc.  |
-|   (others)   | If the commit doesn't fall into any of the above categories, feel free to invent an intuitive action name. |
+|  **chore**   | Maintenance relate to the GitHub Repository, PyPI registry, etc. |
+|   (others)   | If none above is applicable, pick another intuitive action name. |
 
 ### Target
 
@@ -67,7 +67,7 @@ See [this answer](https://stackoverflow.com/a/3580764/6685437) for more.
 
 ## Development Environment Setup
 
-Below is the recommended way to setup environment for developing neurodiffeq.
+To develop and debug locally, consider the following setup.
 
 1. Clone the repository locally `git clone https://github.com/odegym/neurodiffeq.git && cd neurodiffeq`;
 2. Install the library as editable source `pip install -e .`;
