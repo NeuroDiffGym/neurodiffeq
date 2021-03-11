@@ -1,12 +1,12 @@
 import dill
 import numpy as np
 from abc import ABC, abstractmethod
+import pathlib
 
 class PretrainedSolver(ABC):
 
-    
+    #Saving selected attributes of model in dict
     def save(self,filename):
-	    #save_keys = ['diff_eqs','metrics','global_epoch','nets','conditions','criterion','optimizer','generator'] #'criterion','optimizer','generator',
         save_dict = {
             "metrics": self.metrics_fn,
             "criterion": self.criterion,
@@ -17,10 +17,11 @@ class PretrainedSolver(ABC):
             "diff_eqs": self.diff_eqs,
             "generator": self.generator
         }
-	    #print('this is in solver file')
+
         with open(filename,'wb') as file:
             dill.dump(save_dict,file)
 			
+    #Loading saved attributes into new solver object        
     @classmethod		
     def load(cls, path):
         with open(path,'rb') as file:
@@ -42,17 +43,34 @@ class PretrainedSolver(ABC):
                      t_max = t_max)
 					 
         return solver
-		
-		
 
-def save_solver(solver,filename):
+    #Saving the Solver Object
+    def save_solver(self,filename,path=pathlib.Path().absolute()):
+        PATH = str(path) + "\\" + filename
+        try:
+            with open(PATH,'wb') as file:
+                dill.dump(self,file)
+            print("Solver has been saved.")
+            return True
+        except:
+            return False  
 
-    with open(filename,'wb') as file:
-        dill.dump(solver,file)
-		
-def load_solver(path):
-
-    with open(path,'rb') as file:
-        solver = dill.load(file)
-		
-    return solver
+    #Loading the Solver Object  
+    @classmethod
+    def load_solver(cls,path,retrain=False):
+        with open(path,'rb') as file:
+                solver = dill.load(file)
+        if retrain:
+            solver_retrain = cls(ode_system = solver.diff_eqs,
+                            conditions = solver.conditions,
+                            criterion = solver.criterion,
+                            metrics = solver.metrics_fn,
+                            nets = solver.nets,
+                            optimizer = solver.optimizer,
+                            train_generator = solver.generator['train'],
+                            valid_generator = solver.generator['valid'],
+                            t_min = float(np.round(min(solver.generator['train'].get_examples()[0].detach().numpy()),0)),
+                            t_max = float(np.round(max(solver.generator['train'].get_examples()[0].detach().numpy()),0))
+                            )
+            return solver_retrain    
+        return solver
