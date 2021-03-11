@@ -1,3 +1,4 @@
+import os
 import dill
 import numpy as np
 import pathlib
@@ -45,7 +46,7 @@ class PretrainedSolver():
 
     #Saving the Solver Object
     def save_solver(self,filename,path=pathlib.Path().absolute()):
-        PATH = str(path) + "\\" + filename
+        PATH = os.path.join(path,filename)
         try:
             with open(PATH,'wb') as file:
                 dill.dump(self,file)
