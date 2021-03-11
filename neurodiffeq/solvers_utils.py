@@ -30,6 +30,10 @@ class PretrainedSolver():
         t = load_dict['generator']['train'].get_examples()[0].detach().numpy()
         t_min = np.round(min(t))
         t_max = np.round(max(t))
+
+        # For 1D
+        # params = {"ode_system":load_dict['diff_eqs'],"key":2}
+        # solver = cls(**params)
 		
         solver = cls(ode_system = load_dict['diff_eqs'],
                      conditions = load_dict['conditions'],
