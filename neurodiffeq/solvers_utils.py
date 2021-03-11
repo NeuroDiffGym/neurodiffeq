@@ -1,9 +1,8 @@
 import dill
 import numpy as np
-from abc import ABC, abstractmethod
 import pathlib
 
-class PretrainedSolver(ABC):
+class PretrainedSolver():
 
     #Saving selected attributes of model in dict
     def save(self,filename):
