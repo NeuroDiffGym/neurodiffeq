@@ -15,7 +15,8 @@ class PretrainedSolver():
             "nets": self.nets,
             "optimizer": self.optimizer,
             "diff_eqs": self.diff_eqs,
-            "generator": self.generator
+            "generator": self.generator,
+            "type": self.__class__
         }
 
         with open(filename,'wb') as file:
@@ -78,3 +79,11 @@ class PretrainedSolver():
                             )
             return solver_retrain    
         return solver
+
+def load_solver(solver_name_or_path):
+    ...
+    # Check if the solver exist locally
+
+    # Load the dict
+
+    # How do we know what type
