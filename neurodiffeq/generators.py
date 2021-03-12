@@ -87,7 +87,7 @@ class Generator1D(BaseGenerator):
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 1-D training points. 
+            A instance method `get_examples` is dynamically created to generate 1-D training points.
             It will be called by the function `solve` and `solve_system`.
         """
         self.size = size
