@@ -65,19 +65,6 @@ class PretrainedSolver():
     def load_solver(cls,path,retrain=False):
         with open(path,'rb') as file:
                 solver = dill.load(file)
-        if retrain:
-            solver_retrain = cls(ode_system = solver.diff_eqs,
-                            conditions = solver.conditions,
-                            criterion = solver.criterion,
-                            metrics = solver.metrics_fn,
-                            nets = solver.nets,
-                            optimizer = solver.optimizer,
-                            train_generator = solver.generator['train'],
-                            valid_generator = solver.generator['valid'],
-                            t_min = float(np.round(min(solver.generator['train'].get_examples()[0].detach().numpy()),0)),
-                            t_max = float(np.round(max(solver.generator['train'].get_examples()[0].detach().numpy()),0))
-                            )
-            return solver_retrain    
         return solver
 
 def load_solver(solver_name_or_path):
