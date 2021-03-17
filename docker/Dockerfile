@@ -31,7 +31,7 @@ RUN set -ex; \
     mkdir -p /app && \
     chown app:app /app
 
-EXPOSE 8888
+EXPOSE 9898
 
 # Switch to the new user
 USER app

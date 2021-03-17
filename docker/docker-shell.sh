@@ -6,4 +6,4 @@ set -e
 source ./env.dev
 
 docker build -t $IMAGE_NAME -f Dockerfile ..
-docker run --rm --name $IMAGE_NAME -ti --mount type=bind,source="$BASE_DIR",target=/app -p 9898:8888 $IMAGE_NAME
+docker run --rm --name $IMAGE_NAME -ti --mount type=bind,source="$BASE_DIR",target=/app -p 9898:9898 $IMAGE_NAME
