@@ -46,3 +46,4 @@ RUN pipenv sync
 
 # Entry point
 ENTRYPOINT ["/bin/bash","./docker/docker-entrypoint.sh"]
+# ENTRYPOINT ["/bin/bash"]
