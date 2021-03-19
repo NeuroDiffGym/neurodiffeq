@@ -1,5 +1,6 @@
 from random import random
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import dill
 import shutil
 from pathlib import Path
@@ -9,7 +10,8 @@ from neurodiffeq import diff
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
+from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback, \
+    SimpleTensorboardCallback
 from neurodiffeq.callbacks import TrueCallback, FalseCallback, ConditionCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
@@ -302,14 +304,38 @@ def test_repeated_diverge(solver):
 def test_eve_callback(solver):
     BASE_VALUE = 1000.0
     DOUBLE_AT = 0.5
-    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT)
+    N_0 = 3
+    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT, n_0=N_0)
     for i in range(5):
         solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** i)]
         callback(solver)
-        assert solver.n_batches['train'] == 2 ** i
+        assert solver.n_batches['train'] == (2 ** i) * N_0
+
+    N_MAX = 16
+    callback = EveCallback(base_value=BASE_VALUE, double_at=DOUBLE_AT, n_max=N_MAX)
+    solver.metrics_history['train_loss'] = [BASE_VALUE * (DOUBLE_AT ** 10)]
+    callback(solver)
+    assert solver.n_batches['train'] == N_MAX
 
 
 def test_stop_callback(solver):
     callback = StopCallback()
     callback(solver)
     assert solver._stop_training
+
+
+def test_tensorboard_callback(solver, tmp_dir):
+    writer = SummaryWriter(tmp_dir)
+    callback = SimpleTensorboardCallback(writer=writer)
+    for i in range(10):
+        solver.metrics_history['train_loss'].append(float(i))
+        callback(solver)
+
+    callback = SimpleTensorboardCallback()
+    for i in range(10):
+        solver.metrics_history['train_loss'].append(float(i))
+        callback(solver)
+
+    default_path = Path('.') / 'runs'
+    assert os.path.isdir(default_path)
+    shutil.rmtree(default_path)

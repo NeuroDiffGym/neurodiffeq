@@ -83,7 +83,8 @@ MOCK_MODULES = [
     'numpy', 'scipy', 'pandas', 'seaborn',
     'matplotlib', 'matplotlib.pyplot', 'matplotlib.animation', 'matplotlib.colors',
     'matplotlib.tri', 'matplotlib.cm',
-    'torch', 'torch.autograd', 'torch.nn', 'torch.optim',
+    'torch', 'torch.autograd', 'torch.nn', 'torch.optim', 'torch.utils', 'torch.utils.tensorboard',
+    'torch.nn.modules', 'torch.nn.modules.module',
     'dill', 'scipy.special'
 ]
 for mod_name in MOCK_MODULES:
