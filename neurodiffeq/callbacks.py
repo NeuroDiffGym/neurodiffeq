@@ -116,7 +116,7 @@ class StopCallback(ActionCallback):
 
     .. note::
         This callback should always be used together with a `ConditionCallback`,
-        otherwise the ``.fit()`` call with exit after first epoch.
+        otherwise the ``solver.fit()`` call will exit after first epoch.
     """
 
     def __call__(self, solver):
@@ -124,7 +124,7 @@ class StopCallback(ActionCallback):
 
 
 class CheckpointCallback(ActionCallback):
-    r"""A callback that saves the networks (and its weights) to the disk.
+    r"""A callback that saves the networks (and their weights) to the disk.
 
     :param ckpt_dir:
         The directory to save model checkpoints.
@@ -229,7 +229,8 @@ class EveCallback(ActionCallback):
 
 class ConditionCallback(BaseCallback):
     r"""Base class of condition callbacks.
-    Custom callbacks that *determines whether some action shall be performed* should subclass this class.
+    Custom callbacks that *determines whether some action shall be performed* should subclass this class and overwrite
+    the ``.condition`` method.
 
     Instances of ``ConditionCallback`` (and its children classes) support (short-circuit) evaluation of
     common boolean operations: ``&`` (and), ``|`` (or), ``~`` (not), and ``^`` (xor).
@@ -276,9 +277,9 @@ class ConditionCallback(BaseCallback):
 
 
 class AndCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff none of its sub-\`ConditionCallback\`s evaluates to False.
+    r"""A ``ConditionCallback`` which evaluates to True iff none of its sub-``ConditionCallback`` s evaluates to False.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -300,9 +301,9 @@ class AndCallback(ConditionCallback):
 
 
 class OrCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to False iff none of its sub-\`ConditionCallback\`s evaluates to True.
+    r"""A ``ConditionCallback`` which evaluates to False iff none of its sub-``ConditionCallback`` s evaluates to True.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -323,9 +324,9 @@ class OrCallback(ConditionCallback):
 
 
 class NotCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff its sub-\`ConditionCallback\` evaluates to False.
+    r"""A ``ConditionCallback`` which evaluates to True iff its sub-``ConditionCallback`` evaluates to False.
 
-    :param condition_callback: The sub-\`ConditionCallbacks\`.
+    :param condition_callback: The sub-``ConditionCallback`` .
     :type condition_callback: ConditionCallback
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -344,9 +345,9 @@ class NotCallback(ConditionCallback):
 
 class XorCallback(ConditionCallback):
     r"""A ``ConditionCallback`` which evaluates to False iff
-    evenly many of its sub-\`ConditionCallback\`s evaluates to True.
+    evenly many of its sub-``ConditionCallback`` s evaluates to True.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
