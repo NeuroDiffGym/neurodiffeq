@@ -257,7 +257,7 @@ class BaseSolver(ABC):
         r"""Generate the next validation batch, register in ``self._batch_examples`` and return."""
         return self._generate_batch('valid')
 
-    def _do_optimizer_step(self):
+    def _do_optimizer_step(self, closure=None):
         r"""Optimization procedures after gradients have been computed. Usually ``self.optimizer.step()`` is sufficient.
         At times, users can overwrite this method to perform gradient clipping, etc. Here is an example::
 
@@ -267,7 +267,7 @@ class BaseSolver(ABC):
                     nn.utils.clip_grad_norm_(itertools.chain([net.parameters() for net in self.nets]), 1.0, 'inf')
                     self.optimizer.step()
         """
-        self.optimizer.step()
+        self.optimizer.step(closure)
 
     def _run_epoch(self, key):
         r"""Run an epoch on train/valid points, update history, and perform an optimization step if key=='train'.
@@ -280,45 +280,50 @@ class BaseSolver(ABC):
         """
         self._phase = key
         epoch_loss = 0.0
+        batch_loss = 0.0
         metric_values = {name: 0.0 for name in self.metrics_fn}
 
         # perform forward pass for all batches: a single graph is created and release in every iteration
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
             batch = self._generate_batch(key)
-            funcs = [
-                self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
-            ]
 
-            for name in self.metrics_fn:
-                value = self.metrics_fn[name](*funcs, *batch).item()
-                metric_values[name] += value
-            residuals = self.diff_eqs(*funcs, *batch)
-            residuals = torch.cat(residuals, dim=1)
-            loss = self.criterion(residuals) + self.additional_loss(funcs, key)
+            def closure():
+                nonlocal batch_loss
+                if key == 'train':
+                    self.optimizer.zero_grad()
+                funcs = [
+                    self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
+                ]
 
-            # normalize loss across batches
-            loss /= self.n_batches[key]
+                for name in self.metrics_fn:
+                    value = self.metrics_fn[name](*funcs, *batch).item()
+                    metric_values[name] += value
+                residuals = self.diff_eqs(*funcs, *batch)
+                residuals = torch.cat(residuals, dim=1)
+                loss = self.criterion(residuals) + self.additional_loss(funcs, key)
 
-            # accumulate gradients before the current graph is collected as garbage
+                # accumulate gradients before the current graph is collected as garbage
+                if key == 'train':
+                    loss.backward()
+                    batch_loss = loss.item()
+                return loss
             if key == 'train':
-                loss.backward()
-            epoch_loss += loss.item()
+                self._do_optimizer_step(closure=closure)
+                epoch_loss += batch_loss
+            else:
+                epoch_loss += closure().item()
 
         # calculate mean loss of all batches and register to history
-        self._update_history(epoch_loss, 'loss', key)
+        self._update_history(epoch_loss / self.n_batches[key], 'loss', key)
 
-        # perform optimization step when training
-        if key == 'train':
-            self._do_optimizer_step()
-            self.optimizer.zero_grad()
-        # update lowest_loss and best_net when validating
-        else:
+        if key == 'valid':
             self._update_best()
 
         # calculate average metrics across batches and register to history
         for name in self.metrics_fn:
-            self._update_history(metric_values[name] / self.n_batches[key], name, key)
+            self._update_history(
+                metric_values[name] / self.n_batches[key], name, key)
 
     def run_train_epoch(self):
         r"""Run a training epoch, update history, and perform gradient descent."""
@@ -337,7 +342,7 @@ class BaseSolver(ABC):
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, callbacks=(), **kwargs):
+    def fit(self, max_epochs, callbacks=None, monitor=None):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
 
         If ``callbacks`` is passed, callbacks are run, one at a time,
@@ -345,6 +350,10 @@ class BaseSolver(ABC):
 
         :param max_epochs: Number of epochs to run.
         :type max_epochs: int
+        :param monitor:
+            **[DEPRECATED]** use a MonitorCallback instance instead.
+            The monitor for visualizing solution and metrics.
+        :rtype monitor: `neurodiffeq.pde_spherical.MonitorSpherical`
         :param callbacks:
             A list of callback functions.
             Each function should accept the ``solver`` instance itself as its **only** argument.
@@ -357,32 +366,26 @@ class BaseSolver(ABC):
         self._stop_training = False
         self._max_local_epoch = max_epochs
 
-        monitor = kwargs.pop('monitor', None)
         if monitor:
-            warnings.warn("Passing `monitor` is deprecated and ignored, "
+            warnings.warn("Passing `monitor` is deprecated, "
                           "use a MonitorCallback and pass a list of callbacks instead")
-            if not getattr(monitor, 'check_every', None):
-                raise AttributeError(f'{monitor} doesn\'t have a `check_every` attribute')
-            if monitor.check_every is None:
-                monitor.check_every = 100  # legacy default `check_every` for monitors
-        if kwargs:
-            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
 
         for local_epoch in range(max_epochs):
-            # stop training if self._stop_training is set to True by a callback
+            # stops training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
 
-            # register local epoch (starting from 1 instead of 0) so it can be accessed by callbacks
-            self.local_epoch = local_epoch + 1
+            # register local epoch so it can be accessed by callbacks
+            self.local_epoch = local_epoch
             self.run_train_epoch()
             self.run_valid_epoch()
 
-            for cb in callbacks:
-                cb(self)
+            if callbacks:
+                for cb in callbacks:
+                    cb(self)
 
             if monitor:
-                if self.local_epoch % monitor.check_every == 0 or self.local_epoch == max_epochs:
+                if (local_epoch + 1) % monitor.check_every == 0 or local_epoch == max_epochs - 1:
                     monitor.check(
                         self.nets,
                         self.conditions,
@@ -413,13 +416,13 @@ class BaseSolver(ABC):
             you should pass the coordinates vector(s) to the returned solution.
         :rtype: BaseSolution
         """
-        pass  # pragma: no cover
+        pass
 
     def _get_internal_variables(self):
         r"""Get a dict of all available internal variables.
 
         :return:
-            All available internal variables,
+            All available interal parameters,
             where keys are variable names and values are the corresponding variables.
         :rtype: dict
 
@@ -517,7 +520,7 @@ class BaseSolution(ABC):
 
     @abstractmethod
     def _compute_u(self, net, condition, *coords):
-        pass  # pragma: no cover
+        pass
 
     @deprecated_alias(as_type='to_numpy')
     def __call__(self, *coords, to_numpy=False):
@@ -1101,3 +1104,4 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
+
