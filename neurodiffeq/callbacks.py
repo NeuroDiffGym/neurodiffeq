@@ -4,6 +4,7 @@ import warnings
 import random
 import numpy as np
 from datetime import datetime
+from torch.utils.tensorboard import SummaryWriter
 import logging
 from .utils import safe_mkdir as _safe_mkdir
 from ._version_utils import deprecated_alias, warn_deprecate_class
@@ -225,6 +226,32 @@ class EveCallback(ActionCallback):
         double_times = int(self.__class__.EPS + (np.log(value) - np.log(self.base_value)) / np.log(self.double_at))
         double_times = max(double_times, 0)
         solver.n_batches['train'] = min(self.n_0 * 2 ** double_times, self.n_max)
+
+
+class SimpleTensorboardCallback(ActionCallback):
+    """A callback that writes all metric values to the disk for TensorBoard to plot.
+
+    :param writer:
+        The summary writer for writing values to disk.
+        Defaults to a new ``SummaryWriter`` instance created with default kwargs.
+    :type writer: ``torch.utils.tensorboard.SummaryWriter``
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, writer=None, logger=None):
+        super(SimpleTensorboardCallback, self).__init__(logger=logger)
+        if not writer:
+            self.logger.info('No writer specified, creating a SummaryWriter automatically.')
+        self.writer = writer or SummaryWriter()
+
+    def __call__(self, solver):
+        for name, values in solver.metrics_history.items():
+            self.writer.add_scalar(
+                tag=name,
+                scalar_value=values[-1] if values else np.nan,
+                global_step=solver.global_epoch,
+            )
 
 
 class ConditionCallback(BaseCallback):
