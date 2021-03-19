@@ -1,5 +1,6 @@
 from random import random
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import dill
 import shutil
 from pathlib import Path
@@ -9,7 +10,8 @@ from neurodiffeq import diff
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback
+from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback, \
+    SimpleTensorboardCallback
 from neurodiffeq.callbacks import TrueCallback, FalseCallback, ConditionCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
@@ -320,3 +322,20 @@ def test_stop_callback(solver):
     callback = StopCallback()
     callback(solver)
     assert solver._stop_training
+
+
+def test_tensorboard_callback(solver, tmp_dir):
+    writer = SummaryWriter(tmp_dir)
+    callback = SimpleTensorboardCallback(writer=writer)
+    for i in range(10):
+        solver.metrics_history['train_loss'].append(float(i))
+        callback(solver)
+
+    callback = SimpleTensorboardCallback()
+    for i in range(10):
+        solver.metrics_history['train_loss'].append(float(i))
+        callback(solver)
+
+    default_path = Path('.') / 'runs'
+    assert os.path.isdir(default_path)
+    shutil.rmtree(default_path)
