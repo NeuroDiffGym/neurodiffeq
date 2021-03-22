@@ -1,6 +1,7 @@
 import torch
 import warnings
 import torch.nn as nn
+import inspect
 from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
@@ -13,6 +14,10 @@ from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
 from neurodiffeq.function_basis import RealSphericalHarmonics
+
+
+def _requires_closure(optimizer):
+    return inspect.signature(optimizer.step).parameters.get('closure').default == inspect._empty
 
 
 class BaseSolver(ABC):
@@ -263,11 +268,11 @@ class BaseSolver(ABC):
 
             import itertools
             class MySolver(Solver)
-                def _do_optimizer_step(self):
+                def _do_optimizer_step(self, closure=None):
                     nn.utils.clip_grad_norm_(itertools.chain([net.parameters() for net in self.nets]), 1.0, 'inf')
-                    self.optimizer.step()
+                    self.optimizer.step(closure=closure)
         """
-        self.optimizer.step(closure)
+        self.optimizer.step(closure=closure)
 
     def _run_epoch(self, key):
         r"""Run an epoch on train/valid points, update history, and perform an optimization step if key=='train'.
@@ -283,14 +288,18 @@ class BaseSolver(ABC):
         batch_loss = 0.0
         metric_values = {name: 0.0 for name in self.metrics_fn}
 
+        # Zero the gradient only once, before running the batches. Gradients of different batches are accumulated.
+        if key == 'train' and not _requires_closure(self.optimizer):
+            self.optimizer.zero_grad()
+
         # perform forward pass for all batches: a single graph is created and release in every iteration
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
             batch = self._generate_batch(key)
 
-            def closure():
+            def closure(zero_grad=True):
                 nonlocal batch_loss
-                if key == 'train':
+                if key == 'train' and zero_grad:
                     self.optimizer.zero_grad()
                 funcs = [
                     self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
@@ -310,7 +319,13 @@ class BaseSolver(ABC):
                 return loss
 
             if key == 'train':
-                self._do_optimizer_step(closure=closure)
+                if _requires_closure(self.optimizer):
+                    # If `closure` is required by `optimizer.step()`, perform a step for every batch
+                    self._do_optimizer_step(closure=closure)
+                else:
+                    # Otherwise, only perform backward propagation.
+                    # Optimizer step will be performed only once outside the for-loop (i.e. after all batches).
+                    closure(zero_grad=False)
                 epoch_loss += batch_loss
             else:
                 epoch_loss += closure().item()
@@ -318,6 +333,9 @@ class BaseSolver(ABC):
         # calculate mean loss of all batches and register to history
         self._update_history(epoch_loss / self.n_batches[key], 'loss', key)
 
+        # perform the optimizer step after all batches are run (if optimizer.step doesn't require `closure`)
+        if key == 'train' and not _requires_closure(self.optimizer):
+            self._do_optimizer_step()
         if key == 'valid':
             self._update_best()
 
