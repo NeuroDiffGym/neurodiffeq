@@ -283,6 +283,9 @@ class BaseSolver(ABC):
         .. note::
             The optimization step is only performed after all batches are run.
         """
+        if self.n_batches[key] <= 0:
+            # XXX maybe we should append NaN to metric history?
+            return
         self._phase = key
         epoch_loss = 0.0
         batch_loss = 0.0
@@ -383,12 +386,9 @@ class BaseSolver(ABC):
 
         monitor = kwargs.pop('monitor', None)
         if monitor:
-            warnings.warn("Passing `monitor` is deprecated and ignored, "
+            warnings.warn("Passing `monitor` is deprecated, "
                           "use a MonitorCallback and pass a list of callbacks instead")
-            if not getattr(monitor, 'check_every', None):
-                raise AttributeError(f'{monitor} doesn\'t have a `check_every` attribute')
-            if monitor.check_every is None:
-                monitor.check_every = 100  # legacy default `check_every` for monitors
+            callbacks = [monitor.to_callback()] + list(callbacks)
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
 
@@ -404,14 +404,6 @@ class BaseSolver(ABC):
 
             for cb in callbacks:
                 cb(self)
-
-            if monitor:
-                if self.local_epoch % monitor.check_every == 0 or self.local_epoch == max_epochs:
-                    monitor.check(
-                        self.nets,
-                        self.conditions,
-                        history=self.metrics_history,
-                    )
 
     @abstractmethod
     def get_solution(self, copy=True, best=True):
