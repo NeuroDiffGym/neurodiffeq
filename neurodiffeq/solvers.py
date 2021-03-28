@@ -158,9 +158,11 @@ class BaseSolver(ABC):
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
 
         if criterion is None:
-            self.criterion = lambda r: (r ** 2).mean()
+            self.criterion = lambda r,data: (r ** 2).mean()
         elif isinstance(criterion, nn.modules.loss._Loss):
-            self.criterion = lambda r: criterion(r, torch.zeros_like(r))
+            self.criterion = lambda r,data: criterion(r, torch.zeros_like(r))
+        elif isinstance(criterion, str):
+            self.criterion = weighted_loss(criterion)
         else:
             self.criterion = criterion
 
