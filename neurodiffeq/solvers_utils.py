@@ -3,6 +3,9 @@ import dill
 import numpy as np
 import pathlib
 
+class SolverConfig():
+    init_vals_lv = None
+
 class PretrainedSolver():
 
     #Saving selected attributes of model in dict
