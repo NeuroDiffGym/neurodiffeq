@@ -41,8 +41,13 @@ class BaseMonitor(ABC):
         pass  # pragma: no cover
 
     def to_callback(self, fig_dir=None, format=None, logger=None):
-        from .callbacks import MonitorCallback  # to avoid circular import
-        return MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
+        # to avoid circular import
+        from .callbacks import MonitorCallback, PeriodLocal, OnLastLocal
+        action_cb = MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
+        condition_cb = OnLastLocal(logger=logger)
+        if self.check_every:
+            condition_cb = condition_cb | PeriodLocal(self.check_every, logger=logger)
+        return condition_cb.set_action_callback(action_cb)
 
 
 class MonitorSpherical(BaseMonitor):
