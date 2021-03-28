@@ -283,6 +283,9 @@ class BaseSolver(ABC):
         .. note::
             The optimization step is only performed after all batches are run.
         """
+        if self.n_batches[key] <= 0:
+            # XXX maybe we should append NaN to metric history?
+            return
         self._phase = key
         epoch_loss = 0.0
         batch_loss = 0.0
