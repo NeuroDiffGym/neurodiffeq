@@ -1,3 +1,4 @@
+import pytest
 import torch
 import numpy as np
 import torch.nn as nn
@@ -10,12 +11,23 @@ from neurodiffeq.neurodiffeq import safe_diff as diff
 from scipy.special import legendre  # legendre polynomials
 from scipy.special import sph_harm  # spherical harmonics
 
-n_samples = 50
-shape = (n_samples, 1)
-max_degree = 20
+
+@pytest.fixture
+def n_samples():
+    return 50
 
 
-def test_legendre_polynomials():
+@pytest.fixture
+def shape(n_samples):
+    return (n_samples, 1)
+
+
+@pytest.fixture
+def max_degree():
+    return 20
+
+
+def test_legendre_polynomials(shape, max_degree):
     x1 = np.random.rand(*shape)
     x2 = torch.tensor(x1, requires_grad=True)
 
@@ -27,7 +39,7 @@ def test_legendre_polynomials():
         assert isclose(p2, p1).all(), f"p1 = {p1}, p2 = {p2}, delta = {p1 - p2}, max_delta = {np.max(abs(p1 - p2))}"
 
 
-def test_legendre_basis():
+def test_legendre_basis(shape, max_degree):
     x1 = np.random.rand(*shape)
     x2 = torch.tensor(x1, requires_grad=True)
 
@@ -43,7 +55,7 @@ def test_legendre_basis():
     assert isclose(y2, y1).all(), f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
 
 
-def test_zero_order_spherical_harmonics():
+def test_zero_order_spherical_harmonics(shape, max_degree):
     # note that in scipy, theta is azimuthal angle (0, 2 pi) while phi is polar angle (0, pi)
     thetas1 = np.random.rand(*shape) * np.pi * 2
     phis1 = np.random.rand(*shape) * np.pi
@@ -68,10 +80,10 @@ def test_zero_order_spherical_harmonics():
         f"y1 = {y1}, y2 = {y2}, delta = {y1 - y2}, max_delta = {np.max(abs(y1 - y2))}"
 
 
-def test_zero_order_spherical_harmonics_laplacian():
+def test_zero_order_spherical_harmonics_laplacian(shape, max_degree):
     # Somehow, if changing default dtype to float32, the test fails by a large margin
-    N_FLOAT=np.float64
-    T_FLOAT=torch.float64
+    N_FLOAT = np.float64
+    T_FLOAT = torch.float64
 
     THETA_EPS = 0.1
     r_values = np.random.rand(*shape).astype(N_FLOAT) + 1.1

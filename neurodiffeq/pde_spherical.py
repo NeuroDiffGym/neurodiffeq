@@ -131,7 +131,7 @@ def solve_spherical(
         This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
 
-    warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead")
+    warnings.warn("solve_spherical is deprecated, consider using SphericalSolver instead", FutureWarning)
     pde_sytem = lambda u, r, theta, phi: [pde(u, r, theta, phi)]
     conditions = [condition]
     nets = [net] if net is not None else None
@@ -244,7 +244,7 @@ def solve_spherical_system(
     .. note::
         This function is deprecated, use a ``neurodiffeq.solvers.SphericalSolver`` instead
     """
-    warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead")
+    warnings.warn("solve_spherical_system is deprecated, consider using SphericalSolver instead", FutureWarning)
 
     if harmonics_fn is None:
         def enforcer(net, cond, points):

@@ -10,11 +10,11 @@ import seaborn as sns
 from abc import ABC, abstractmethod
 
 from ._version_utils import deprecated_alias
-from .function_basis import RealSphericalHarmonics
-from .generators import Generator1D
-from .generators import Generator2D
-from .generators import Generator3D
-from .conditions import IrregularBoundaryCondition
+from .function_basis import RealSphericalHarmonics as _RealSphericalHarmonics
+from .generators import Generator1D as _Generator1D
+from .generators import Generator2D as _Generator2D
+from .generators import Generator3D as _Generator3D
+from .conditions import IrregularBoundaryCondition as _IrregularBC
 
 
 class BaseMonitor(ABC):
@@ -29,18 +29,28 @@ class BaseMonitor(ABC):
     """
 
     def __init__(self, check_every=None):
-        if check_every is not None:
-            warnings.warn('`check_every` is deprecated. Use a `PeriodLocal` callback instead\n'
-                          'e.g.: cb = PeriodLocal(period=100).set_action_callback(monitor.to_callback())\n'
-                          '      solver.fit(max_epoch=..., callbacks=[cb, ...])')
-        self.check_every = check_every  # pragma: no cover
-        self.fig = ...  # pragma: no cover
+        self.check_every = check_every or 100
+        self.fig = ...
 
     @abstractmethod
     def check(self, nets, conditions, history):
         pass  # pragma: no cover
 
     def to_callback(self, fig_dir=None, format=None, logger=None):
+        r"""Return a callback that updates the monitor plots, which will be run
+
+        1. Every ``self.check_every`` epochs; and
+        2. After the last local epoch.
+
+        :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
+        :type fig_dir: str
+        :param format: Format for saving figures: {'jpg', 'png' (default), ...}.
+        :type format: str
+        :param logger: The logger (or its name) to be used for the returned callback. Defaults to the 'root' logger.
+        :type logger: str or ``logging.Logger``
+        :return: The callback that updates the monitor plots.
+        :rtype: neurodiffeq.callbacks.BaseCallback
+        """
         # to avoid circular import
         from .callbacks import MonitorCallback, PeriodLocal, OnLastLocal
         action_cb = MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
@@ -62,7 +72,6 @@ class MonitorSpherical(BaseMonitor):
         i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -120,7 +129,7 @@ class MonitorSpherical(BaseMonitor):
         if r_scale == 'log':
             r_min, r_max = np.log(r_min), np.log(r_max)
 
-        gen = Generator3D(
+        gen = _Generator3D(
             grid=shape,
             xyz_min=(r_min, theta_min, phi_min),
             xyz_max=(r_max, theta_max, phi_max),
@@ -401,7 +410,6 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         The upper bound of radius, i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -465,7 +473,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
         if max_degree is not None:
             warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
-            self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+            self.harmonics_fn = _RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
             self.harmonics_fn = harmonics_fn
@@ -499,7 +507,6 @@ class Monitor1D(BaseMonitor):
         The upper bound of time domain that we want to monitor.
     :type t_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -587,7 +594,6 @@ class Monitor2D(BaseMonitor):
         If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
     :type xy_max: tuple[float, float], optional
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -604,7 +610,7 @@ class Monitor2D(BaseMonitor):
         self.cbs = []  # color bars
         # input for neural network
         if valid_generator is None:
-            valid_generator = Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+            valid_generator = _Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = valid_generator.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
         self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
@@ -618,7 +624,7 @@ class Monitor2D(BaseMonitor):
         ys = ys[triang.triangles].mean(axis=1)
         if condition:
             xs, ys = torch.tensor(xs), torch.tensor(ys)
-            if isinstance(condition, IrregularBoundaryCondition):
+            if isinstance(condition, _IrregularBC):
                 in_domain = condition.in_domain(xs, ys)
                 triang.set_mask(~in_domain)
 

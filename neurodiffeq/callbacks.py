@@ -4,7 +4,6 @@ import warnings
 import random
 import numpy as np
 from datetime import datetime
-from torch.utils.tensorboard import SummaryWriter
 import logging
 from .utils import safe_mkdir as _safe_mkdir
 from ._version_utils import deprecated_alias, warn_deprecate_class
@@ -229,7 +228,8 @@ class EveCallback(ActionCallback):
 
 
 class SimpleTensorboardCallback(ActionCallback):
-    """A callback that writes all metric values to the disk for TensorBoard to plot.
+    r"""A callback that writes all metric values to the disk for TensorBoard to plot.
+    Tensorboard must be installed for this callback to work.
 
     :param writer:
         The summary writer for writing values to disk.
@@ -243,6 +243,11 @@ class SimpleTensorboardCallback(ActionCallback):
         super(SimpleTensorboardCallback, self).__init__(logger=logger)
         if not writer:
             self.logger.info('No writer specified, creating a SummaryWriter automatically.')
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError as e:
+            raise ImportError(f"TensorBoard doesn't seem to be installed. See the following\n{e}")
+
         self.writer = writer or SummaryWriter()
 
     def __call__(self, solver):
