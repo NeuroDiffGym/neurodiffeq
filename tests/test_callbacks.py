@@ -10,8 +10,8 @@ from neurodiffeq import diff
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
-from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, BaseCallback, \
-    SimpleTensorboardCallback
+from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, \
+    BaseCallback, SimpleTensorboardCallback, ReportCallback
 from neurodiffeq.callbacks import TrueCallback, FalseCallback, ConditionCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
@@ -94,9 +94,12 @@ def test_checkpoint_callback(solver, tmp_dir):
         assert isinstance(net, torch.nn.Module)
 
 
-def test_report_on_fit_callback(solver):
-    callback = ReportOnFitCallback()
+def test_report_callback(solver):
+    callback = ReportCallback()
     callback(solver)
+    with pytest.warns(FutureWarning):
+        callback = ReportOnFitCallback()
+        callback(solver)
 
 
 def test_true_callback(solver, true_cb):
