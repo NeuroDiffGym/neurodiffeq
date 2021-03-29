@@ -29,12 +29,8 @@ class BaseMonitor(ABC):
     """
 
     def __init__(self, check_every=None):
-        if check_every is not None:
-            warnings.warn('`check_every` is deprecated. Use a `PeriodLocal` callback instead\n'
-                          'e.g.: cb = PeriodLocal(period=100).set_action_callback(monitor.to_callback())\n'
-                          '      solver.fit(max_epoch=..., callbacks=[cb, ...])')
-        self.check_every = check_every  # pragma: no cover
-        self.fig = ...  # pragma: no cover
+        self.check_every = check_every or 100
+        self.fig = ...
 
     @abstractmethod
     def check(self, nets, conditions, history):
@@ -62,7 +58,6 @@ class MonitorSpherical(BaseMonitor):
         i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -401,7 +396,6 @@ class MonitorSphericalHarmonics(MonitorSpherical):
         The upper bound of radius, i.e., radius of exterior boundary.
     :type r_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -499,7 +493,6 @@ class Monitor1D(BaseMonitor):
         The upper bound of time domain that we want to monitor.
     :type t_max: float
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
@@ -587,7 +580,6 @@ class Monitor2D(BaseMonitor):
         If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
     :type xy_max: tuple[float, float], optional
     :param check_every:
-        **[DEPRECATED]** Use a PeriodLocal callback instead
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
