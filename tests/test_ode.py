@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import isclose
+import pytest
 from pytest import raises, warns
 from scipy.integrate import odeint
 import matplotlib
@@ -16,68 +17,25 @@ from neurodiffeq.generators import Generator1D, BaseGenerator
 
 import torch
 
-torch.manual_seed(42)
-np.random.seed(42)
+
+@pytest.fixture(autouse=True)
+def magic():
+    MAGIC = 42
+    torch.manual_seed(MAGIC)
+    np.random.seed(MAGIC)
 
 
 def test_monitor():
     exponential = lambda u, t: diff(u, t) - u
     init_val_ex = IVP(t_0=0.0, u_0=1.0)
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.0, t_max=2.0,
-                           max_epochs=3,
-                           monitor=Monitor1D(t_min=0.0, t_max=2.0, check_every=1))
-
-    with warns(DeprecationWarning):
+    with warns(FutureWarning):
         solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
                                t_min=0.0, t_max=2.0,
                                max_epochs=3,
-                               monitor=Monitor(t_min=0.0, t_max=2.0, check_every=1))
+                               monitor=Monitor1D(t_min=0.0, t_max=2.0, check_every=1))
 
-
-def test_train_generator():
-    exponential = lambda u, t: diff(u, t) - u
-    init_val_ex = IVP(t_0=0.0, u_0=1.0)
-
-    train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='uniform')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.0, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='equally-spaced')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.0, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='equally-spaced-noisy')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.0, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='equally-spaced-noisy', noise_std=0.01)
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.0, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.1, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy')
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.1, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-    train_gen = Generator1D(size=32, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy',
-                            noise_std=0.01)
-    solution_ex, _ = solve(ode=exponential, condition=init_val_ex,
-                           t_min=0.1, t_max=2.0,
-                           train_generator=train_gen,
-                           max_epochs=3)
-
-    with raises(ValueError):
-        train_gen = Generator1D(size=32, t_min=0.0, t_max=2.0, method='magic')
+    with warns(FutureWarning):
+        Monitor(t_min=0.0, t_max=2.0, check_every=1)
 
 
 def test_ode():
@@ -87,9 +45,10 @@ def test_ode():
 
     exponential = lambda u, t: diff(u, t) - u
     init_val_ex = IVP(t_0=0.0, u_0=1.0)
-    solution_ex, loss_history = solve(ode=exponential, condition=init_val_ex,
-                                      t_min=0.0, t_max=2.0, shuffle=False,
-                                      max_epochs=10, return_best=True, metrics={'mse': mse})
+    with warns(FutureWarning):
+        solution_ex, loss_history = solve(ode=exponential, condition=init_val_ex,
+                                          t_min=0.0, t_max=2.0, shuffle=False,
+                                          max_epochs=10, return_best=True, metrics={'mse': mse})
 
     assert isinstance(solution_ex, Solution1D)
     assert isinstance(loss_history, dict)
@@ -101,17 +60,17 @@ def test_ode():
 
 
 def test_ode_system():
-    parametric_circle = lambda u1, u2, t: [diff(u1, t) - u2,
-                                           diff(u2, t) + u1]
-    init_vals_pc = [
-        IVP(t_0=0.0, u_0=0.0),
-        IVP(t_0=0.0, u_0=1.0)
-    ]
+    parametric_circle = lambda u1, u2, t: [diff(u1, t) - u2, diff(u2, t) + u1]
+    init_vals_pc = [IVP(t_0=0.0, u_0=0.0), IVP(t_0=0.0, u_0=1.0)]
 
-    solution_pc, loss_history = solve_system(ode_system=parametric_circle,
-                                             conditions=init_vals_pc,
-                                             t_min=0.0, t_max=2 * np.pi,
-                                             max_epochs=10, )
+    with warns(FutureWarning):
+        solution_pc, loss_history = solve_system(
+            ode_system=parametric_circle,
+            conditions=init_vals_pc,
+            t_min=0.0,
+            t_max=2 * np.pi,
+            max_epochs=10,
+        )
 
     assert isinstance(solution_pc, Solution1D)
     assert isinstance(loss_history, dict)
@@ -137,12 +96,13 @@ def test_additional_loss_term():
         DirichletBVP(t_0=0, u_0=0, t_1=2, u_1=0),
     ]
 
-    solution_squarewell, loss_history = solve_system(
-        ode_system=particle_squarewell, conditions=boundary_conditions,
-        additional_loss_term=zero_y2,
-        t_min=0.0, t_max=2.0,
-        max_epochs=10,
-    )
+    with warns(FutureWarning):
+        solution_squarewell, loss_history = solve_system(
+            ode_system=particle_squarewell, conditions=boundary_conditions,
+            additional_loss_term=zero_y2,
+            t_min=0.0, t_max=2.0,
+            max_epochs=10,
+        )
     assert isinstance(solution_squarewell, Solution1D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
@@ -161,8 +121,9 @@ def test_solution():
         conditions = [IVP(t0, u0), IVP(t1, u1)]
         if use_single:
             net = FCNN(1, 2)
-            for i, cond in enumerate(conditions):
-                cond.set_impose_on(i)
+            with warns(DeprecationWarning):
+                for i, cond in enumerate(conditions):
+                    cond.set_impose_on(i)
             return Solution1D(net, conditions)
         else:
             nets = [FCNN(1, 1), FCNN(1, 1)]
@@ -182,13 +143,19 @@ def test_solution():
         ts = torch.linspace(t0, t1, N_SAMPLES)
         us = solution(ts)
         check_output(us, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        us = solution(ts, as_type='np')
+        with warns(FutureWarning):
+            us = solution(ts, as_type='np')
+        check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(ts, to_numpy=True)
         check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
 
         ts = ts.reshape(-1, 1)
         us = solution(ts)
         check_output(us, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        us = solution(ts, as_type='np')
+        with warns(FutureWarning):
+            us = solution(ts, as_type='np')
+        check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(ts, to_numpy=True)
         check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
 
 
@@ -204,7 +171,7 @@ def test_get_internals():
         ode_system=parametric_circle,
         conditions=init_vals_pc,
         t_min=0.0,
-        t_max=2*np.pi,
+        t_max=2 * np.pi,
     )
 
     solver.fit(max_epochs=1)
