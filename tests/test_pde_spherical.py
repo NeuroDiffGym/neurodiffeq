@@ -5,7 +5,7 @@ import matplotlib
 
 matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
 from math import erf, sqrt
-from pytest import raises, warns
+import pytest
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from neurodiffeq.generators import GeneratorSpherical, Generator3D
 from neurodiffeq.conditions import NoCondition
@@ -15,12 +15,16 @@ from neurodiffeq.conditions import DirichletBVPSphericalBasis
 from neurodiffeq.pde_spherical import solve_spherical, solve_spherical_system
 from neurodiffeq.pde_spherical import MonitorSpherical
 from neurodiffeq.pde_spherical import MonitorSphericalHarmonics
+from neurodiffeq.solvers import SolutionSpherical, SolutionSphericalHarmonics
 from neurodiffeq.function_basis import RealSphericalHarmonics, HarmonicsLaplacian
 from neurodiffeq.networks import FCNN
 
-MAGIC = 42
-torch.manual_seed(MAGIC)
-np.random.seed(MAGIC)
+
+@pytest.fixture(autouse=True)
+def magic():
+    MAGIC = 42
+    torch.manual_seed(MAGIC)
+    np.random.seed(MAGIC)
 
 
 def laplacian_spherical(u, r, theta, phi):
@@ -32,94 +36,6 @@ def laplacian_spherical(u, r, theta, phi):
     return r_component + theta_component + phi_component
 
 
-def test_dirichlet_bvp_spherical():
-    # B.C. for the interior boundary (r_min)
-    interior = nn.Linear(in_features=2, out_features=1, bias=True)
-    f = lambda theta, phi: interior(torch.cat([theta, phi], dim=1))
-
-    # B.C. for the exterior boundary (r_max)
-    exterior = nn.Linear(in_features=2, out_features=1, bias=True)
-    g = lambda theta, phi: exterior(torch.cat([theta, phi], dim=1))
-
-    bvp = DirichletBVPSpherical(r_0=0., f=f, r_1=1.0, g=g)
-
-    net = nn.Linear(in_features=3, out_features=1, bias=True)
-    theta = torch.rand(10, 1) * np.pi
-    phi = torch.rand(10, 1) * 2 * np.pi
-
-    r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().cpu().numpy()
-    u0 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
-    assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
-
-    r = torch.ones_like(theta)
-    v1 = g(theta, phi).detach().cpu().numpy()
-    u1 = bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
-    assert np.isclose(v1, u1, atol=1.e-5).all(), f"Unmatched boundary {v1} != {u1}"
-
-    bvp_half = DirichletBVPSpherical(r_0=2., f=f)
-
-    r = torch.ones_like(theta) * 2.
-    v2 = f(theta, phi).detach().cpu().numpy()
-    u2 = bvp_half.enforce(net, r, theta, phi).detach().cpu().numpy()
-    assert np.isclose(v2, u2, atol=1.e-5).all(), f"Unmatched boundary {v2} != {u2}"
-
-
-def test_inf_dirichlet_bvp_spherical():
-    # B.C. for the interior boundary (r_min)
-    interior = nn.Linear(in_features=2, out_features=1, bias=True)
-    f = lambda theta, phi: interior(torch.cat([theta, phi], dim=1))
-
-    # B.C. for the exterior boundary (r_max)
-    exterior = nn.Linear(in_features=2, out_features=1, bias=True)
-    g = lambda theta, phi: exterior(torch.cat([theta, phi], dim=1))
-
-    inf_bvp = InfDirichletBVPSpherical(r_0=0., f=f, g=g, order=1)
-
-    net = nn.Linear(in_features=3, out_features=1, bias=True)
-    theta = torch.rand(10, 1) * np.pi
-    phi = torch.rand(10, 1) * (2 * np.pi)
-
-    r = torch.zeros_like(theta)
-    v0 = f(theta, phi).detach().cpu().numpy()
-    u0 = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
-    assert np.isclose(v0, u0, atol=1.e-5).all(), f"Unmatched boundary {v0} != {u0}"
-
-    r = torch.ones_like(theta) * 1e10  # using the real inf results in error because (inf * 0) returns nan in torch
-    v_inf = g(theta, phi).detach().cpu().numpy()
-    u_inf = inf_bvp.enforce(net, r, theta, phi).detach().cpu().numpy()
-    assert np.isclose(v_inf, u_inf, atol=1.e-5).all(), f"Unmatched boundary {v_inf} != {u_inf}"
-
-
-def test_train_generator_spherical():
-    pde = laplacian_spherical
-    condition = NoCondition()
-    train_generator = GeneratorSpherical(size=64, r_min=0., r_max=1., method='equally-spaced-noisy')
-    r, th, ph = train_generator.get_examples()
-    assert (0. < r.min()) and (r.max() < 1.)
-    assert (0. <= th.min()) and (th.max() <= np.pi)
-    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
-
-    valid_generator = GeneratorSpherical(size=64, r_min=1., r_max=1., method='equally-radius-noisy')
-    r, th, ph = valid_generator.get_examples()
-    assert (r == 1).all()
-    assert (0. <= th.min()) and (th.max() <= np.pi)
-    assert (0. <= ph.min()) and (ph.max() <= 2 * np.pi)
-
-    solve_spherical(pde, condition, 0.0, 1.0,
-                    train_generator=train_generator,
-                    valid_generator=valid_generator,
-                    max_epochs=1)
-    with raises(ValueError):
-        _ = GeneratorSpherical(64, method='bad_generator')
-
-    with raises(ValueError):
-        _ = GeneratorSpherical(64, r_min=-1.0)
-
-    with raises(ValueError):
-        _ = GeneratorSpherical(64, r_min=1.0, r_max=0.0)
-
-
 def test_solve_spherical():
     pde = laplacian_spherical
     generator = GeneratorSpherical(512)
@@ -128,9 +44,9 @@ def test_solve_spherical():
     f = lambda th, ph: 0.
     g = lambda th, ph: 0.
     condition = DirichletBVPSpherical(r_0=0., f=f, r_1=1., g=g)
-    solution, loss_history = solve_spherical(pde, condition, 0.0, 1.0, max_epochs=2, return_best=True)
-    rs, thetas, phis = generator.get_examples()
-    us = solution(rs, thetas, phis, as_type='np')
+    with pytest.warns(FutureWarning):
+        solution, loss_history = solve_spherical(pde, condition, 0.0, 1.0, max_epochs=2, return_best=True)
+    assert isinstance(solution, SolutionSpherical)
 
 
 def test_monitor_spherical():
@@ -155,13 +71,13 @@ def test_monitor_spherical():
         'train_bar': list(np.random.rand(10)),
         'valid_bar': list(np.random.rand(10)),
     }
-    with warns(FutureWarning):
+    with pytest.warns(FutureWarning):
         monitor.check(nets, conditions, history=history, analytic_mse_history=analytic_mse_history)
-    with warns(FutureWarning):
+    with pytest.warns(FutureWarning):
         monitor.check(nets, conditions, history=loss_history)
-    with warns(FutureWarning):
+    with pytest.warns(FutureWarning):
         monitor.check(nets, conditions, history=loss_history, analytic_mse_history=analytic_mse_history)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         monitor.check(nets, conditions, history={'train_foo': [], 'valid_foo': []})
     monitor.check(nets, conditions, history=history)
 
@@ -179,13 +95,9 @@ def test_solve_spherical_system():
         DirichletBVPSpherical(r_0=0., f=lambda phi, theta: 1., r_1=1., g=lambda phi, theta: 1.),
     ]
 
-    solution, loss_history = solve_spherical_system(pde_system, conditions, 0.0, 1.0, max_epochs=2, return_best=True)
-    generator = GeneratorSpherical(512, r_min=0., r_max=1.)
-    rs, thetas, phis = generator.get_examples()
-    us, vs = solution(rs, thetas, phis, as_type='np')
-
-    # assert np.isclose(us, np.zeros(512), atol=0.005).all(), f"Solution u is not straight 0s: {us}"
-    # assert np.isclose(vs, np.ones(512), atol=0.005).all(), f"Solution v is not straight 1s: {vs}"
+    with pytest.warns(FutureWarning):
+        solution, _ = solve_spherical_system(pde_system, conditions, 0.0, 1.0, max_epochs=2, return_best=True)
+    assert isinstance(solution, SolutionSpherical)
 
 
 def test_electric_potential_gaussian_charged_density():
@@ -213,7 +125,7 @@ def test_electric_potential_gaussian_charged_density():
     def validate(solution):
         generator = GeneratorSpherical(512, r_min=r_0, r_max=r_1)
         rs, thetas, phis = generator.get_examples()
-        us = solution(rs, thetas, phis, as_type="np")
+        us = solution(rs, thetas, phis, to_numpy=True)
         vs = analytic_solution(rs, thetas, phis).detach().cpu().numpy()
         assert us.shape == vs.shape
 
@@ -222,18 +134,19 @@ def test_electric_potential_gaussian_charged_density():
     pde1 = lambda u, r, th, ph: laplacian_spherical(u, r, th, ph) + rho_f(r) / epsilon
     condition1 = DirichletBVPSpherical(r_0, lambda th, ph: v_0, r_1, lambda th, ph: v_1)
     monitor1 = MonitorSpherical(r_0, r_1, check_every=50)
-    solution1, metrics_history = solve_spherical(
-        pde1, condition1, r_0, r_1,
-        max_epochs=2,
-        return_best=True,
-        analytic_solution=analytic_solution,
-        monitor=monitor1,
-        batch_size=64,
-    )
+    with pytest.warns(FutureWarning):
+        solution1, metrics_history = solve_spherical(
+            pde1, condition1, r_0, r_1,
+            max_epochs=2,
+            return_best=True,
+            analytic_solution=analytic_solution,
+            monitor=monitor1,
+        )
     validate(solution1)
 
     # solving the problem using spherical harmonics (laplcian computation is optimized)
     max_degree = 2
+    harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
     harmonic_laplacian = HarmonicsLaplacian(max_degree=max_degree)
     pde2 = lambda R, r, th, ph: harmonic_laplacian(R, r, th, ph) + rho_f(r) / epsilon
     R_0 = torch.tensor([v_0 * 2] + [0 for _ in range((max_degree + 1) ** 2 - 1)])
@@ -245,20 +158,18 @@ def test_electric_potential_gaussian_charged_density():
         return sol
 
     condition2 = DirichletBVPSphericalBasis(r_0=r_0, R_0=R_0, r_1=r_1, R_1=R_1, max_degree=max_degree)
-    monitor2 = MonitorSphericalHarmonics(r_0, r_1, check_every=50, max_degree=max_degree)
+    monitor2 = MonitorSphericalHarmonics(r_0, r_1, check_every=50, harmonics_fn=harmonics_fn)
     net2 = FCNN(n_input_units=1, n_output_units=(max_degree + 1) ** 2)
-    harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
-    solution2, metrics_history = solve_spherical(
-        pde2, condition2, r_0, r_1,
-        net=net2,
-        max_epochs=2,
-        return_best=True,
-        analytic_solution=analytic_solution2,
-        monitor=monitor2,
-        batch_size=64,
-        harmonics_fn=harmonics_fn,
-    )
-
+    with pytest.warns(FutureWarning):
+        solution2, metrics_history = solve_spherical(
+            pde2, condition2, r_0, r_1,
+            net=net2,
+            max_epochs=2,
+            return_best=True,
+            analytic_solution=analytic_solution2,
+            monitor=monitor2,
+            harmonics_fn=harmonics_fn,
+        )
     validate(solution2)
 
 
