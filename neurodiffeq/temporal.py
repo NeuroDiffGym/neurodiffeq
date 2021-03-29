@@ -51,7 +51,7 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
     :param single_network: A neural network with 2 input nodes (x, t) and 1 output node.
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde` 
+    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde`
         should be a function that maps :math:`(u, x, t)` to :math:`F(u, x, t)`.
     :type pde: function
     :param initial_condition: A first order initial condition.
@@ -110,7 +110,7 @@ class SingleNetworkApproximator2DSpatial(Approximator):
 
     :param single_network: A neural network with 2 input nodes (x, y) and 1 output node.
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde` 
+    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde`
         should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: function
     :param boundary_conditions: A list of boundary conditions.

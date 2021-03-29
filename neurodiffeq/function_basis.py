@@ -128,7 +128,7 @@ def _get_real_fourier_term(degree, sine=True):
 
 
 class RealFourierSeries(FunctionBasis):
-    """
+    """Real Fourier Series.
 
     :param max_degree: highest degree for the fourier series
     :type max_degree: int
