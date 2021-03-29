@@ -78,12 +78,44 @@ def test_resnet():
         n_features_out = np.random.randint(1, 5)
         n_hidden_units = np.random.randint(30, 60)
         n_hidden_layers = np.random.randint(0, 4)
+        hidden_units = [np.random.randint(1, 10) for _ in range(np.random.randint(2, 4))]
+        with pytest.warns(FutureWarning):
+            _test_shape(
+                n_samples, n_features_in, n_features_out, Resnet,
+                n_input_units=n_features_in,
+                n_output_units=n_features_out,
+                n_hidden_units=n_hidden_units,
+            )
+        with pytest.warns(FutureWarning):
+            _test_shape(
+                n_samples, n_features_in, n_features_out, Resnet,
+                n_input_units=n_features_in,
+                n_output_units=n_features_out,
+                n_hidden_layers=n_hidden_layers,
+            )
+        with pytest.warns(FutureWarning):
+            _test_shape(
+                n_samples, n_features_in, n_features_out, Resnet,
+                n_input_units=n_features_in,
+                n_output_units=n_features_out,
+                n_hidden_units=n_hidden_units,
+                n_hidden_layers=n_hidden_layers,
+            )
+        with pytest.warns(FutureWarning):
+            _test_shape(
+                n_samples, n_features_in, n_features_out, Resnet,
+                n_input_units=n_features_in,
+                n_output_units=n_features_out,
+                n_hidden_units=n_hidden_units,
+                n_hidden_layers=n_hidden_layers,
+                hidden_units=hidden_units
+            )
+
         _test_shape(
             n_samples, n_features_in, n_features_out, Resnet,
             n_input_units=n_features_in,
             n_output_units=n_features_out,
-            n_hidden_units=n_hidden_units,
-            n_hidden_layers=n_hidden_layers,
+            hidden_units=hidden_units
         )
 
 
