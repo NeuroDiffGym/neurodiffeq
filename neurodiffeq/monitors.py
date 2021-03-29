@@ -10,11 +10,11 @@ import seaborn as sns
 from abc import ABC, abstractmethod
 
 from ._version_utils import deprecated_alias
-from .function_basis import RealSphericalHarmonics
-from .generators import Generator1D
-from .generators import Generator2D
-from .generators import Generator3D
-from .conditions import IrregularBoundaryCondition
+from .function_basis import RealSphericalHarmonics as _RealSphericalHarmonics
+from .generators import Generator1D as _Generator1D
+from .generators import Generator2D as _Generator2D
+from .generators import Generator3D as _Generator3D
+from .conditions import IrregularBoundaryCondition as _IrregularBC
 
 
 class BaseMonitor(ABC):
@@ -129,7 +129,7 @@ class MonitorSpherical(BaseMonitor):
         if r_scale == 'log':
             r_min, r_max = np.log(r_min), np.log(r_max)
 
-        gen = Generator3D(
+        gen = _Generator3D(
             grid=shape,
             xyz_min=(r_min, theta_min, phi_min),
             xyz_max=(r_max, theta_max, phi_max),
@@ -473,7 +473,7 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
         if max_degree is not None:
             warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
-            self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
+            self.harmonics_fn = _RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
             self.harmonics_fn = harmonics_fn
@@ -610,7 +610,7 @@ class Monitor2D(BaseMonitor):
         self.cbs = []  # color bars
         # input for neural network
         if valid_generator is None:
-            valid_generator = Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
+            valid_generator = _Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = valid_generator.get_examples()
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
         self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
@@ -624,7 +624,7 @@ class Monitor2D(BaseMonitor):
         ys = ys[triang.triangles].mean(axis=1)
         if condition:
             xs, ys = torch.tensor(xs), torch.tensor(ys)
-            if isinstance(condition, IrregularBoundaryCondition):
+            if isinstance(condition, _IrregularBC):
                 in_domain = condition.in_domain(xs, ys)
                 triang.set_mask(~in_domain)
 
