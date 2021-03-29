@@ -11,7 +11,7 @@ from neurodiffeq.conditions import NoCondition
 from neurodiffeq.solvers import Solver1D
 from neurodiffeq.monitors import Monitor1D
 from neurodiffeq.callbacks import MonitorCallback, CheckpointCallback, ReportOnFitCallback, \
-    BaseCallback, SimpleTensorboardCallback, ReportCallback
+    BaseCallback, SimpleTensorboardCallback, ReportCallback, ActionCallback
 from neurodiffeq.callbacks import TrueCallback, FalseCallback, ConditionCallback
 from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, PeriodGlobal, PeriodLocal
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
@@ -40,7 +40,7 @@ def solver():
 
 @pytest.fixture
 def dummy_cb():
-    class PassCallback(ConditionCallback):
+    class PassCallback(ActionCallback):
         def __call__(self, solver):
             pass
 

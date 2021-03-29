@@ -83,13 +83,13 @@ class Generator1D(BaseGenerator):
     """
 
     def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform', noise_std=None):
-        super(Generator1D, self).__init__()
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 1-D training points. 
+            A instance method `get_examples` is dynamically created to generate 1-D training points.
             It will be called by the function `solve` and `solve_system`.
         """
+        super(Generator1D, self).__init__()
         self.size = size
         self.t_min, self.t_max = t_min, t_max
         self.method = method
