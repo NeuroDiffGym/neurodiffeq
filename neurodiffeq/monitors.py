@@ -37,6 +37,20 @@ class BaseMonitor(ABC):
         pass  # pragma: no cover
 
     def to_callback(self, fig_dir=None, format=None, logger=None):
+        r"""Return a callback that updates the monitor plots, which will be run
+
+        1. Every ``self.check_every`` epochs; and
+        2. After the last local epoch.
+
+        :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
+        :type fig_dir: str
+        :param format: Format for saving figures: {'jpg', 'png' (default), ...}.
+        :type format: str
+        :param logger: The logger (or its name) to be used for the returned callback. Defaults to the 'root' logger.
+        :type logger: str or ``logging.Logger``
+        :return: The callback that updates the monitor plots.
+        :rtype: neurodiffeq.callbacks.BaseCallback
+        """
         # to avoid circular import
         from .callbacks import MonitorCallback, PeriodLocal, OnLastLocal
         action_cb = MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
