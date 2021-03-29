@@ -1,7 +1,8 @@
 import sys
-import torch
-import numpy as np
+import pytest
 from pytest import raises, warns, deprecated_call
+import numpy as np
+import torch
 # atomic-ish generator classes
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
@@ -18,9 +19,13 @@ from neurodiffeq.generators import ResampleGenerator
 from neurodiffeq.generators import BatchGenerator
 from neurodiffeq.generators import SamplerGenerator
 
-MAGIC = 42
-torch.manual_seed(MAGIC)
-np.random.seed(MAGIC)
+
+@pytest.fixture(autouse=True)
+def magic():
+    MAGIC = 42
+    torch.manual_seed(MAGIC)
+    np.random.seed(MAGIC)
+    return MAGIC
 
 
 def _check_shape_and_grad(generator, target_size, *xs):
@@ -87,7 +92,8 @@ def test_generator1d():
     with raises(ValueError):
         generator = Generator1D(size=size, t_min=0.0, t_max=2.0, method='magic')
 
-    print('testing generator name: ', generator)
+    str(generator)
+    repr(generator)
 
 
 def test_generator2d():
@@ -111,7 +117,8 @@ def test_generator2d():
     assert _check_shape_and_grad(generator, size, x, y)
     assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
 
-    print('testing generator name: ', generator)
+    str(generator)
+    repr(generator)
 
 
 def test_generator3d():
@@ -132,7 +139,8 @@ def test_generator3d():
     assert _check_shape_and_grad(generator, size, x, y, z)
     assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
 
-    print('testing generator name: ', generator)
+    str(generator)
+    repr(generator)
 
 
 def test_generator_spherical():
@@ -149,7 +157,8 @@ def test_generator_spherical():
     assert _check_shape_and_grad(generator, size, r, theta, phi)
     assert _check_boundary((r, theta, phi), (r_min, 0.0, 0.0), (r_max, np.pi, np.pi * 2))
 
-    print('testing generator name: ', generator)
+    str(generator)
+    repr(generator)
 
 
 def test_concat_generator():
@@ -174,7 +183,8 @@ def test_concat_generator():
     r, theta, phi = added_generator.get_examples()
     assert _check_shape_and_grad(added_generator, size1 + size2 + size3, r, theta, phi)
 
-    print('testing generator name: ', concat_generator)
+    str(concat_generator)
+    repr(concat_generator)
 
 
 def test_static_generator():
@@ -196,7 +206,8 @@ def test_static_generator():
     assert _check_shape_and_grad(static_generator, size, r1, theta1, phi1, r2, theta2, phi2)
     assert (r1 == r2).all() and (theta1 == theta2).all() and (phi1 == phi2).all()
 
-    print('testing generator name: ', static_generator)
+    str(static_generator)
+    repr(static_generator)
 
 
 def test_predefined_generator():
@@ -230,7 +241,8 @@ def test_predefined_generator():
     assert _check_iterable_equal(z_array, z)
     assert _check_iterable_equal(w_tensor, w)
 
-    print('testing generator name: ', predefined_generator)
+    str(predefined_generator)
+    repr(predefined_generator)
 
 
 def test_transform_generator():
@@ -264,7 +276,8 @@ def test_transform_generator():
     assert _check_iterable_equal(y, y_expected)
     assert _check_iterable_equal(z, z_expected)
 
-    print('testing generator name: ', transform_generator)
+    str(transform_generator)
+    repr(transform_generator)
 
 
 def test_ensemble_generator():
@@ -298,7 +311,8 @@ def test_ensemble_generator():
     assert _check_iterable_equal(old_x, x)
     assert _check_iterable_equal(old_y, y)
 
-    print('testing generator name: ', ensemble_generator)
+    str(ensemble_generator)
+    repr(ensemble_generator)
 
 
 def test_filter_generator():
@@ -340,7 +354,8 @@ def test_filter_generator():
         assert _check_shape_and_grad(filter_generator, fixed_size)
         filter_generator.get_examples()
 
-    print('testing generator name: ', filter_generator)
+    str(filter_generator)
+    repr(filter_generator)
 
 
 def test_resample_generator():
@@ -387,7 +402,8 @@ def test_resample_generator():
     assert _check_iterable_equal(y + 100, z)
     assert len(torch.unique(x.detach())) < len(x)
 
-    print('testing generator name: ', resample_generator)
+    str(resample_generator)
+    repr(resample_generator)
 
 
 def test_batch_generator():
@@ -423,7 +439,8 @@ def test_batch_generator():
         answer_x = (answer_x + batch_size) % size
         answer_y = (answer_y + batch_size) % size
 
-    print('testing generator name: ', batch_generator)
+    str(batch_generator)
+    repr(batch_generator)
 
 
 def test_sampler_geneartor():
@@ -435,7 +452,8 @@ def test_sampler_geneartor():
     x, = x
     assert x.shape == (size, 1)
 
-    print('testing generator name: ', sampler_generator)
+    str(sampler_generator)
+    repr(sampler_generator)
 
 
 def test_legacy_module():
