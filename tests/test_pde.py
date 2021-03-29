@@ -200,7 +200,7 @@ def test_laplace():
 #     xs, ys = np.linspace(0, L, 101), np.linspace(-1, 1, 101)
 #     xx, yy = np.meshgrid(xs, ys)
 #     u_ana, v_ana, p_ana = solution_analytical_poiseuille(xx, yy)
-#     u_net, v_net, p_net = solution_neural_net_poiseuille(xx, yy, as_type='np')
+#     u_net, v_net, p_net = solution_neural_net_poiseuille(xx, yy, to_numpy=True)
 #
 #     assert isclose(u_ana, u_net, atol=0.01).all()
 #     assert isclose(v_ana, v_net, atol=0.01).all()
@@ -390,7 +390,7 @@ def test_arbitrary_boundary():
 
     xs = torch.tensor([p.loc[0] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
     ys = torch.tensor([p.loc[1] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
-    us = solution_neural_net_problem_c(xs, ys, as_type='np')
+    us = solution_neural_net_problem_c(xs, ys, to_numpy=True)
     true_us = solution_analytical_problem_c(to_np(xs), to_np(ys))
     assert isclose(us, true_us, atol=1e-4).all()
 
