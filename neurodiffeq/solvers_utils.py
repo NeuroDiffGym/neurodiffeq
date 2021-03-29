@@ -4,7 +4,8 @@ import numpy as np
 import pathlib
 
 class SolverConfig():
-    init_vals_lv = None
+    conditions = None
+    ode_system = None
 
 class PretrainedSolver():
 
@@ -27,7 +28,7 @@ class PretrainedSolver():
 			
     #Loading saved attributes into new solver object        
     @classmethod		
-    def load(cls, path):
+    def load(cls, path, config=SolverConfig()):
         with open(path,'rb') as file:
             load_dict = dill.load(file)	
 
@@ -38,9 +39,18 @@ class PretrainedSolver():
         # For 1D
         # params = {"ode_system":load_dict['diff_eqs'],"key":2}
         # solver = cls(**params)
-		
-        solver = cls(ode_system = load_dict['diff_eqs'],
-                     conditions = load_dict['conditions'],
+        if config.ode_system == None:
+            ode = load_dict['diff_eqs']
+        else:
+            ode = config.ode_system
+        
+        if config.conditions == None:
+            cond = load_dict['conditions']
+        else:
+            cond = config.conditions
+
+        solver = cls(ode_system = ode,
+                     conditions = cond,
                      criterion = load_dict['criterion'],
                      metrics = load_dict['metrics'],
                      nets = load_dict['nets'],
