@@ -157,6 +157,15 @@ def test_generator_spherical():
     assert _check_shape_and_grad(generator, size, r, theta, phi)
     assert _check_boundary((r, theta, phi), (r_min, 0.0, 0.0), (r_max, np.pi, np.pi * 2))
 
+    with pytest.raises(ValueError):
+        _ = GeneratorSpherical(64, method='bad_generator')
+
+    with pytest.raises(ValueError):
+        _ = GeneratorSpherical(64, r_min=-1.0)
+
+    with pytest.raises(ValueError):
+        _ = GeneratorSpherical(64, r_min=1.0, r_max=0.0)
+
     str(generator)
     repr(generator)
 
