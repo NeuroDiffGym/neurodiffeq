@@ -1,6 +1,7 @@
 import numpy as np
 import random
 from numpy import isclose
+import pytest
 import matplotlib
 
 matplotlib.use('Agg')  # use a non-GUI backend, so plots are not shown during testing
@@ -14,14 +15,15 @@ from neurodiffeq.pde import Solution2D
 from neurodiffeq.generators import PredefinedGenerator, Generator2D
 from neurodiffeq.conditions import DirichletBVP2D, DirichletBVP
 
-from pytest import raises
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-torch.manual_seed(42)
-np.random.seed(42)
+
+@pytest.fixture(autouse=True)
+def magic():
+    torch.manual_seed(42)
+    np.random.seed(42)
 
 
 def test_monitor():
@@ -34,13 +36,14 @@ def test_monitor():
     )
 
     net = FCNN(n_input_units=2, hidden_units=(32, 32))
-    solution_neural_net_laplace, _ = solve2D(
-        pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=3,
-        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
-        batch_size=64,
-        monitor=Monitor2D(check_every=1, xy_min=(0, 0), xy_max=(1, 1))
-    )
+    with pytest.warns(FutureWarning):
+        solve2D(
+            pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
+            net=net, max_epochs=3,
+            train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
+            batch_size=64,
+            monitor=Monitor2D(check_every=1, xy_min=(0, 0), xy_max=(1, 1))
+        )
 
 
 def test_train_generator():
@@ -53,36 +56,8 @@ def test_train_generator():
     )
 
     net = FCNN(n_input_units=2, hidden_units=(32, 32))
-    solution_neural_net_laplace, _ = solve2D(
-        pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=3,
-        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy'),
-        batch_size=64,
-        monitor=Monitor2D(check_every=1, xy_min=(0, 0), xy_max=(1, 1))
-    )
 
-    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
-    solution_neural_net_laplace, _ = solve2D(
-        pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=3, train_generator=train_gen, batch_size=64
-    )
-    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
-    solution_neural_net_laplace, _ = solve2D(
-        pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=3, train_generator=train_gen, batch_size=64
-    )
-
-    with raises(ValueError):
-        train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='magic')
-
-    valid_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy')
-    train_gen = Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced')
-    solution_neural_net_laplace, _ = solve2D(
-        pde=laplace, condition=bc,
-        net=net, max_epochs=3, train_generator=train_gen, valid_generator=valid_gen, batch_size=64
-    )
-
-    with raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(FutureWarning):
         solution_neural_net_laplace, _ = solve2D(
             pde=laplace, condition=bc,
             net=net, max_epochs=3, batch_size=64
@@ -95,16 +70,18 @@ def test_laplace():
         x_min=0, x_min_val=lambda y: torch.sin(np.pi * y),
         x_max=1, x_max_val=lambda y: 0,
         y_min=0, y_min_val=lambda x: 0,
-        y_max=1, y_max_val=lambda x: 0
+        y_max=1, y_max_val=lambda x: 0,
     )
 
     net = FCNN(n_input_units=2, hidden_units=(32, 32))
-    solution_neural_net_laplace, loss_history = solve2D(
-        pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
-        net=net, max_epochs=3,
-        train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy', xy_noise_std=(0.01, 0.01)),
-        batch_size=64
-    )
+    with pytest.warns(FutureWarning):
+        solution_neural_net_laplace, loss_history = solve2D(
+            pde=laplace, condition=bc, xy_min=(0, 0), xy_max=(1, 1),
+            net=net, max_epochs=3,
+            train_generator=Generator2D((32, 32), (0, 0), (1, 1), method='equally-spaced-noisy',
+                                        xy_noise_std=(0.01, 0.01)),
+            batch_size=64
+        )
     assert isinstance(solution_neural_net_laplace, Solution2D)
     assert isinstance(loss_history, dict)
     keys = ['train_loss', 'valid_loss']
@@ -401,14 +378,15 @@ def test_arbitrary_boundary():
     adam = optim.Adam(params=net.parameters(), lr=0.001)
 
     # train on 28 X 28 grid
-    solution_neural_net_problem_c, history_problem_c = solve2D(
-        pde=de_problem_c, condition=cbc_problem_c,
-        xy_min=(-1, -1), xy_max=(1, 1),
-        train_generator=train_gen, valid_generator=valid_gen,
-        net=net, max_epochs=1, batch_size=128, optimizer=adam,
-        monitor=Monitor2D(check_every=1, xy_min=(-1, -1), xy_max=(1, 1), valid_generator=valid_gen),
-        metrics={'rmse': rmse}
-    )
+    with pytest.warns(FutureWarning):
+        solution_neural_net_problem_c, history_problem_c = solve2D(
+            pde=de_problem_c, condition=cbc_problem_c,
+            xy_min=(-1, -1), xy_max=(1, 1),
+            train_generator=train_gen, valid_generator=valid_gen,
+            net=net, max_epochs=1, batch_size=128, optimizer=adam,
+            monitor=Monitor2D(check_every=1, xy_min=(-1, -1), xy_max=(1, 1), valid_generator=valid_gen),
+            metrics={'rmse': rmse}
+        )
 
     xs = torch.tensor([p.loc[0] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
     ys = torch.tensor([p.loc[1] for p in dirichlet_control_points_problem_c], requires_grad=True).reshape(-1, 1)
@@ -465,7 +443,8 @@ def test_solution():
         if use_single:
             net = FCNN(2, 2)
             for i, cond in enumerate(conditions):
-                cond.set_impose_on(i)
+                with pytest.warns(DeprecationWarning):
+                    cond.set_impose_on(i)
             return Solution2D(net, conditions)
         else:
             nets = [FCNN(2, 1), FCNN(2, 1)]
@@ -504,11 +483,17 @@ def test_solution():
         xs, ys = generator.get_examples()
         us = solution(xs, ys)
         check_output(us, shape=(N_SAMPLES,), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        us = solution(xs, ys, as_type='np')
+        with pytest.warns(FutureWarning):
+            us = solution(xs, ys, as_type='np')
+        check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(xs, ys, to_numpy=True)
         check_output(us, shape=(N_SAMPLES,), type=np.ndarray, msg=f"[use_single={use_single}]")
 
         xs, ys = xs.reshape(-1, 1), ys.reshape(-1, 1)
         us = solution(xs, ys)
         check_output(us, shape=(N_SAMPLES, 1), type=torch.Tensor, msg=f"[use_single={use_single}]")
-        us = solution(xs, ys, as_type='np')
+        with pytest.warns(FutureWarning):
+            us = solution(xs, ys, as_type='np')
+        check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
+        us = solution(xs, ys, to_numpy=True)
         check_output(us, shape=(N_SAMPLES, 1), type=np.ndarray, msg=f"[use_single={use_single}]")
