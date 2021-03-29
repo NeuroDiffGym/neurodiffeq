@@ -341,4 +341,4 @@ def test_tensorboard_callback(solver, tmp_dir):
 
     default_path = Path('.') / 'runs'
     assert os.path.isdir(default_path)
-    shutil.rmtree(default_path)
+    shutil.rmtree(default_path, ignore_errors=True)
