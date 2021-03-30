@@ -131,6 +131,28 @@ You should see the plots update *every 100 epoch* as well as *on the last epoch*
 
 ![monitor](resources/monitor.gif)
 
+### Custom Networks
+
+For convenience, we have implemented an `FCNN` – fully-connected neural network, whose hidden units and activation functions can be customized. 
+
+```python
+from neurodiffeq.networks import FCNN
+# Default: n_input_units=1, n_output_units=1, hidden_units=[32, 32], activation=torch.nn.Tanh
+net1 = FCNN(n_input_units=..., n_output_units=..., hidden_units=[..., ..., ...], activation=...) 
+...
+nets = [net1, net2, ...]
+```
+
+`FCNN` is usually a good starting point. For advanced users, solvers are compatible with any custom `torch.nn.Module`. The only constraints are:
+
+1. The input shape of each module must be `(None, n_independent_variables)` and the output shape `(None, 1)`. 
+
+2. There must be a total of `n_unknown_functions` networks passed to `solver = Solver(..., nets=nets)`.
+
+*Acutally, `neurodiffeq` has a **single_net** feature that doesn't obey the above rules, but we won't cover it in this README.*
+
+Read the PyTorch [tutorial](https://pytorch.org/docs/stable/notes/modules.html) on building your own network (a.k.a module) architecture. 
+
 # Contributing
 
 Everyone is welcome to contribute to this project.
