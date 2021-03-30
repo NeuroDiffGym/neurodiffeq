@@ -168,6 +168,46 @@ new_solver.fit(max_epochs=...)
 
 We currently working on wrapper functions to save/load networks and other internal variables of Solvers. In the meantime, you can read the PyTorch [tutorial](https://pytorch.org/tutorials/beginner/saving_loading_models.html) on saving and loading your networks.
 
+### Sampling Strategies
+
+In neurodiffeq, the networks are trained by minimizing loss (ODE/PDE residuals) evaluated on a set of points in the domain. The points are randonly resampled every time. To control the number, distribution, and bounding domain of sampled points, you can specify your own training/valiadation `generator`s.
+
+```python
+from neurodiffeq.generators import Generator1D
+
+# Default t_min=0.0, t_max=1.0, method='uniform', noise_std=None
+g1 = Generator1D(size=..., t_min=..., t_max=..., method=..., noise_std=...)
+g2 = Generator1D(size=..., t_min=..., t_max=..., method=..., noise_std=...)
+
+solver = Solver1D(..., train_generator=g1, valid_generator=g2)
+```
+
+Note that when both `train_generator` and `valid_generator` are specified, `t_min` and `t_max` can be omitted in `Solver1D(...)`. In fact, even if you pass `t_min`, `t_max`, `train_generator`, `valid_generator` together, the `t_min` and `t_max` will still be ignored.
+
+#### Concatenating Points
+
+Another nice feature of the generators is that you can concatenate them, for example 
+
+```python
+g1 = Generator1D(10, t_min=0.0, t_max=1.0, method='uniform')
+g2 = Generator1D(20, t_min=0.5, t_max=1.5, method='log-spaced')
+g = g1 + g2
+```
+
+Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0, 1)` using strategy 'uniform' and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
+
+#### Sampling Higher Dimensions
+
+You can use `Generator2D`, `Generator3D`, etc. for sampling points in higher dimensions. But there's also another way
+
+```python
+g1 = Generator1D(32, t_min=2.0, t_max=3.0, method='equally-spaced-noisy')
+g2 = Generator1D(32, t_min=4.0, t_max=5.0, method='log-spaced-noisy')
+g = g1 * g2
+```
+
+Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (4,5)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `equally-spaced-noisy` and the y-coordinate drawn from `(4, 5)` using strategy `log-spaced-noisy`.
+
 # Contributing
 
 Everyone is welcome to contribute to this project.
