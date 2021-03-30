@@ -116,6 +116,21 @@ Evaluation u on points meshgrids in `[0,1] × [0,1]` yields the following plots
 | :-------------------------------------------------: | :----------------------------------------------------------: |
 | ![laplace-solution](resources/laplace-solution.png) | ![laplace-error](resources/laplace-error.png)                |
 
+### Using a Monitor
+
+A monitor is a tool for visualizing PDE/ODE solutions as well as history of loss and custom metrics during training. Jupyter Notebooks users need to run the `%matplotlib notebook` magic. For Jupyter Lab users, try `%matplotlib widget`. 
+
+```python
+from neurodiffeq.monitors import Monitor1D
+...
+monitor = Monitor1D(t_min=0.0, t_max=1.0, check_every=100)
+solver.fit(..., callbacks=[monitor.to_callback()])
+```
+
+You should see the plots update *every 100 epoch* as well as *on the last epoch*, showing two plots — one for solution visualization on the interval `[0,1]` and the other for loss history (training and validation). 
+
+![monitor](resources/monitor.gif)
+
 # Contributing
 
 Everyone is welcome to contribute to this project.
