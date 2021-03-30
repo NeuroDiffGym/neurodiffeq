@@ -39,21 +39,98 @@ Alternatively, you can install the library manually to get early access to our n
 
 # Getting Started
 
-For basic use of `neurodiffeq`, please check the [documentation](https://neurodiffeq.readthedocs.io/en/latest/) hosted on ReadTheDocs.
+To view complete tutorials and documentation of `neurodiffeq`, please check [Official Documentation](https://neurodiffeq.readthedocs.io/en/latest/). 
 
-In case ReadTheDocs' service is down (which rarely happens), you can refer to our [self-hosted documentation site](https://neurodiffeq.com) as a backup option.
+In addition to the documentations, we have recently made a quick walkthrough [Demo Video](https://youtu.be/VDLwyFD-sXQ), the slides can be found [here](https://drive.google.com/file/d/1XTbwkZ0g7ufzD7lvMB-Cl8s5nh6jKgHk/view?usp=sharing).
 
-In addition to the documentations, we have recently made a [quick walkthrough demo video](https://youtu.be/VDLwyFD-sXQ), the slides can be found [here](https://drive.google.com/file/d/1XTbwkZ0g7ufzD7lvMB-Cl8s5nh6jKgHk/view?usp=sharing)
+## Example Usages
+
+###Imports
+
+```python
+from neurodiffeq import diff
+from neurodiffeq.solvers import Solver1D, Solver2D
+from neurodiffeq.monitors import Monitor1D, Monitor2D
+from neurodiffeq.conditions import IVP, DirichletBVPIBVP1D, IBVP1D
+from neurodiffeq.networks import FCNN, SinActv
+```
+
+### ODE System Example
+
+Here we solve a non-linear system of two ODEs, known as the [Lotka–Volterra](https://en.wikipedia.org/wiki/Lotka–Volterra_equations) equations. There are two unknown functions (`u` and `v`) and a single independent variable (`t`).
+
+```python
+# Specify equation, returns residuals (= LHS - RHS)
+def ode_system(u, v, t): # `torch.Tensor`s of shape (batch_size, 1)
+    return [diff(u,t)-(u-u*v), diff(v,t)-(u*v-v)]
+# Specify initial conditions; one for `u` and one for `v`
+conditions = [IVP(t_0=0.0, u_0=1.5), IVP(t_0=0.0, u_0=1.0)]
+# Specify nets (Optional)
+nets = [FCNN(actv=SinActv), FCNN(actv=SinActv)]
+# Instantiate solver, fit the networks, and get solution.
+solver = Solver1D(ode_system, conditions, t_min=0.1, t_max=12.0, nets=nets)
+solver.fit(max_epochs=3000)
+solution = solver.get_solution()
+```
+
+`solution` is a callable object, you can pass in numpy arrays or torch tensors to it like
+
+```python
+u, v = solution(t, to_numpy=True)  # t can be np.ndarray or torch.Tensor
+```
+
+Plotting `u` and `v` against their analytical solutions yields something like:
+
+![lotka–volterra-solution](resources/lotka–volterra-solution.png)
+
+### PDE System Example
+
+Here we solve a Laplace Equation with Dirichlet boundary conditions on a rectangle. Note that we choose Laplace equation for its simplicity of computing analytical solution. **In practice, you can attempt any nonlinear, chaotic PDEs**, provided you tune the solver well enough.
+
+Solving a 2-D PDE system is quite similar to solving ODEs, except there are *two* variables `x` and `y` for boundary value problems or `x` and `t` for initial boundary value problems, both of which are supported.
+
+```python
+# In general, pde_system can take multiple `u`s pde_system(u1, u2, u3, ..., x, y)
+def pde_system(u, x, y):
+  	source = lambda x, y: 0
+	  return [diff(u, x, order=2) + diff(u, y, order=2) - source(x, y)]
+# There's only one function `u`, so we only have one condition.
+conditions = [
+  	DirichletBVP2D(
+    		x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),  # Left Side
+        x_max=1, x_max_val=lambda y: 0,                   # Right Side
+        y_min=0, y_min_val=lambda x: 0,                   # Lower Side
+        y_max=1, y_max_val=lambda x: 0,                   # Upper Side
+    )
+]
+# Also, there's only one network
+nets = [FCNN(n_input_units=2, n_output_units=1, hidden_units=(512,))]
+# A monitor helps visualize solution & loss history during training
+monitor_cb=Monitor2D(check_every=10, xy_min=(0, 0), xy_max=(1, 1)).to_callback()
+# Instantiate solver, fit the networks, and get solution.
+solver = Solver2D(pde_system, conditions, xy_min=(0, 0), xy_max=(1, 1), nets=nets)
+solver.fit(max_epochs=2000, callbacks=[monitor_cb])
+solution = solver.get_solution()
+```
+
+The signature of `solution` for a 2D PDE is slightly different from that of an ODE. Again, it takes in either numpy arrays or torch tensors.
+
+```python
+u = solution(x, y, to_numpy=True)
+```
+Evaluation u on points meshgrids in `[0,1] × [0,1]` yields the following plots
+
+|                 ANN-Based Solution                  |           Error against Analytical Solution                  |
+| :-------------------------------------------------: | :----------------------------------------------------------: |
+| ![laplace-solution](resources/laplace-solution.png) | ![laplace-error](resources/laplace-error.png)                |
 
 # Contributing
 
-Thanks for your interest to contribute! 
+Everyone is welcome to contribute to this project.
 
 When contributing to this repository, we consider the following process:
 
-1. Open an issue to discuss the change you are planning to make
-
-2. Make the change on a forked repository and update the README.md if changes are made to the interface
-
-3. Open a pull request
-
+1. Open an issue to discuss the change you are planning to make.
+2. Go through [Contribution Guidelines](CONTRIBUTING.md).
+3. Make the change on a forked repository and update the README.md if changes are made to the interface.
+4. Open a pull request.
