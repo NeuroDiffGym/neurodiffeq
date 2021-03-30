@@ -45,12 +45,11 @@ In addition to the documentations, we have recently made a quick walkthrough [De
 
 ## Example Usages
 
-###Imports
+### Imports
 
 ```python
 from neurodiffeq import diff
 from neurodiffeq.solvers import Solver1D, Solver2D
-from neurodiffeq.monitors import Monitor1D, Monitor2D
 from neurodiffeq.conditions import IVP, DirichletBVPIBVP1D, IBVP1D
 from neurodiffeq.networks import FCNN, SinActv
 ```
@@ -60,14 +59,12 @@ from neurodiffeq.networks import FCNN, SinActv
 Here we solve a non-linear system of two ODEs, known as the [Lotka–Volterra](https://en.wikipedia.org/wiki/Lotka–Volterra_equations) equations. There are two unknown functions (`u` and `v`) and a single independent variable (`t`).
 
 ```python
-# Specify equation, returns residuals (= LHS - RHS)
-def ode_system(u, v, t): # `torch.Tensor`s of shape (batch_size, 1)
+def ode_system(u, v, t): 
     return [diff(u,t)-(u-u*v), diff(v,t)-(u*v-v)]
-# Specify initial conditions; one for `u` and one for `v`
+
 conditions = [IVP(t_0=0.0, u_0=1.5), IVP(t_0=0.0, u_0=1.0)]
-# Specify nets (Optional)
 nets = [FCNN(actv=SinActv), FCNN(actv=SinActv)]
-# Instantiate solver, fit the networks, and get solution.
+
 solver = Solver1D(ode_system, conditions, t_min=0.1, t_max=12.0, nets=nets)
 solver.fit(max_epochs=3000)
 solution = solver.get_solution()
@@ -90,26 +87,21 @@ Here we solve a Laplace Equation with Dirichlet boundary conditions on a rectang
 Solving a 2-D PDE system is quite similar to solving ODEs, except there are *two* variables `x` and `y` for boundary value problems or `x` and `t` for initial boundary value problems, both of which are supported.
 
 ```python
-# In general, pde_system can take multiple `u`s pde_system(u1, u2, u3, ..., x, y)
 def pde_system(u, x, y):
-  	source = lambda x, y: 0
-	  return [diff(u, x, order=2) + diff(u, y, order=2) - source(x, y)]
-# There's only one function `u`, so we only have one condition.
+	return [diff(u, x, order=2) + diff(u, y, order=2)]
+
 conditions = [
   	DirichletBVP2D(
-    		x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),  # Left Side
-        x_max=1, x_max_val=lambda y: 0,                   # Right Side
-        y_min=0, y_min_val=lambda x: 0,                   # Lower Side
-        y_max=1, y_max_val=lambda x: 0,                   # Upper Side
+    	x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),
+        x_max=1, x_max_val=lambda y: 0,                   
+        y_min=0, y_min_val=lambda x: 0,                   
+        y_max=1, y_max_val=lambda x: 0,                   
     )
 ]
-# Also, there's only one network
 nets = [FCNN(n_input_units=2, n_output_units=1, hidden_units=(512,))]
-# A monitor helps visualize solution & loss history during training
-monitor_cb=Monitor2D(check_every=10, xy_min=(0, 0), xy_max=(1, 1)).to_callback()
-# Instantiate solver, fit the networks, and get solution.
+
 solver = Solver2D(pde_system, conditions, xy_min=(0, 0), xy_max=(1, 1), nets=nets)
-solver.fit(max_epochs=2000, callbacks=[monitor_cb])
+solver.fit(max_epochs=2000)
 solution = solver.get_solution()
 ```
 
