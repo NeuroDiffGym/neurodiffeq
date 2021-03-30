@@ -88,11 +88,11 @@ Solving a 2-D PDE system is quite similar to solving ODEs, except there are *two
 
 ```python
 def pde_system(u, x, y):
-	return [diff(u, x, order=2) + diff(u, y, order=2)]
+    return [diff(u, x, order=2) + diff(u, y, order=2)]
 
 conditions = [
-  	DirichletBVP2D(
-    	x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),
+    DirichletBVP2D(
+        x_min=0, x_min_val=lambda y: torch.sin(np.pi*y),
         x_max=1, x_max_val=lambda y: 0,                   
         y_min=0, y_min_val=lambda x: 0,                   
         y_max=1, y_max_val=lambda x: 0,                   
