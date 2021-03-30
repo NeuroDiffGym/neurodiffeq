@@ -153,6 +153,21 @@ nets = [net1, net2, ...]
 
 Read the PyTorch [tutorial](https://pytorch.org/docs/stable/notes/modules.html) on building your own network (a.k.a module) architecture. 
 
+### Transfer Learning
+
+Transfer learning is easily done by serializing `old_solver.nets` (a list of torch modules) to disk and then loading them and passing to a new solver:
+
+```python
+old_solver.fit(max_epochs=...)
+# ... dump `old_solver.nets` to disk
+
+# ... load the networks from disk, store them in some `loaded_nets` variable
+new_solver = Solver(..., nets=loaded_nets)
+new_solver.fit(max_epochs=...)
+```
+
+We currently working on wrapper functions to save/load networks and other internal variables of Solvers. In the meantime, you can read the PyTorch [tutorial](https://pytorch.org/tutorials/beginner/saving_loading_models.html) on saving and loading your networks.
+
 # Contributing
 
 Everyone is welcome to contribute to this project.
