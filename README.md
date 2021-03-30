@@ -50,7 +50,7 @@ In addition to the documentations, we have recently made a quick walkthrough [De
 ```python
 from neurodiffeq import diff
 from neurodiffeq.solvers import Solver1D, Solver2D
-from neurodiffeq.conditions import IVP, DirichletBVPIBVP1D, IBVP1D
+from neurodiffeq.conditions import IVP, DirichletBVP2D
 from neurodiffeq.networks import FCNN, SinActv
 ```
 
@@ -194,7 +194,7 @@ g2 = Generator1D(20, t_min=0.5, t_max=1.5, method='log-spaced')
 g = g1 + g2
 ```
 
-Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0, 1)` using strategy 'uniform' and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
+Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0, 1)` using strategy `uniform` and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
 
 #### Sampling Higher Dimensions
 
