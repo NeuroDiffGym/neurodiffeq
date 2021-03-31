@@ -184,31 +184,49 @@ g2 = Generator1D(size=..., t_min=..., t_max=..., method=..., noise_std=...)
 solver = Solver1D(..., train_generator=g1, valid_generator=g2)
 ```
 
+Here are  some sample distributions of a `Generator1D`.
+
+| Generator1D(8192, 0.0, 1.0, method='uniform')             | Generator1D(8192, -1.0, 0.0, method='log-spaced-noisy', noise_std=1e-3) |
+| --------------------------------------------------------- | ------------------------------------------------------------ |
+| ![generator1d-uniform](resources/generator1d-uniform.jpg) | ![generator1d-log-spaced-noisy](resources/generator1d-log-spaced-noisy.jpg) |
+
+
+
 Note that when both `train_generator` and `valid_generator` are specified, `t_min` and `t_max` can be omitted in `Solver1D(...)`. In fact, even if you pass `t_min`, `t_max`, `train_generator`, `valid_generator` together, the `t_min` and `t_max` will still be ignored.
 
-#### Concatenating Points
+#### Combining Generators
 
 Another nice feature of the generators is that you can concatenate them, for example 
 
 ```python
-g1 = Generator1D(10, t_min=0.0, t_max=1.0, method='uniform')
-g2 = Generator1D(20, t_min=0.5, t_max=1.5, method='log-spaced')
+g1 = Generator2D((16, 16), xy_min=(0, 0), xy_max=(1, 1))
+g2 = Generator2D((16, 16), xy_min=(1, 1), xy_max=(2, 2))
 g = g1 + g2
 ```
 
-Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0,1)` using strategy `uniform` and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
+Here, `g` will be a generator that outputs the combined samples of `g1` and `g2`
+
+|                      g1                       |                      g2                       |                         g1 + g2                         |
+| :-------------------------------------------: | :-------------------------------------------: | :-----------------------------------------------------: |
+| ![generator2d-1](resources/generator2d-1.jpg) | ![generator2d-2](resources/generator2d-2.jpg) | ![generator2d-concat](resources/generator2d-concat.jpg) |
 
 #### Sampling Higher Dimensions
 
 You can use `Generator2D`, `Generator3D`, etc. for sampling points in higher dimensions. But there's also another way
 
 ```python
-g1 = Generator1D(32, t_min=2.0, t_max=3.0, method='equally-spaced-noisy')
-g2 = Generator1D(32, t_min=4.0, t_max=5.0, method='log-spaced-noisy')
+g1 = Generator1D(1024, 2.0, 3.0, method='uniform')
+g2 = Generator1D(1024, -1.0, 0.0, method='log-spaced-noisy', noise_std=0.001)
 g = g1 * g2
 ```
 
-Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (4,5)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `equally-spaced-noisy` and the y-coordinate drawn from `(4,5)` using strategy `log-spaced-noisy`.
+Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (0.1,1)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `uniform` and the y-coordinate drawn from `(0.1,1)` using strategy `log-spaced-noisy`.
+
+|                       g1                        |                       g2                        |                           g1 * g2                            |
+| :---------------------------------------------: | :---------------------------------------------: | :----------------------------------------------------------: |
+| ![generator2d-1](resources/generator-ens-1.jpg) | ![generator2d-2](resources/generator-ens-2.jpg) | ![generator2d-concat](resources/generator-ens-ensembled.jpg) |
+
+
 
 # Contributing
 
