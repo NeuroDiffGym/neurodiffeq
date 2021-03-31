@@ -220,7 +220,7 @@ g2 = Generator1D(1024, -1.0, 0.0, method='log-spaced-noisy', noise_std=0.001)
 g = g1 * g2
 ```
 
-Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (0.1,1)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `uniform` and the y-coordinate drawn from `(0.1,1)` using strategy `log-spaced-noisy`.
+Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3) × (0.1,1)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `uniform` and the y-coordinate drawn from `(0.1,1)` using strategy `log-spaced-noisy`.
 
 |                       g1                        |                       g2                        |                           g1 * g2                            |
 | :---------------------------------------------: | :---------------------------------------------: | :----------------------------------------------------------: |
