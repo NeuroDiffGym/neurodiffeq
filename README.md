@@ -123,11 +123,11 @@ A monitor is a tool for visualizing PDE/ODE solutions as well as history of loss
 ```python
 from neurodiffeq.monitors import Monitor1D
 ...
-monitor = Monitor1D(t_min=0.0, t_max=1.0, check_every=100)
+monitor = Monitor1D(t_min=0.0, t_max=12.0, check_every=100)
 solver.fit(..., callbacks=[monitor.to_callback()])
 ```
 
-You should see the plots update *every 100 epoch* as well as *on the last epoch*, showing two plots — one for solution visualization on the interval `[0,1]` and the other for loss history (training and validation). 
+You should see the plots update *every 100 epoch* as well as *on the last epoch*, showing two plots — one for solution visualization on the interval `[0,12]` and the other for loss history (training and validation). 
 
 ![monitor](resources/monitor.gif)
 
