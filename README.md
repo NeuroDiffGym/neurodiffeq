@@ -145,11 +145,13 @@ nets = [net1, net2, ...]
 
 `FCNN` is usually a good starting point. For advanced users, solvers are compatible with any custom `torch.nn.Module`. The only constraints are:
 
-1. The input shape of each module must be `(None, n_independent_variables)` and the output shape `(None, 1)`. 
+1. The modules takes in a tensor of shape `(None, n_coords)` and the outputs a tensor of shape `(None, 1)`. 
 
-2. There must be a total of `n_unknown_functions` networks passed to `solver = Solver(..., nets=nets)`.
+2. There must be a total of `n_funcs` modules in `nets` to be passed to `solver = Solver(..., nets=nets)`.
 
-*Acutally, `neurodiffeq` has a **single_net** feature that doesn't obey the above rules, but we won't cover it in this README.*
+![monitor](resources/nets.png)
+
+*Acutally, `neurodiffeq` has a **single_net** feature that doesn't obey the above rules, which won't be covered here.*
 
 Read the PyTorch [tutorial](https://pytorch.org/docs/stable/notes/modules.html) on building your own network (a.k.a module) architecture. 
 
@@ -194,7 +196,7 @@ g2 = Generator1D(20, t_min=0.5, t_max=1.5, method='log-spaced')
 g = g1 + g2
 ```
 
-Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0, 1)` using strategy `uniform` and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
+Here, `g` will be a generator which yields 30 points every time, 10 of which drawn from `(0,1)` using strategy `uniform` and the other 20 drawn from `(0.5, 1.5)` using strategy `log-spaced`.
 
 #### Sampling Higher Dimensions
 
@@ -206,7 +208,7 @@ g2 = Generator1D(32, t_min=4.0, t_max=5.0, method='log-spaced-noisy')
 g = g1 * g2
 ```
 
-Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (4,5)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `equally-spaced-noisy` and the y-coordinate drawn from `(4, 5)` using strategy `log-spaced-noisy`.
+Here, `g` will be a generator which yields 32 points in a 2-D rectangle `(2,3) × (4,5)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `equally-spaced-noisy` and the y-coordinate drawn from `(4,5)` using strategy `log-spaced-noisy`.
 
 # Contributing
 
