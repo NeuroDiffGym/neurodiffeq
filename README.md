@@ -186,8 +186,8 @@ solver = Solver1D(..., train_generator=g1, valid_generator=g2)
 
 Here are  some sample distributions of a `Generator1D`.
 
-| Generator1D(8192, 0.0, 1.0, method='uniform')             | Generator1D(8192, -1.0, 0.0, method='log-spaced-noisy', noise_std=1e-3) |
-| --------------------------------------------------------- | ------------------------------------------------------------ |
+|      `Generator1D(8192, 0.0, 1.0, method='uniform')`      | `Generator1D(8192, -1.0, 0.0, method='log-spaced-noisy', noise_std=1e-3)` |
+| :-------------------------------------------------------: | :----------------------------------------------------------: |
 | ![generator1d-uniform](resources/generator1d-uniform.jpg) | ![generator1d-log-spaced-noisy](resources/generator1d-log-spaced-noisy.jpg) |
 
 
@@ -206,7 +206,7 @@ g = g1 + g2
 
 Here, `g` will be a generator that outputs the combined samples of `g1` and `g2`
 
-|                      g1                       |                      g2                       |                         g1 + g2                         |
+|                     `g1`                      |                     `g2`                      |                        `g1 + g2`                        |
 | :-------------------------------------------: | :-------------------------------------------: | :-----------------------------------------------------: |
 | ![generator2d-1](resources/generator2d-1.jpg) | ![generator2d-2](resources/generator2d-2.jpg) | ![generator2d-concat](resources/generator2d-concat.jpg) |
 
@@ -222,7 +222,7 @@ g = g1 * g2
 
 Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3) × (0.1,1)` every time. The x-coordinates of them are drawn from `(2,3)` using strategy `uniform` and the y-coordinate drawn from `(0.1,1)` using strategy `log-spaced-noisy`.
 
-|                       g1                        |                       g2                        |                           g1 * g2                            |
+|                      `g1`                       |                      `g2`                       |                          `g1 * g2`                           |
 | :---------------------------------------------: | :---------------------------------------------: | :----------------------------------------------------------: |
 | ![generator2d-1](resources/generator-ens-1.jpg) | ![generator2d-2](resources/generator-ens-2.jpg) | ![generator2d-concat](resources/generator-ens-ensembled.jpg) |
 
