@@ -226,7 +226,31 @@ Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3)
 | :---------------------------------------------: | :---------------------------------------------: | :----------------------------------------------------------: |
 | ![generator2d-1](resources/generator-ens-1.jpg) | ![generator2d-2](resources/generator-ens-2.jpg) | ![generator2d-concat](resources/generator-ens-ensembled.jpg) |
 
+# FAQ
 
+#### Q: How to use GPU for training?
+
+Simple. When importing neurodiffeq, the library automatically detects if CUDA is available on your machine. Since the library is based on PyTorch, it will set default tensor type to `torch.cuda.DoubleTensor` for GPU acceleration.
+
+#### Q: How to use pretrained nets?
+
+Refer to Sections [Custom Networks](#custom-networks) and [Transfer Learning](#transfer-learning).
+
+#### Q: I got a bad solution.
+
+Unlike traditional numerial methods (FEM, FVM, etc.), the NN-based solution requires some hypertuning. The library offers the utmost flexibility to try any combination of hyperparameters.
+
+- To use a different network architecture, you can pass in your custom `torch.nn.Module`s.
+- To use a different optimizer, you can pass in your own optimizer to `solver = Solver(..., optimizer=my_optim)`. 
+- To use a different sampling distribution, you can use [predefined generators](https://neurodiffeq.readthedocs.io/en/latest/api.html#module-neurodiffeq.generators) or write your own generators from scratch.
+- To use a different sampling size, you can tweak the generators or change `solver = Solver(..., n_batches_train)`.
+- To dynamically change hyperparameters during training, checkout our [callbacks](https://neurodiffeq.readthedocs.io/en/latest/api.html#module-neurodiffeq.callbacks) feature.
+
+#### Q: Any rules of thumbs?
+
+- Don't use `ReLU` for activation, because its second-order derivative is identically 0.
+- Re-scale your PDE/ODE in dimensionless form, preferably make everything range in `[0,1]`. Working with a domain like `[0,1000000]` is prone to failure because **a)** PyTorch initializes the modules weights to be relatively small and **b)** most activation functions (like Sigmoid, Tanh, Swish) are most nonlinear near 0.
+- If your PDE/ODE is too complicated, consider trying curriculum learning. Start training your networks on a smaller domain, and then gradually expand until the whole domain is covered.
 
 # Contributing
 
@@ -237,4 +261,4 @@ When contributing to this repository, we consider the following process:
 1. Open an issue to discuss the change you are planning to make.
 2. Go through [Contribution Guidelines](CONTRIBUTING.md).
 3. Make the change on a forked repository and update the README.md if changes are made to the interface.
-4. Open a pull request.
+4. Open a pull request. 
