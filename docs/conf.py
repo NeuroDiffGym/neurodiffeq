@@ -22,8 +22,8 @@ html_static_path = []
 # -- Project information -----------------------------------------------------
 
 project = 'neurodiffeq'
-copyright = '2019, odegym'
-author = 'odegym'
+copyright = '2019, NeuroDiffGym'
+author = 'NeuroDiffGym'
 
 # The short X.Y version
 version = ''
@@ -155,7 +155,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'neurodiffeq.tex', 'neurodiffeq Documentation',
-     'odegym', 'manual'),
+     'NeuroDiffGym', 'manual'),
 ]
 
 

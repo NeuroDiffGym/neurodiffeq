@@ -180,7 +180,7 @@ class FourierLaplacian(BasisOperator):
         :rtype: torch.Tensor
         """
         # We would hope to do `radial_component = diff(R, r) / r + diff(R, r, order=2)`
-        # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
+        # But because of this issue https://github.com/NeuroDiffGym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivatives, and manually concatenate them back together
         radial_component = torch.cat([
             diff(R[:, j:j+1], r) / r + diff(R[:, j:j+1], r, order=2) for j in range(R.shape[1])
@@ -291,7 +291,7 @@ class HarmonicsLaplacian(BasisOperator):
 
     def __call__(self, R, r, theta, phi):
         # We would hope to do `radial_component = diff(R * r, r, order=2) / r`
-        # But because of this issue https://github.com/odegym/neurodiffeq/issues/44#issuecomment-594998619,
+        # But because of this issue https://github.com/NeuroDiffGym/neurodiffeq/issues/44#issuecomment-594998619,
         # we have to separate columns in R, compute derivatives, and manually concatenate them back together
         radial_component = torch.cat([diff(R[:, j:j+1] * r, r, order=2) for j in range(R.shape[1])], dim=1) / r
 

@@ -14,8 +14,8 @@ setuptools.setup(
     description="A light-weight & flexible library for solving differential equations using neural networks based on PyTorch. ",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/odegym/neurodiffeq",
-    download_url="https://github.com/odegym/neurodiffeq/archive/v0.3.3.tar.gz",
+    url="https://github.com/NeuroDiffGym/neurodiffeq",
+    download_url="https://github.com/NeuroDiffGym/neurodiffeq/archive/v0.3.3.tar.gz",
     keywords=[
         "neural network",
         "deep learning",

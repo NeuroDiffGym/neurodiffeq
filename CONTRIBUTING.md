@@ -69,7 +69,7 @@ See [this answer](https://stackoverflow.com/a/3580764/6685437) for more.
 
 To develop and debug locally, consider the following setup.
 
-1. Clone the repository locally `git clone https://github.com/odegym/neurodiffeq.git && cd neurodiffeq`;
+1. Clone the repository locally `git clone https://github.com/NeuroDiffGym/neurodiffeq.git && cd neurodiffeq`;
 2. Install the library as editable source `pip install -e .`;
 3. Create your own branch and swtich to it `git checkout -b <YOUR_BRANCH_NAME>`.
 
