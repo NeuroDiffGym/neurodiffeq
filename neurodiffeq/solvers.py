@@ -555,7 +555,7 @@ class BaseSolution(ABC):
             # Why did we allow `tf` as an option >_<
             # We should phase this out as soon as possible
             if to_numpy == 'tf' or to_numpy == 'torch':
-                to_numpy = True
+                to_numpy = False
             elif to_numpy == 'np':
                 to_numpy = True
             else:
