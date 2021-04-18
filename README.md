@@ -11,7 +11,7 @@ As universal function approximators, artificial neural networks have been shown 
 
 <p align='center'>
   <a href='https://youtu.be/VDLwyFD-sXQ'>
-    <img src="resources/watermark-cover.jpg" width="80%">
+    <img src="https://raw.githubusercontent.com/NeuroDiffGym/neurodiffeq/master/resources/watermark-cover.jpg" width="80%">
   </a>
 </p>
 
