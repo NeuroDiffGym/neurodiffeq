@@ -3,6 +3,42 @@ import dill
 import numpy as np
 import pathlib
 import torch
+import requests
+from typing import Union
+
+
+try:
+    NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
+except KeyError:
+    NEURODIFF_API_URL = "http://dev.neurodiff.io/api/v1"
+
+def is_solution_name(name):
+    if name.startswith('./'):
+        return False
+    else:
+        return True
+
+def process_response(response):
+    """
+    Process a `requests.Reponse` object, returning the decoded contents or
+    raising an APIError (or subclass) exception on request failure.
+    """
+    return response.json()
+
+def get_file(url, solution_name):
+    cache_dir = os.path.join(os.path.expanduser('~'), '.neurodiff')
+    if not os.path.exists(cache_dir):
+      os.mkdir(cache_dir)
+    solution_file_path = os.path.join(cache_dir,solution_name)
+    if not os.path.exists(solution_file_path):
+        url = url +"?name="+solution_name
+        # Download the solution
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(solution_file_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+    return solution_file_path
 
 class SolverConfig():
     conditions = None
@@ -16,7 +52,7 @@ class SolverConfig():
 class PretrainedSolver():
 
     #Saving selected attributes of model in dict
-    def save(self,filename):
+    def save(self,solution_name_or_path: Union[str, os.PathLike],save_remote=False):
         # Check if optimizer is existing in pytorch
         optimizer_class=None
         for cls in torch.optim.Optimizer.__subclasses__():
@@ -30,23 +66,60 @@ class PretrainedSolver():
             "global_epoch": self.global_epoch, #loss_history
             "nets": self.nets,
             "optimizer": self.optimizer,
-            "optimizer_state": self.optimizer.state_dict()
+            "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
             "diff_eqs": self.diff_eqs,
             "generator": self.generator,
             "type": self.__class__
         }
 
-        with open(filename,'wb') as file:
+        # Save solution locally
+        with open(solution_name_or_path,'wb') as file:
             dill.dump(save_dict,file)
+
+        # Save remote if needed
+        if is_solution_name(solution_name_or_path):
+            # Save remote
+            print("Saving solution to:",NEURODIFF_API_URL)
+            url = NEURODIFF_API_URL + "/solutions"
+            # Create a solution
+            solution = {
+                "name":solution_name_or_path,
+                "description":solution_name_or_path
+            }
+            response = requests.post(
+                url,
+                json=solution
+            )
+            solution = process_response(response)
+            print(solution)
+
+            # Upload the solution file
+            url = NEURODIFF_API_URL + "/solutions/{id}/upload"
+            response = requests.post(
+                url.format(id=solution["id"]),
+                files={"file": open(solution_name_or_path, "rb")}
+            )
+
+            # Remove local solution
+            os.remove(solution_name_or_path)
+            
 			
     #Loading saved attributes into new solver object   
 
     # Have to add check and warning/error     
     @classmethod		
-    def load(cls, path, config=SolverConfig()):
-        with open(path,'rb') as file:
-            load_dict = dill.load(file)	
+    def load(cls, solution_name_or_path, config=SolverConfig()):
+        
+        # Load from remote
+        if is_solution_name(solution_name_or_path):
+            url = NEURODIFF_API_URL + "/solutions/download"
+            solution_file_path = get_file(url,solution_name_or_path)
+        else:
+            solution_file_path = solution_name_or_path
+        # Load the solution
+        with open(solution_file_path,'rb') as file:
+            load_dict = dill.load(file)
 
         # Loading user defined generator and extracting time domain information
         if config.train_generator == None:
@@ -80,15 +153,16 @@ class PretrainedSolver():
         
         # Loading user defined optimizer or optimizer from load file
         if config.optimizer == None:
-            if load_dict['optimizer_class'] == None:
-                optimizer = load_dict['optimizer']
+            optimizer = load_dict['optimizer']
+            # if load_dict['optimizer_class'] is not None:
+            #     optimizer = load_dict['optimizer']
 
-            else if config.optimizer_params:
-                optimizer = optimizer.load_state_dict(load_dict['opimizer_params'])
+            # else if config.optimizer_params:
+            #     optimizer = optimizer.load_state_dict(load_dict['opimizer_params'])
             # net is new, save optimizer class
-        else if type(config.optimizer) == type:
+        elif type(config.optimizer) == type:
             #get net and params
-            optimizer = config.optimizer(,**config.optimizer_params)
+            optimizer = config.optimizer(**config.optimizer_params)
         else :
             optimizer = config.optimizer
         solver = cls(ode_system = ode,
