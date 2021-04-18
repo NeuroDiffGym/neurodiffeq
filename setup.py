@@ -1,7 +1,16 @@
+import re
 import setuptools
 
 with open("README.md", "r") as fh:
+    def func(m):
+        match = m.group()
+        url = m.group(1)
+        if url.startswith('resources/'):
+            return match.replace(url, 'https://raw.githubusercontent.com/NeuroDiffGym/neurodiffeq/master/' + url)
+        return match
+
     long_description = fh.read()
+    long_description = re.sub(r"!\[.*?\]\((.*?)\)", func, long_description)
 
 with open("requirements.txt", "r") as fh:
     requirements = [line.strip() for line in fh.read().split('\n') if line.strip() != '']
