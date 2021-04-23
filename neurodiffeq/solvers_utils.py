@@ -5,7 +5,7 @@ import pathlib
 import torch
 import requests
 from typing import Union
-
+from itertools import chain
 
 try:
     NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
@@ -45,7 +45,7 @@ class SolverConfig():
     ode_system = None
     nets = None
     optimizer = None
-    optimizer_params = {}
+    #optimizer_params = {}
     train_generator = None
     valid_generator = None
 
@@ -153,18 +153,24 @@ class PretrainedSolver():
         
         # Loading user defined optimizer or optimizer from load file
         if config.optimizer == None:
-            optimizer = load_dict['optimizer']
-            # if load_dict['optimizer_class'] is not None:
-            #     optimizer = load_dict['optimizer']
+            #optimizer = load_dict['optimizer']
+            if load_dict['optimizer_class'] is not None:
+                optimizer = load_dict['optimizer_class'](chain.from_iterable(n.parameters() for n in nets)
+                optimizer = optimizer.load_state_dict(load_dict['optimizer_state'])
+            else:
+                optimizer = load_dict['optimizer']
 
-            # else if config.optimizer_params:
-            #     optimizer = optimizer.load_state_dict(load_dict['opimizer_params'])
-            # net is new, save optimizer class
-        elif type(config.optimizer) == type:
-            #get net and params
-            optimizer = config.optimizer(**config.optimizer_params)
-        else :
-            optimizer = config.optimizer
+        else:
+            check_flag=False
+            for cls in torch.optim.Optimizer.__subclasses__():
+                if config.optimizer.__class__.__name__ == cls.__name__:
+                    optimizer =  config.optimizer(chain.from_iterable(n.parameters() for n in nets)
+                    optimizer = optimizer.load_state_dict(load_dict['optimizer_state'])
+                    check_flag = True
+
+            if check_flag=False:
+                optimizer = load_dict['optimizer']
+                
         solver = cls(ode_system = ode,
                     conditions = cond,
                     criterion = load_dict['criterion'],
