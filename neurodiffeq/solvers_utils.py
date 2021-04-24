@@ -156,7 +156,7 @@ class PretrainedSolver():
             #optimizer = load_dict['optimizer']
             if load_dict['optimizer_class'] is not None:
                 optimizer = load_dict['optimizer_class'](chain.from_iterable(n.parameters() for n in nets))
-                optimizer = optimizer.load_state_dict(load_dict['optimizer_state'])
+                optimizer.load_state_dict(load_dict['optimizer_state'])
             else:
                 optimizer = load_dict['optimizer']
 
@@ -165,11 +165,13 @@ class PretrainedSolver():
             for cls in torch.optim.Optimizer.__subclasses__():
                 if config.optimizer.__class__.__name__ == cls.__name__:
                     optimizer =  config.optimizer(chain.from_iterable(n.parameters() for n in nets))
-                    optimizer = optimizer.load_state_dict(load_dict['optimizer_state'])
+                    optimizer.load_state_dict(load_dict['optimizer_state'])
                     check_flag = True
 
-            if check_flag=False:
+            if check_flag==False:
                 optimizer = load_dict['optimizer']
+        #optimizer = load_dict['optimizer_class'](chain.from_iterable(n.parameters() for n in nets))
+        #optimizer.load_state_dict(load_dict['optimizer_state'])
 
         solver = cls(ode_system = ode,
                     conditions = cond,
