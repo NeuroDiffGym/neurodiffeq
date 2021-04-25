@@ -6,6 +6,8 @@ import torch
 import requests
 from typing import Union
 from itertools import chain
+import inspect
+import ast
 
 try:
     NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
@@ -50,6 +52,16 @@ class SolverConfig():
     valid_generator = None
 
 class PretrainedSolver():
+
+    def print_diff_eqs(self):
+        source_lines, _ = inspect.getsourcelines(self.diff_eqs)
+        source_text = "".join([line.strip() for line in source_lines])
+        source_ast = ast.parse(source_text)
+        lambda_node = next((node for node in ast.walk(source_ast)
+                          if isinstance(node, ast.Lambda)), None)
+        lambda_text = source_text[lambda_node.col_offset:]
+        print(lambda_text)
+
 
     #Saving selected attributes of model in dict
     def save(self,solution_name_or_path: Union[str, os.PathLike],save_remote=False):
