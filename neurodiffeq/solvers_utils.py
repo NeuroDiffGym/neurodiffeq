@@ -45,7 +45,7 @@ class SolverConfig():
     ode_system = None
     nets = None
     optimizer = None
-    #optimizer_params = {}
+    optimizer_params = None
     train_generator = None
     valid_generator = None
 
@@ -70,12 +70,16 @@ class PretrainedSolver():
             "optimizer_class": optimizer_class,
             "diff_eqs": self.diff_eqs,
             "generator": self.generator,
+            "train_loss_history": self.metrics_history['train_loss'],
+            "valid_loss_history": self.metrics_history['valid_loss'],
             "type": self.__class__
+
         }
 
         # Save solution locally
         with open(solution_name_or_path,'wb') as file:
             dill.dump(save_dict,file)
+        #torch.save(save_dict,solution_name_or_path)
 
         # Save remote if needed
         if is_solution_name(solution_name_or_path):
@@ -120,7 +124,7 @@ class PretrainedSolver():
         # Load the solution
         with open(solution_file_path,'rb') as file:
             load_dict = dill.load(file)
-
+        
         # Loading user defined generator and extracting time domain information
         if config.train_generator == None:
             train_generator = load_dict['generator']['train']
@@ -152,6 +156,9 @@ class PretrainedSolver():
             nets = config.nets
         
         # Loading user defined optimizer or optimizer from load file
+
+        train_loss = []
+        valid_loss = []
         if config.optimizer == None:
             #optimizer = load_dict['optimizer']
             if load_dict['optimizer_class'] is not None:
@@ -159,19 +166,32 @@ class PretrainedSolver():
                 optimizer.load_state_dict(load_dict['optimizer_state'])
             else:
                 optimizer = load_dict['optimizer']
-
+            
+            #As older network/optimizer is loaded load loss history as well
+            train_loss = load_dict['train_loss_history']
+            valid_loss = load_dict['valid_loss_history']
         else:
+            # Declare a flag to check if optimizer is passed as a class. Link parameters and load state to the new class
             check_flag=False
-            for cls in torch.optim.Optimizer.__subclasses__():
-                if config.optimizer.__class__.__name__ == cls.__name__:
-                    optimizer =  config.optimizer(chain.from_iterable(n.parameters() for n in nets))
-                    optimizer.load_state_dict(load_dict['optimizer_state'])
-                    check_flag = True
 
+            #for classes in torch.optim.Optimizer.__subclasses__():
+            #    if config.optimizer.__class__.__name__ == classes.__name__:
+            #        if config.nets == None:
+            #            optimizer = config.optimizer
+            #            optimizer.param_groups[0]['state'] = load_dict['optimizer_state']['state']
+            #            optimizer.param_groups[0]['params'] = load_dict['optimizer_state']['param_groups'][0]['params']
+            #            check_flag=True
+
+            if config.optimizer_params is not None: 
+                optimizer = config.optimizer(chain.from_iterable(n.parameters() for n in nets),**config.optimizer_params)   
+                train_loss = load_dict['train_loss_history']
+                valid_loss = load_dict['valid_loss_history']
+                check_flag=True    
+
+            # In case of custom optimizer or optimizer externally linked to the network, load complete optimizer
             if check_flag==False:
                 optimizer = load_dict['optimizer']
-        #optimizer = load_dict['optimizer_class'](chain.from_iterable(n.parameters() for n in nets))
-        #optimizer.load_state_dict(load_dict['optimizer_state'])
+                
 
         solver = cls(ode_system = ode,
                     conditions = cond,
@@ -183,7 +203,8 @@ class PretrainedSolver():
                     valid_generator = valid_generator,
                     t_min = t_min,
                     t_max = t_max)
-
+        solver.metrics_history['train_loss'] = train_loss
+        solver.metrics_history['valid_loss'] = valid_loss
         return solver
 
     #Saving the Solver Object
