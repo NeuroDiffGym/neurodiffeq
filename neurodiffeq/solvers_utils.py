@@ -42,6 +42,20 @@ def get_file(url, solution_name):
                     f.write(chunk)
     return solution_file_path
 
+def get_diff_eqs_source(diff_eqs):
+    lambda_text = ""
+    try:
+        source_lines, _ = inspect.getsourcelines(diff_eqs)
+        source_text = "".join([line.strip() for line in source_lines])
+        source_ast = ast.parse(source_text)
+        lambda_node = next((node for node in ast.walk(source_ast)
+                            if isinstance(node, ast.Lambda)), None)
+        lambda_text = source_text[lambda_node.col_offset:]
+    except:
+        pass
+
+    return lambda_text
+
 class SolverConfig():
     conditions = None
     ode_system = None
@@ -52,14 +66,12 @@ class SolverConfig():
     valid_generator = None
 
 class PretrainedSolver():
+    diff_eqs_source = ""
 
     def print_diff_eqs(self):
-        source_lines, _ = inspect.getsourcelines(self.diff_eqs)
-        source_text = "".join([line.strip() for line in source_lines])
-        source_ast = ast.parse(source_text)
-        lambda_node = next((node for node in ast.walk(source_ast)
-                          if isinstance(node, ast.Lambda)), None)
-        lambda_text = source_text[lambda_node.col_offset:]
+        lambda_text = get_diff_eqs_source(self.diff_eqs)
+        if lambda_text == "":
+            lambda_text = self.diff_eqs_source
         print(lambda_text)
 
 
@@ -81,11 +93,11 @@ class PretrainedSolver():
             "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
             "diff_eqs": self.diff_eqs,
+            "diff_eqs_source": get_diff_eqs_source(self.diff_eqs),
             "generator": self.generator,
             "train_loss_history": self.metrics_history['train_loss'],
             "valid_loss_history": self.metrics_history['valid_loss'],
             "type": self.__class__
-
         }
 
         # Save solution locally
@@ -217,6 +229,11 @@ class PretrainedSolver():
                     t_max = t_max)
         solver.metrics_history['train_loss'] = train_loss
         solver.metrics_history['valid_loss'] = valid_loss
+
+        try:
+            solver.diff_eqs_source = load_dict["diff_eqs_source"]
+        except:
+            pass
         return solver
 
     #Saving the Solver Object
