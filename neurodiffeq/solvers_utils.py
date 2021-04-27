@@ -76,7 +76,7 @@ class PretrainedSolver():
 
 
     #Saving selected attributes of model in dict
-    def save(self,solution_name_or_path: Union[str, os.PathLike],save_remote=False):
+    def save(self,solution_name_or_path: Union[str, os.PathLike],save_to_hub=False):
         # Check if optimizer is existing in pytorch
         optimizer_class=None
         for cls in torch.optim.Optimizer.__subclasses__():
@@ -106,15 +106,17 @@ class PretrainedSolver():
         #torch.save(save_dict,solution_name_or_path)
 
         # Save remote if needed
-        if is_solution_name(solution_name_or_path):
+        if save_to_hub:
             # Save remote
             print("Saving solution to:",NEURODIFF_API_URL)
             url = NEURODIFF_API_URL + "/solutions"
             # Create a solution
             solution = {
                 "name":solution_name_or_path,
-                "description":solution_name_or_path
+                "description":solution_name_or_path,
+                "diff_eqs_source": save_dict["diff_eqs_source"]
             }
+            print(solution)
             response = requests.post(
                 url,
                 json=solution
