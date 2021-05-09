@@ -4,6 +4,7 @@ import numpy as np
 import pathlib
 import torch
 import requests
+import tempfile
 from typing import Union
 from itertools import chain
 import inspect
@@ -13,6 +14,11 @@ try:
     NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
 except KeyError:
     NEURODIFF_API_URL = "http://dev.neurodiff.io/api/v1"
+
+try:
+    NEURODIFF_API_KEY = os.environ["NEURODIFF_API_KEY"]
+except KeyError:
+    NEURODIFF_API_KEY = ""
 
 def is_solution_name(name):
     if name.startswith('./'):
@@ -27,6 +33,13 @@ def process_response(response):
     """
     return response.json()
 
+def _make_api_headers():
+    headers = {}
+
+    headers["api_key"] = NEURODIFF_API_KEY
+
+    return headers
+
 def get_file(url, solution_name):
     cache_dir = os.path.join(os.path.expanduser('~'), '.neurodiff')
     if not os.path.exists(cache_dir):
@@ -35,7 +48,7 @@ def get_file(url, solution_name):
     if not os.path.exists(solution_file_path):
         url = url +"?name="+solution_name
         # Download the solution
-        with requests.get(url, stream=True) as r:
+        with requests.get(url, stream=True,headers=_make_api_headers()) as r:
             r.raise_for_status()
             with open(solution_file_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):
@@ -76,7 +89,18 @@ class PretrainedSolver():
 
 
     #Saving selected attributes of model in dict
-    def save(self,solution_name_or_path: Union[str, os.PathLike],save_to_hub=False):
+    def save(self,
+        path: str = None,
+        name: str = None,
+        repo: str = None,
+        save_to_hub=False):
+        
+        # Check params
+        if path is None and save_to_hub == False:
+            raise Exception("path cannot be empty when save_to_hub=False")
+        if name is None and save_to_hub == True:
+            raise Exception("name cannot be empty when save_to_hub=True")
+        
         # Check if optimizer is existing in pytorch
         optimizer_class=None
         for cls in torch.optim.Optimizer.__subclasses__():
@@ -100,39 +124,45 @@ class PretrainedSolver():
             "type": self.__class__
         }
 
-        # Save solution locally
-        with open(solution_name_or_path,'wb') as file:
-            dill.dump(save_dict,file)
-        #torch.save(save_dict,solution_name_or_path)
-
         # Save remote if needed
         if save_to_hub:
-            # Save remote
-            print("Saving solution to:",NEURODIFF_API_URL)
-            url = NEURODIFF_API_URL + "/solutions"
-            # Create a solution
-            solution = {
-                "name":solution_name_or_path,
-                "description":solution_name_or_path,
-                "diff_eqs_source": save_dict["diff_eqs_source"]
-            }
-            print(solution)
-            response = requests.post(
-                url,
-                json=solution
-            )
-            solution = process_response(response)
-            print(solution)
+            # Save solution in temp file
+            with tempfile.NamedTemporaryFile() as tmp_file:
+                dill.dump(save_dict,tmp_file)
 
-            # Upload the solution file
-            url = NEURODIFF_API_URL + "/solutions/{id}/upload"
-            response = requests.post(
-                url.format(id=solution["id"]),
-                files={"file": open(solution_name_or_path, "rb")}
-            )
+                # Save remote
+                print("Saving solution to:",NEURODIFF_API_URL)
+                if repo is None:
+                    print("Default repo will be used to save solution")
 
-            # Remove local solution
-            os.remove(solution_name_or_path)
+                url = NEURODIFF_API_URL + "/solutions"
+                # Create a solution
+                solution = {
+                    "name":name,
+                    "description":name,
+                    "diff_eqs_source": save_dict["diff_eqs_source"]
+                }
+                print(solution)
+                response = requests.post(
+                    url,
+                    json=solution,
+                    headers=_make_api_headers()
+                )
+                solution = process_response(response)
+                print(solution)
+
+                # Upload the solution file
+                url = NEURODIFF_API_URL + "/solutions/{id}/upload"
+                response = requests.post(
+                    url.format(id=solution["id"]),
+                    files={"file": open(tmp_file.name, "rb")},
+                    headers=_make_api_headers()
+                )
+
+        else:
+            # Save solution locally
+            with open(path,'wb') as file:
+                dill.dump(save_dict,file)
             
 			
     #Loading saved attributes into new solver object   
