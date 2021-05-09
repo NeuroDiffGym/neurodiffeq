@@ -189,9 +189,8 @@ class PretrainedSolver():
             train_generator = config.train_generator
             valid_generator = config.valid_generator
 
-        t = train_generator.get_examples()[0].detach().numpy()
-        t_min = np.round(min(t))
-        t_max = np.round(max(t))
+        t_min = load_dict['generator']['train'].__dict__['generator'].__dict__['t_min']
+        t_max = load_dict['generator']['train'].__dict__['generator'].__dict__['t_max']
 
         # Loading user defined ode_system or system from load file 
         if config.ode_system == None:
