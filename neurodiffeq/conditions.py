@@ -207,6 +207,94 @@ class IVP(BaseCondition):
             return self.u_0 + (t - self.t_0) * self.u_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
 
 
+class BundleIVP(BaseCondition):
+    r"""An initial value problem of one of the following forms:
+
+    - Dirichlet condition: :math:`u(t_0,\boldsymbol{\theta})=u_0`.
+    - Neumann condition: :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0}(\boldsymbol{\theta}) = u_0'`.
+
+    Here :math:`\boldsymbol{\theta}=(\theta_{1},\theta_{2},...,\theta_{n})\in\mathbb{R}^n`,
+    where each :math:`\theta_i` represents a parameter, or a condition, of the ODE system that we want to solve.
+
+    :param t_0: The initial time.
+    :type t_0: float
+    :param u_0: The initial value of :math:`u`. :math:`u(t_0,\boldsymbol{\theta})=u_0`.
+    :type u_0: float
+    :param u_0_prime:
+        The initial derivative of :math:`u` w.r.t. :math:`t`.
+        :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0}(\boldsymbol{\theta}) = u_0'`.
+        Defaults to None.
+    :type u_0_prime: float, optional
+    :param bundle_conditions:
+        The initial conditions that will be included in the total bundle,
+        in addition to the parameters of the ODE system.
+        The conditions listed in bundle_conditions (e.g bundle_conditions=['t_0', 'u_0', 'u_0_prime']),
+        must be listed in the same order that will be used in ``neurodiffeq.solvers.BundleSolver1D``,
+        when listing theta_min and theta_max.
+        Defaults to []
+    :type bundle_conditions: list[str, ..., str]
+    """
+
+    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
+    def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_conditions=[]):
+        super().__init__()
+        self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
+        self.bundle_conditions = bundle_conditions
+
+    def parameterize(self, output_tensor, t, *theta):
+        r"""Re-parameterizes outputs such that the Dirichlet/Neumann condition is satisfied.
+
+        if t_0 is not included in the bundle:
+
+        - For Dirichlet condition, the re-parameterization is
+          :math:`\displaystyle u(t,\boldsymbol{\theta}) = u_0 + \left(1 - e^{-(t-t_0)}\right)`
+          :math:`\mathrm{ANN}(t,\boldsymbol{\theta})`
+        - For Neumann condition, the re-parameterization is
+          :math:`\displaystyle u(t,\boldsymbol{\theta}) = u_0 + (t-t_0) u'_0 + \left(1 - e^{-(t-t_0)}\right)^2`
+          :math:`\mathrm{ANN}(t,\boldsymbol{\theta})`
+
+        if t_0 is included in the bundle:
+
+        - For Dirichlet condition, the re-parameterization is
+          :math:`\displaystyle u(t,\boldsymbol{\theta}) = u_0 + \left(t - t_0\right)`
+          :math:`\mathrm{ANN}(t,\boldsymbol{\theta})`
+        - For Neumann condition, the re-parameterization is
+          :math:`\displaystyle u(t,\boldsymbol{\theta}) = u_0 + (t-t_0) u'_0 + \left(t - t_0\right)^2`
+          :math:`\mathrm{ANN}(t,\boldsymbol{\theta})`
+
+        Where :math:`\mathrm{ANN}` is the neural network.
+
+        :param output_tensor: Output of the neural network.
+        :type output_tensor: `torch.Tensor`
+        :param t: First input to the neural network; i.e., sampled time-points; i.e., independent variables.
+        :type t: `torch.Tensor`
+        :param theta: Rest of the inputs to the neural network; i.e., sampled bundle-points
+        :type theta: tuple[torch.Tensor, ..., torch.Tensor]
+        :return: The re-parameterized output of the network.
+        :rtype: `torch.Tensor`
+        """
+
+        t_0, u_0, u_0_prime = self.t_0, self.u_0, self.u_0_prime
+        if 'u_0' in self.bundle_conditions:
+            u_0 = theta[self.bundle_conditions.index('u_0')]
+        if 'u_0_prime' in self.bundle_conditions:
+            u_0_prime = theta[self.bundle_conditions.index('u_0_prime')]
+
+        if 't_0' in self.bundle_conditions:
+
+            t_0 = theta[self.bundle_conditions.index('t_0')]
+
+            if self.u_0_prime is None and 'u_0_prime' not in self.bundle_conditions:
+                return u_0 + (t - t_0) * output_tensor
+            else:
+                return u_0 + (t - t_0) * u_0_prime + ((t - t_0) ** 2) * output_tensor
+        else:
+            if self.u_0_prime is None and 'u_0_prime' not in self.bundle_conditions:
+                return u_0 + (1 - torch.exp(-t + t_0)) * output_tensor
+            else:
+                return u_0 + (t - t_0) * u_0_prime + ((1 - torch.exp(-t + t_0)) ** 2) * output_tensor
+
+
 class DirichletBVP(BaseCondition):
     r"""A double-ended Dirichlet boundary condition:
     :math:`u(t_0)=u_0` and :math:`u(t_1)=u_1`.
