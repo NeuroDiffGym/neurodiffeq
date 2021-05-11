@@ -956,7 +956,7 @@ class Solution2D(BaseSolution):
         return condition.enforce(net, xs, ys)
 
 
-class Solver2D(BaseSolver):
+class Solver2D(BaseSolver,PretrainedSolver):
     r"""A solver class for solving PDEs in 2 dimensions.
 
     :param pde_system:
