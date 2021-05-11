@@ -72,6 +72,7 @@ def get_diff_eqs_source(diff_eqs):
 class SolverConfig():
     conditions = None
     ode_system = None
+    pde_system = None
     nets = None
     optimizer = None
     optimizer_params = None
@@ -100,7 +101,7 @@ class PretrainedSolver():
             raise Exception("path cannot be empty when save_to_hub=False")
         if name is None and save_to_hub == True:
             raise Exception("name cannot be empty when save_to_hub=True")
-        
+
         # Check if optimizer is existing in pytorch
         optimizer_class=None
         for cls in torch.optim.Optimizer.__subclasses__():
@@ -121,7 +122,8 @@ class PretrainedSolver():
             "generator": self.generator,
             "train_loss_history": self.metrics_history['train_loss'],
             "valid_loss_history": self.metrics_history['valid_loss'],
-            "type": self.__class__
+            "type": self.__class__,
+            "type_name": self.__class__.__name__
         }
 
         # Save remote if needed
@@ -169,14 +171,21 @@ class PretrainedSolver():
 
     # Have to add check and warning/error     
     @classmethod		
-    def load(cls, solution_name_or_path, config=SolverConfig()):
+    def load(cls, 
+        path: str = None,
+        name: str = None,
+        config=SolverConfig()):
+        
+        # Check params
+        if path is None and name is None:
+            raise Exception("Either path or name is required to load solver")
         
         # Load from remote
-        if is_solution_name(solution_name_or_path):
+        if path is None:
             url = NEURODIFF_API_URL + "/solutions/download"
-            solution_file_path = get_file(url,solution_name_or_path)
+            solution_file_path = get_file(url,name)
         else:
-            solution_file_path = solution_name_or_path
+            solution_file_path = path
         # Load the solution
         with open(solution_file_path,'rb') as file:
             load_dict = dill.load(file)
@@ -189,14 +198,13 @@ class PretrainedSolver():
             train_generator = config.train_generator
             valid_generator = config.valid_generator
 
-        t_min = load_dict['generator']['train'].__dict__['generator'].__dict__['t_min']
-        t_max = load_dict['generator']['train'].__dict__['generator'].__dict__['t_max']
-
         # Loading user defined ode_system or system from load file 
-        if config.ode_system == None:
-            ode = load_dict['diff_eqs']
-        else:
-            ode = config.ode_system
+        if (config.ode_system == None) and (config.pde_system == None):
+            de_system = load_dict['diff_eqs']
+        elif config.ode_system is not None:
+            de_system = config.ode_system
+        elif config.pde_system is not None:
+            de_system = config.pde_system
         
         # Loading user defined conditions or conditions from load file
         if config.conditions == None:
@@ -248,16 +256,37 @@ class PretrainedSolver():
                 optimizer = load_dict['optimizer']
                 
 
-        solver = cls(ode_system = ode,
-                    conditions = cond,
-                    criterion = load_dict['criterion'],
-                    metrics = load_dict['metrics'],
-                    nets = nets,
-                    optimizer = optimizer,
-                    train_generator = train_generator,
-                    valid_generator = valid_generator,
-                    t_min = t_min,
-                    t_max = t_max)
+        # Initiate a new Solver
+        if load_dict["type_name"] == "Solver1D":
+            # t min/max
+            t_min = load_dict['generator']['train'].__dict__['generator'].__dict__['t_min']
+            t_max = load_dict['generator']['train'].__dict__['generator'].__dict__['t_max']
+
+            solver = cls(ode_system = de_system,
+                        conditions = cond,
+                        criterion = load_dict['criterion'],
+                        metrics = load_dict['metrics'],
+                        nets = nets,
+                        optimizer = optimizer,
+                        train_generator = train_generator,
+                        valid_generator = valid_generator,
+                        t_min = t_min,
+                        t_max = t_max)
+        elif load_dict["type_name"] == "Solver2D":
+            xy_min = load_dict['generator']['train'].__dict__['generator'].__dict__['xy_min']
+            xy_max = load_dict['generator']['train'].__dict__['generator'].__dict__['xy_max']
+
+            solver = cls(pde_system = de_system,
+                        conditions = cond, 
+                        xy_min = xy_min, 
+                        xy_max = xy_max,
+                        nets=nets, 
+                        train_generator=train_generator, 
+                        valid_generator=valid_generator, 
+                        optimizer=optimizer,
+                        criterion=load_dict['criterion'], 
+                        metrics=load_dict['metrics'])
+        
         solver.metrics_history['train_loss'] = train_loss
         solver.metrics_history['valid_loss'] = valid_loss
 
