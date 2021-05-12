@@ -5,6 +5,7 @@ import pytest
 from pytest import raises, warns, deprecated_call
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.conditions import IVP
+from neurodiffeq.conditions import BundleIVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
@@ -34,6 +35,11 @@ def N_SAMPLES():
 @pytest.fixture
 def ones(N_SAMPLES):
     return torch.ones(N_SAMPLES, 1, requires_grad=True)
+
+
+@pytest.fixture
+def lin(N_SAMPLES):
+    return torch.linspace(0, 1, N_SAMPLES, requires_grad=True).reshape(-1, 1)
 
 
 @pytest.fixture
@@ -107,6 +113,11 @@ def net31():
 
 
 @pytest.fixture
+def net41():
+    return FCNN(4, 1)
+
+
+@pytest.fixture
 def boundary_functions_2d(x0, x1, y0, y1, u00, u01, u10, u11):
     net_f0, net_f1, net_g0, net_g1 = [FCNN(1, 1) for _ in range(4)]
     cond_f0 = DirichletBVP(y0, u00, y1, u01)
@@ -151,6 +162,71 @@ def test_ivp(x0, y0, y1, ones, net11):
     y = cond.enforce(net11, x)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+
+def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
+    # Regular IVP with no bundle:
+    x = x0 * ones
+    cond = BundleIVP(x0, y0)
+    y = cond.enforce(net11, x)
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
+
+    cond = BundleIVP(x0, y0, y1)
+    y = cond.enforce(net11, x)
+    assert all_close(y, y0), "y(x_0) != y_0"
+    assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+    # Bundle in u_0:
+    y_bundle = y0 * lin
+    cond = BundleIVP(t_0=x0, bundle_conditions=['u_0'])
+    y = cond.enforce(net21, x, y_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+
+    cond = BundleIVP(t_0=x0, u_0_prime=y1, bundle_conditions=['u_0'])
+    y = cond.enforce(net21, x, y_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+    assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+    # Bundle in u_0_prime:
+    y_prime_bundle = y1 * lin
+    cond = BundleIVP(t_0=x0, u_0=y0, bundle_conditions=['u_0_prime'])
+    y = cond.enforce(net21, x, y_prime_bundle)
+    assert all_close(y, y0), "y(x_0) != y_0"
+    assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
+
+    # Bundle in u_0 and u_0_prime:
+    cond = BundleIVP(t_0=x0, bundle_conditions=['u_0', 'u_0_prime'])
+    y = cond.enforce(net31, x, y_bundle, y_prime_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+    assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
+
+    # Bundle in t_0:
+    x = x0 * lin
+    x_bundle = x0 * lin
+    cond = BundleIVP(u_0=y0, bundle_conditions=['t_0'])
+    y = cond.enforce(net21, x, x_bundle)
+    assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
+
+    cond = BundleIVP(u_0=y0, u_0_prime=y1, bundle_conditions=['t_0'])
+    y = cond.enforce(net21, x, x_bundle)
+    assert all_close(y, y0), "y(x_0) != y_0"
+    assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+    # Bundle in t_0 and u_0:
+    cond = BundleIVP(bundle_conditions=['t_0', 'u_0'])
+    y = cond.enforce(net31, x, x_bundle, y_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+
+    cond = BundleIVP(u_0_prime=y1, bundle_conditions=['t_0', 'u_0'])
+    y = cond.enforce(net31, x, x_bundle, y_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+    assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
+
+    # Bundle in t_0, u_0 and u_0_prime:
+    cond = BundleIVP(bundle_conditions=['t_0', 'u_0', 'u_0_prime'])
+    y = cond.enforce(net41, x, x_bundle, y_bundle, y_prime_bundle)
+    assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
+    assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
 
 
 def test_ivp_legacy_signature():
