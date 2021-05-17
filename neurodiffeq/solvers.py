@@ -14,6 +14,7 @@ from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
 from neurodiffeq.function_basis import RealSphericalHarmonics
+from neurodiffeq.neurodiffeq import safe_diff as diff
 
 
 def _requires_closure(optimizer):
@@ -156,13 +157,14 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-
+        self.batch = None
+        
         if criterion is None:
-            self.criterion = lambda r,data: (r ** 2).mean()
+            self.criterion = lambda r: (r ** 2).mean()
         elif isinstance(criterion, nn.modules.loss._Loss):
-            self.criterion = lambda r,data: criterion(r, torch.zeros_like(r))
+            self.criterion = lambda r: criterion(r, torch.zeros_like(r))
         elif isinstance(criterion, str):
-            self.criterion = weighted_loss(criterion)
+            self.criterion = self.weighted_loss(criterion)
         else:
             self.criterion = criterion
 
@@ -191,6 +193,59 @@ class BaseSolver(ABC):
         # the _phase variable is registered for callback functions to access
         self._phase = None
 
+    def get_residual_gradient(self, residuals, data, order=1, flatten=True):
+        # this might throw an error for 1D
+        grad = []
+        for i,d in enumerate(data): #get gradient of residuals wrt inputs
+#             grad.append(torch.autograd.grad(residuals, d, grad_outputs=torch.ones_like(d), create_graph=True)[0])
+            grad.append(diff(residuals, d, order=order))
+        grad_residuals = torch.cat(grad, dim=0) if flatten else grad
+        return grad_residuals
+        
+    def weighted_loss(self, weight_type):
+        r"""Returns loss function of weighted residuals based on weight type
+        
+        :param weight_type: string specifying type of weight to apply in loss function
+        :type weight_type: str
+        """
+        
+        def get_integral(weights, values, num_points):
+            integral = torch.sum(weights*values)/num_points            
+            return integral
+        
+        def L1_norm(residuals):
+            return get_integral(torch.sign(residuals), residuals, 1.*residuals.shape[0])
+        
+        def L2_norm(residuals):
+            return get_integral(residuals, residuals, 1.*residuals.shape[0])
+        
+        def infinity_norm(residuals):
+            # approximate inf norm with exp(L1)?
+            return torch.max(torch.absolute(residuals))
+            
+        def H1_norm(residuals):
+            grad_residuals = self.get_residual_gradient(residuals, self.batch)
+            residuals_with_grad = torch.cat((residuals, grad_residuals), dim=0) 
+            return get_integral(residuals_with_grad, residuals_with_grad, 1.*residuals.shape[0])
+            
+        def H1_seminorm(residuals):
+            grad_residuals = self.get_residual_gradient(residuals, self.batch)
+            return get_integral(grad_residuals, grad_residuals, 1.*residuals.shape[0])
+        
+        if weight_type == 'L1':
+            return L1_norm    
+        elif weight_type == 'L2':
+            return L2_norm
+        elif weight_type == 'infinity':
+            return infinity_norm
+        elif weight_type == 'H1':
+            return H1_norm
+        elif weight_type == 'H1 semi':
+            return H1_seminorm
+        else:
+            raise ValueError("Weight type must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")
+        
+        
     @property
     def global_epoch(self):
         r"""Global epoch count, always equal to the length of train loss history.
@@ -298,6 +353,7 @@ class BaseSolver(ABC):
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
             batch = self._generate_batch(key)
+            self.batch = batch
 
             def closure(zero_grad=True):
                 nonlocal batch_loss
@@ -306,7 +362,7 @@ class BaseSolver(ABC):
                 funcs = [
                     self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
                 ]
-
+                
                 for name in self.metrics_fn:
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
@@ -1127,3 +1183,24 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
+    
+    def get_residuals_info(self, data, best=True):
+        
+        # establish nets and conditions
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+            
+        # get neural net solution
+        funcs = [
+            self.compute_func_val(n, c, *data) for n, c in zip(nets, conditions)
+        ]
+            
+        # calculate residuals
+        residuals = self.diff_eqs(*funcs, *data)
+        residuals = torch.cat(residuals, dim=1)
+        
+        # calculate derivatives of residuals
+        d_residuals = self.get_residual_gradient(residuals, data, flatten=False)
+        d2_residuals = self.get_residual_gradient(residuals, data, order=2, flatten=False)
+
+        return residuals, d_residuals, d2_residuals
