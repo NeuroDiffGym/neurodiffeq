@@ -196,17 +196,19 @@ class BaseSolver(ABC):
     def get_residual_gradient(self, residuals, data, order=1, flatten=True):
         # this might throw an error for 1D
         grad = []
-        for i,d in enumerate(data): #get gradient of residuals wrt inputs
-#             grad.append(torch.autograd.grad(residuals, d, grad_outputs=torch.ones_like(d), create_graph=True)[0])
+        # get gradient of residuals wrt input data
+        for i,d in enumerate(data): 
             grad.append(diff(residuals, d, order=order))
         grad_residuals = torch.cat(grad, dim=0) if flatten else grad
         return grad_residuals
         
     def weighted_loss(self, weight_type):
-        r"""Returns loss function of weighted residuals based on weight type
+        r"""Returns loss function (a norm of the residuals) based on weight_type
         
         :param weight_type: string specifying type of weight to apply in loss function
         :type weight_type: str
+        :return: loss function that calculates a norm of the residuals
+        :rtype: function
         """
         
         def get_integral(weights, values, num_points):
@@ -220,7 +222,6 @@ class BaseSolver(ABC):
             return get_integral(residuals, residuals, 1.*residuals.shape[0])
         
         def infinity_norm(residuals):
-            # approximate inf norm with exp(L1)?
             return torch.max(torch.absolute(residuals))
             
         def H1_norm(residuals):
@@ -243,7 +244,7 @@ class BaseSolver(ABC):
         elif weight_type == 'H1 semi':
             return H1_seminorm
         else:
-            raise ValueError("Weight type must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")
+            raise ValueError("If criterion is type string, must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")
         
         
     @property
@@ -1185,6 +1186,17 @@ class Solver2D(BaseSolver):
         return available_variables
     
     def get_residuals_info(self, data, best=True):
+        r"""Calculates the residuals based on the data and generates the first and second derivatives of the residuals w.r.t. the data.
+        
+        :param data: Input data 
+        :type data: List[`torch.Tensor`]
+        :param best:
+            Whether to use the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return: residuals (residuals), first derivative of residuals (d_residuals), second derivative of residuals (d2_residuals)
+        :rtype: torch.Tensor, torch.Tensor, torch.Tensor
+        """
         
         # establish nets and conditions
         nets = self.best_nets if best else self.nets
