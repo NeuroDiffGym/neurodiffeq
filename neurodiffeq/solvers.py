@@ -194,6 +194,23 @@ class BaseSolver(ABC):
         self._phase = None
 
     def get_residual_gradient(self, residuals, data, order=1, flatten=True):
+        r"""Returns gradient of residuals with respect to sampled domain data
+        
+        :param residuals: Residuals of neural net solution
+        :type residuals: `torch.Tensor`
+        :param data: Generated data points within domain
+        :type data: `torch.Tensor` or List[`torch.Tensor`]
+        :param order: 
+            Order of derivative.
+            Defaults to 1.
+        :type order: int
+        :param flatten: 
+            Whether to reduce output to one-dimensional array or not.
+            Defaults to True.  
+        :type flatten: bool
+        :return: gradient of residuals
+        :rtype: `torch.Tensor` if flatten=True, else List[`torch.Tensor`]
+        """
         grad = []
         # get gradient of residuals wrt input data
         for i,d in enumerate(data): 
@@ -1186,7 +1203,7 @@ class Solver2D(BaseSolver):
     def get_residuals_info(self, data, best=True):
         r"""Calculates the residuals based on the data and generates the first and second derivatives of the residuals w.r.t. the data.
         
-        :param data: Input data 
+        :param data: Generated data points within domain. 
         :type data: List[`torch.Tensor`]
         :param best:
             Whether to use the solution with lowest loss instead of the solution after the last epoch.
