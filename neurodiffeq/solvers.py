@@ -194,7 +194,6 @@ class BaseSolver(ABC):
         self._phase = None
 
     def get_residual_gradient(self, residuals, data, order=1, flatten=True):
-        # this might throw an error for 1D
         grad = []
         # get gradient of residuals wrt input data
         for i,d in enumerate(data): 
@@ -233,19 +232,18 @@ class BaseSolver(ABC):
             grad_residuals = self.get_residual_gradient(residuals, self.batch)
             return get_integral(grad_residuals, grad_residuals, 1.*residuals.shape[0])
         
-        if weight_type == 'L1':
+        if weight_type.lower() == 'l1':
             return L1_norm    
-        elif weight_type == 'L2':
+        elif weight_type.lower() == 'l2':
             return L2_norm
-        elif weight_type == 'infinity':
+        elif weight_type.lower() == 'infinity':
             return infinity_norm
-        elif weight_type == 'H1':
+        elif weight_type.lower() == 'h1':
             return H1_norm
-        elif weight_type == 'H1 semi':
+        elif weight_type.lower() == 'h1 semi':
             return H1_seminorm
         else:
-            raise ValueError("If criterion is type string, must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")
-        
+            raise ValueError("If criterion is type string, must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")        
         
     @property
     def global_epoch(self):
