@@ -879,7 +879,7 @@ class Solver1D(BaseSolver):
     :type shuffle: bool
     """
 
-    def __init__(self, ode_system, conditions, t_min, t_max,
+    def __init__(self, ode_system, conditions, t_min=None, t_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
@@ -1042,7 +1042,7 @@ class Solver2D(BaseSolver):
     :type shuffle: bool
     """
 
-    def __init__(self, pde_system, conditions, xy_min, xy_max,
+    def __init__(self, pde_system, conditions, xy_min=None, xy_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
