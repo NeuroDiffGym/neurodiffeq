@@ -178,7 +178,7 @@ class BaseSolver(ABC):
         # number of batches for training / validation;
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
         # current batch of samples, kept for additional_loss term to use
-        self._batch_examples = make_pair_dict()
+        self._batch = make_pair_dict()
         # current network with lowest loss
         self.best_nets = None
         # current lowest loss
@@ -271,6 +271,18 @@ class BaseSolver(ABC):
         """
         return len(self.metrics_history['train_loss'])
 
+    @property
+    def batch(self):
+        return self._batch
+
+    @property
+    def _batch_examples(self):
+        warnings.warn(
+            '`._batch_examples` has been deprecated in favor of `._batch` and will be removed in a future version',
+            FutureWarning,
+        )
+        return self._batch
+
     def compute_func_val(self, net, cond, *coordinates):
         r"""Compute the function value evaluated on the points specified by ``coordinates``.
 
@@ -312,11 +324,11 @@ class BaseSolver(ABC):
         self._update_history(value, metric_type, key='valid')
 
     def _generate_batch(self, key):
-        r"""Generate the next batch, register in self._batch_examples and return the batch.
+        r"""Generate the next batch, register in self._batch and return the batch.
 
         :param key:
             {'train', 'valid'};
-            Dict key in ``self._examples``, ``self._batch_examples``, or ``self._batch_start``
+            Dict key in ``self._examples``, ``self._batch``, or ``self._batch_start``
         :type key: str
         :return: The generated batch of points.
         :type: List[`torch.Tensor`]
@@ -324,15 +336,15 @@ class BaseSolver(ABC):
         # the following side effects are helpful for future extension,
         # especially for additional loss term that depends on the coordinates
         self._phase = key
-        self._batch_examples[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
-        return self._batch_examples[key]
+        self._batch[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
+        return self._batch[key]
 
     def _generate_train_batch(self):
-        r"""Generate the next training batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next training batch, register in ``self._batch`` and return."""
         return self._generate_batch('train')
 
     def _generate_valid_batch(self):
-        r"""Generate the next validation batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next validation batch, register in ``self._batch`` and return."""
         return self._generate_batch('valid')
 
     def _do_optimizer_step(self, closure=None):
@@ -372,7 +384,6 @@ class BaseSolver(ABC):
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
             batch = self._generate_batch(key)
-            self.batch = batch
 
             def closure(zero_grad=True):
                 nonlocal batch_loss
