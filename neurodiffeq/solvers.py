@@ -158,7 +158,6 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-        self.batch = None
 
         if criterion is None:
             self.criterion = lambda r, f, x: (r ** 2).mean()
