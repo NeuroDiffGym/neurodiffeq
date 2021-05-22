@@ -413,7 +413,7 @@ class BaseSolver(ABC):
                           "use a MonitorCallback and pass a list of callbacks instead")
             callbacks = [monitor.to_callback()] + list(callbacks)
         if kwargs:
-            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
+            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')  # pragma: no cover
 
         for local_epoch in range(max_epochs):
             # stop training if self._stop_training is set to True by a callback
