@@ -1187,35 +1187,3 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
-
-    def get_residuals_info(self, data, best=True):
-        r"""Calculates the residuals based on the data and generates the first and second derivatives of the residuals w.r.t. the data.
-        
-        :param data: Generated data points within domain. 
-        :type data: List[`torch.Tensor`]
-        :param best:
-            Whether to use the solution with lowest loss instead of the solution after the last epoch.
-            Defaults to True.
-        :type best: bool
-        :return: residuals (residuals), first derivative of residuals (d_residuals), second derivative of residuals (d2_residuals)
-        :rtype: torch.Tensor, torch.Tensor, torch.Tensor
-        """
-
-        # establish nets and conditions
-        nets = self.best_nets if best else self.nets
-        conditions = self.conditions
-
-        # get neural net solution
-        funcs = [
-            self.compute_func_val(n, c, *data) for n, c in zip(nets, conditions)
-        ]
-
-        # calculate residuals
-        residuals = self.diff_eqs(*funcs, *data)
-        residuals = torch.cat(residuals, dim=1)
-
-        # calculate derivatives of residuals
-        d_residuals = self.get_residual_gradient(residuals, data, flatten=False)
-        d2_residuals = self.get_residual_gradient(residuals, data, order=2, flatten=False)
-
-        return residuals, d_residuals, d2_residuals
