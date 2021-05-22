@@ -11,6 +11,7 @@ from neurodiffeq.operators import spherical_grad
 from neurodiffeq.operators import spherical_div
 from neurodiffeq.operators import spherical_laplacian
 from neurodiffeq.operators import spherical_vector_laplacian
+from neurodiffeq.operators import grad
 
 
 @pytest.fixture(autouse=True)
