@@ -12,13 +12,10 @@ def grad(u, *xs):
     :param u: The :math:`u` described above.
     :type u: `torch.Tensor`
     :param xs: The sequence of :math:`x_i` described above.
-    :type xs: Tuple[`torch.Tensor`]
+    :type xs: `torch.Tensor`
     :return: A tuple of :math:`\frac{\partial u}{\partial x_1}`, ..., :math:`\frac{\partial u}{\partial x_n}`
-    :rtype: Tuple[`torch.Tensor`]
+    :rtype: List[`torch.Tensor`]
     """
-    if not (isinstance(xs, (tuple, list)) and isinstance(xs[0], torch.Tensor)):
-        raise ValueError(f"xs should be a tuple of Tensors, not {type(xs)}")
-
     grads = []
     for x, g in zip(xs, autograd.grad(u, xs, grad_outputs=torch.ones_like(u), create_graph=True, allow_unused=True)):
         if g is None:
