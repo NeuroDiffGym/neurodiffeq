@@ -17,14 +17,14 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="neurodiffeq",
-    version="0.3.5",
+    version="0.4.0",
     author="neurodiffgym",
     author_email="shuheng_liu@g.harvard.edu",
     description="A light-weight & flexible library for solving differential equations using neural networks based on PyTorch. ",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/NeuroDiffGym/neurodiffeq",
-    download_url="https://github.com/NeuroDiffGym/neurodiffeq/archive/v0.3.5.tar.gz",
+    download_url="https://github.com/NeuroDiffGym/neurodiffeq/archive/v0.4.0.tar.gz",
     keywords=[
         "neural network",
         "deep learning",
