@@ -96,7 +96,7 @@ def test_higher_order_derivatives():
         assert torch.isclose(diff(u, t, order=order), u).all()
 
 
-def test_legacy_siganature():
+def test_legacy_signature():
     u, t = get_data(flatten_u=False, flatten_t=False)
     with pytest.warns(FutureWarning):
         diff(x=u, t=t)

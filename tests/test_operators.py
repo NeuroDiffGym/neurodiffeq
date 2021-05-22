@@ -32,6 +32,7 @@ class HarmonicsNN(nn.Module):
 
 
 EPS = 1e-4
+degrees = list(range(10))
 
 
 @pytest.fixture
@@ -42,28 +43,14 @@ def x():
 
 
 @pytest.fixture
-def degrees():
-    return list(range(10))
-
-
-@pytest.fixture
-def harmonics_fn(degrees):
-    return ZonalSphericalHarmonics(degrees=degrees)
-
-
-@pytest.fixture
-def F(degrees, harmonics_fn):
-    return [HarmonicsNN(degrees, harmonics_fn) for _ in range(3)]
-
-
-@pytest.fixture
-def U(F, x):
+def U(x):
+    F = [HarmonicsNN(degrees, ZonalSphericalHarmonics(degrees=degrees)) for _ in range(3)]
     return list(map(lambda f: f(*x), F))
 
 
 @pytest.fixture
-def u(degrees, harmonics_fn, x):
-    return HarmonicsNN(degrees, harmonics_fn)(*x)
+def u(x):
+    return HarmonicsNN(degrees, ZonalSphericalHarmonics(degrees=degrees))(*x)
 
 
 def is_zero(t):
