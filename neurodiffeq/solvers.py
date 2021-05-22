@@ -330,11 +330,12 @@ class BaseSolver(ABC):
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
                 try:
-                    loss = self.criterion(residuals, funcs, batch) + self.additional_loss(funcs, key)
+                    loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
                 except TypeError as e:
-                    print("You might need to update your code. "
-                          "Since v0.4.0; both `criterion` and `additional_loss` requires three inputs: "
-                          "`residual`, `funcs`, and `coords`. See documentation for more.", file=sys.stderr)
+                    warnings.warn(
+                        "You might need to update your code. "
+                        "Since v0.4.0; both `criterion` and `additional_loss` requires three inputs: "
+                        "`residual`, `funcs`, and `coords`. See documentation for more.", FutureWarning)
                     raise e
 
                 # accumulate gradients before the current graph is collected as garbage
@@ -853,7 +854,10 @@ class SolutionSphericalHarmonics(SolutionSpherical):
             raise ValueError("harmonics_fn should be specified")
 
         if max_degree is not None:
-            warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
+            warnings.warn(
+                "`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence",
+                FutureWarning,
+            )
             self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
