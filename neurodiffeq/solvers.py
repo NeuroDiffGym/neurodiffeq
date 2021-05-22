@@ -13,6 +13,7 @@ from neurodiffeq.generators import GeneratorSpherical
 from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import Generator1D
 from neurodiffeq.generators import Generator2D
+from neurodiffeq.generators import GeneratorND
 from neurodiffeq.function_basis import RealSphericalHarmonics
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from .losses import _losses
@@ -158,7 +159,8 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-
+        self.batch = None
+        
         if criterion is None:
             self.criterion = lambda r, f, x: (r ** 2).mean()
         elif isinstance(criterion, nn.modules.loss._Loss):
@@ -193,6 +195,75 @@ class BaseSolver(ABC):
         # the _phase variable is registered for callback functions to access
         self._phase = None
 
+    def get_residual_gradient(self, residuals, data, order=1, flatten=True):
+        r"""Returns gradient of residuals with respect to sampled domain data
+        
+        :param residuals: Residuals of neural net solution
+        :type residuals: `torch.Tensor`
+        :param data: Generated data points within domain
+        :type data: `torch.Tensor` or List[`torch.Tensor`]
+        :param order: 
+            Order of derivative.
+            Defaults to 1.
+        :type order: int
+        :param flatten: 
+            Whether to reduce output to one-dimensional array or not.
+            Defaults to True.  
+        :type flatten: bool
+        :return: gradient of residuals
+        :rtype: `torch.Tensor` if flatten=True, else List[`torch.Tensor`]
+        """
+        grad = []
+        # get gradient of residuals wrt input data
+        for i,d in enumerate(data): 
+            grad.append(diff(residuals, d, order=order))
+        grad_residuals = torch.cat(grad, dim=0) if flatten else grad
+        return grad_residuals
+        
+    def weighted_loss(self, weight_type):
+        r"""Returns loss function (a norm of the residuals) based on weight_type
+        
+        :param weight_type: string specifying type of weight to apply in loss function
+        :type weight_type: str
+        :return: loss function that calculates a norm of the residuals
+        :rtype: function
+        """
+        
+        def get_integral(weights, values, num_points):
+            integral = torch.sum(weights*values)/num_points            
+            return integral
+        
+        def L1_norm(residuals):
+            return get_integral(torch.sign(residuals), residuals, 1.*residuals.shape[0])
+        
+        def L2_norm(residuals):
+            return get_integral(residuals, residuals, 1.*residuals.shape[0])
+        
+        def infinity_norm(residuals):
+            return torch.max(torch.absolute(residuals))
+            
+        def H1_norm(residuals):
+            grad_residuals = self.get_residual_gradient(residuals, self.batch)
+            residuals_with_grad = torch.cat((residuals, grad_residuals), dim=0) 
+            return get_integral(residuals_with_grad, residuals_with_grad, 1.*residuals.shape[0])
+            
+        def H1_seminorm(residuals):
+            grad_residuals = self.get_residual_gradient(residuals, self.batch)
+            return get_integral(grad_residuals, grad_residuals, 1.*residuals.shape[0])
+        
+        if weight_type.lower() == 'l1':
+            return L1_norm    
+        elif weight_type.lower() == 'l2':
+            return L2_norm
+        elif weight_type.lower() == 'infinity':
+            return infinity_norm
+        elif weight_type.lower() == 'h1':
+            return H1_norm
+        elif weight_type.lower() == 'h1 semi':
+            return H1_seminorm
+        else:
+            raise ValueError("If criterion is type string, must be one of: 'L1', 'L2', 'infinity', 'H1' or 'H1 semi'.")        
+        
     @property
     def global_epoch(self):
         r"""Global epoch count, always equal to the length of train loss history.
@@ -315,6 +386,7 @@ class BaseSolver(ABC):
         # see https://discuss.pytorch.org/t/why-do-we-need-to-set-the-gradients-manually-to-zero-in-pytorch/4903/17
         for batch_id in range(self.n_batches[key]):
             batch = self._generate_batch(key)
+            self.batch = batch
 
             def closure(zero_grad=True):
                 nonlocal batch_loss
@@ -323,7 +395,7 @@ class BaseSolver(ABC):
                 funcs = [
                     self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
                 ]
-
+                
                 for name in self.metrics_fn:
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
@@ -1026,6 +1098,198 @@ class Solver1D(BaseSolver):
         return available_variables
 
 
+class BundleSolution1D(BaseSolution):
+    def _compute_u(self, net, condition, *ts):
+        return condition.enforce(net, *ts)
+
+
+class BundleSolver1D(BaseSolver):
+    r"""A solver class for solving ODEs (single-input differential equations)
+    , or a bundle of ODEs for different values of its parameters and/or conditions
+
+    :param ode_system:
+        The ODE system to solve, which maps a torch.Tensor or a tuple of torch.Tensors, to a tuple of ODE residuals,
+        both the input and output must have shape (n_samples, 1).
+    :type ode_system: callable
+    :param conditions:
+        List of conditions for each target function.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param t_min:
+        Lower bound of input (start time).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type t_min: float, optional
+    :param t_max:
+        Upper bound of input (start time).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type t_max: float, optional
+    :param theta_min:
+        Lower bound of input (parameters and/or conditions). If conditions are included in the bundle,
+        they should be the first values in the tuple.
+        Defaults to None.
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type theta_min: float or tuple, optional
+    :param theta_max:
+        Upper bound of input (parameters and/or conditions). If conditions are included in the bundle,
+        they should be the first values in the tuple.
+        Defaults to None.
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type theta_max: float or tuple, optional
+    :param nets:
+        List of neural networks for parameterized solution.
+        If provided, length of ``nets`` must equal that of ``conditions``
+    :type nets: list[torch.nn.Module], optional
+    :param train_generator:
+        Generator for sampling training points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``train_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        Generator for sampling validation points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``valid_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param analytic_solutions:
+        Analytical solutions to be compared with neural net solutions.
+        It maps a torch.Tensor to a tuple of function values.
+        Output shape should match that of ``nets``.
+    :type analytic_solutions: callable, optional
+    :param optimizer:
+        Optimizer to be used for training.
+        Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+    :type optimizer: ``torch.nn.optim.Optimizer``, optional
+    :param criterion:
+        Function that maps a ODE residual tensor (of shape (-1, 1)) to a scalar loss.
+    :type criterion: callable, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``ode_system``.
+
+    :type metrics: dict[str, callable], optional
+    :param n_output_units:
+        Number of output units for each neural network.
+        Ignored if ``nets`` is specified.
+        Defaults to 1.
+    :type n_output_units: int, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+    """
+
+    def __init__(self, ode_system, conditions, t_min, t_max,
+                 theta_min=None, theta_max=None,
+                 nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
+                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 # deprecated arguments are listed below
+                 batch_size=None, shuffle=None):
+
+        if train_generator is None or valid_generator is None:
+            if t_min is None or t_max is None:
+                raise ValueError(f"Either generator is not provided, t_min and t_max should be both provided: \n"
+                                 f"got t_min={t_min}, t_max={t_max}, "
+                                 f"train_generator={train_generator}, valid_generator={valid_generator}")
+
+        if isinstance(theta_min, float) or isinstance(theta_min, int):
+            r_min = (t_min,) + (theta_min,)
+
+        if isinstance(theta_max, float) or isinstance(theta_max, int):
+            r_max = (t_max,) + (theta_max,)
+
+        if theta_min is None and theta_max is None:
+            r_min = (t_min,)
+            r_max = (t_max,)
+
+        if isinstance(theta_min, tuple) and isinstance(theta_max, tuple):
+            r_min = (t_min,) + theta_min
+            r_max = (t_max,) + theta_max
+
+        n_input_units = len(r_min)
+
+        methods = ['equally-spaced' for i in range(n_input_units)]
+
+        grid = tuple(32 for j in range(n_input_units))
+
+        if train_generator is None:
+            train_generator = GeneratorND(grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        if valid_generator is None:
+            valid_generator = GeneratorND(grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+
+        self.r_min, self.r_max = r_min, r_max
+
+        super(BundleSolver1D, self).__init__(
+            diff_eqs=ode_system,
+            conditions=conditions,
+            nets=nets,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
+            analytic_solutions=analytic_solutions,
+            optimizer=optimizer,
+            criterion=criterion,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            metrics=metrics,
+            n_input_units=n_input_units,
+            n_output_units=n_output_units,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
+
+    def get_solution(self, copy=True, best=True):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return:
+            A solution object which can be called.
+            To evaluate the solution on certain points,
+            you should pass the coordinates vector(s) to the returned solution.
+        :rtype: BaseSolution
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        return BundleSolution1D(nets, conditions)
+
+    def _get_internal_variables(self):
+        available_variables = super(BundleSolver1D, self)._get_internal_variables()
+        available_variables.update({
+            'r_min': self.r_min,
+            'r_max': self.r_max,
+        })
+        return available_variables
+
+
 class Solution2D(BaseSolution):
     def _compute_u(self, net, condition, xs, ys):
         return condition.enforce(net, xs, ys)
@@ -1187,3 +1451,35 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
+    
+    def get_residuals_info(self, data, best=True):
+        r"""Calculates the residuals based on the data and generates the first and second derivatives of the residuals w.r.t. the data.
+        
+        :param data: Generated data points within domain. 
+        :type data: List[`torch.Tensor`]
+        :param best:
+            Whether to use the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return: residuals (residuals), first derivative of residuals (d_residuals), second derivative of residuals (d2_residuals)
+        :rtype: torch.Tensor, torch.Tensor, torch.Tensor
+        """
+        
+        # establish nets and conditions
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+            
+        # get neural net solution
+        funcs = [
+            self.compute_func_val(n, c, *data) for n, c in zip(nets, conditions)
+        ]
+            
+        # calculate residuals
+        residuals = self.diff_eqs(*funcs, *data)
+        residuals = torch.cat(residuals, dim=1)
+        
+        # calculate derivatives of residuals
+        d_residuals = self.get_residual_gradient(residuals, data, flatten=False)
+        d2_residuals = self.get_residual_gradient(residuals, data, order=2, flatten=False)
+
+        return residuals, d_residuals, d2_residuals

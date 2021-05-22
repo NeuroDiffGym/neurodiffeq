@@ -1,7 +1,7 @@
 # neurodiffeq
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/eada52ca726e4919923e213b81ee6420)](https://app.codacy.com/gh/odegym/neurodiffeq?utm_source=github.com&utm_medium=referral&utm_content=odegym/neurodiffeq&utm_campaign=Badge_Grade_Settings)
-![PyPI](https://img.shields.io/pypi/v/neurodiffeq?color=blueviolet&label=PyPI&logoColor=blueviolet) ![GitHub issues](https://img.shields.io/github/issues/NeuroDiffGym/neurodiffeq?color=green) [![Build Status](https://travis-ci.org/NeuroDiffGym/neurodiffeq.svg?branch=master)](https://travis-ci.org/NeuroDiffGym/neurodiffeq) [![codecov](https://codecov.io/gh/odegym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/odegym/neurodiffeq) [![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest) [![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
+![PyPI](https://img.shields.io/pypi/v/neurodiffeq?color=blueviolet&label=PyPI&logoColor=blueviolet) ![GitHub issues](https://img.shields.io/github/issues/NeuroDiffGym/neurodiffeq?color=green) [![Build Status](https://travis-ci.org/NeuroDiffGym/neurodiffeq.svg?branch=master)](https://travis-ci.org/NeuroDiffGym/neurodiffeq) [![codecov](https://codecov.io/gh/NeuroDiffGym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/NeuroDiffGym/neurodiffeq) [![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest) [![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
 
 # Introduction
 
@@ -11,7 +11,7 @@ As universal function approximators, artificial neural networks have been shown 
 
 <p align='center'>
   <a href='https://youtu.be/VDLwyFD-sXQ'>
-    <img src="resources/watermark-cover.jpg" width="80%">
+    <img src="https://raw.githubusercontent.com/NeuroDiffGym/neurodiffeq/master/resources/watermark-cover.jpg" width="80%">
   </a>
 </p>
 
@@ -111,9 +111,9 @@ The signature of `solution` for a 2D PDE is slightly different from that of an O
 ```python
 u = solution(x, y, to_numpy=True)
 ```
-Evaluation u on points meshgrids in `[0,1] × [0,1]` yields the following plots
+Evaluating u on `[0,1] × [0,1]` yields the following plots
 
-|                 ANN-Based Solution                  |           Error against Analytical Solution                  |
+|                 ANN-Based Solution                  |                    Residual of PDE                           |
 | :-------------------------------------------------: | :----------------------------------------------------------: |
 | ![laplace-solution](resources/laplace-solution.png) | ![laplace-error](resources/laplace-error.png)                |
 
@@ -243,7 +243,7 @@ Unlike traditional numerial methods (FEM, FVM, etc.), the NN-based solution requ
 
 - To use a different network architecture, you can pass in your custom `torch.nn.Module`s.
 - To use a different optimizer, you can pass in your own optimizer to `solver = Solver(..., optimizer=my_optim)`. 
-- To use a different sampling distribution, you can use [predefined generators](https://neurodiffeq.readthedocs.io/en/latest/api.html#module-neurodiffeq.generators) or write your own generators from scratch.
+- To use a different sampling distribution, you can use [built-in generators](https://neurodiffeq.readthedocs.io/en/latest/api.html#module-neurodiffeq.generators) or write your own generators from scratch.
 - To use a different sampling size, you can tweak the generators or change `solver = Solver(..., n_batches_train)`.
 - To dynamically change hyperparameters during training, checkout our [callbacks](https://neurodiffeq.readthedocs.io/en/latest/api.html#module-neurodiffeq.callbacks) feature.
 
