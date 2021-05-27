@@ -15,12 +15,6 @@ try:
 except KeyError:
     NEURODIFF_API_URL = "http://dev.neurodiff.io/api/v1"
 
-try:
-    NEURODIFF_API_KEY = os.environ["NEURODIFF_API_KEY"]
-except KeyError:
-    print("No API Key was found in environment variable NEURODIFF_API_KEY")
-    NEURODIFF_API_KEY = ""
-
 def is_solution_name(name):
     if name.startswith('./'):
         return False
@@ -36,6 +30,11 @@ def process_response(response):
 
 def _make_api_headers():
     headers = {}
+    try:
+        NEURODIFF_API_KEY = os.environ["NEURODIFF_API_KEY"]
+    except KeyError:
+        print("No API Key was found in environment variable NEURODIFF_API_KEY")
+        NEURODIFF_API_KEY = ""
 
     headers["api_key"] = NEURODIFF_API_KEY
 
