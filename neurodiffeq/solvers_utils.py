@@ -73,10 +73,17 @@ def get_source(lambda_function):
 def get_parameters(lambda_function):
     parameters = {}
     try:
-        freevars = lambda_function.__code__.co_freevars
         closures = lambda_function.__closure__
-        for i,c in enumerate(closures):
-            parameters[freevars[i]] = c.cell_contents
+        if closures is not None:
+            freevars = lambda_function.__code__.co_freevars
+            for i,c in enumerate(closures):
+                parameters[freevars[i]] = c.cell_contents
+        else:
+            gbs = lambda_function.__globals__
+            co_names = lambda_function.__code__.co_names
+            for i,c in enumerate(co_names):
+                if c != "diff":
+                    parameters[c] = gbs[c]
     except:
         pass
 
