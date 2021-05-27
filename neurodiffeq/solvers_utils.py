@@ -82,7 +82,7 @@ def get_parameters(lambda_function):
             gbs = lambda_function.__globals__
             co_names = lambda_function.__code__.co_names
             for i,c in enumerate(co_names):
-                if c != "diff":
+                if c != "diff" and c != "torch":
                     parameters[c] = gbs[c]
     except:
         pass
