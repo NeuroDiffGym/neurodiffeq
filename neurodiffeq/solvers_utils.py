@@ -70,6 +70,18 @@ def get_source(lambda_function):
 
     return lambda_text
 
+def get_parameters(lambda_function):
+    parameters = {}
+    try:
+        freevars = lambda_function.__code__.co_freevars
+        closures = lambda_function.__closure__
+        for i,c in enumerate(closures):
+            parameters[freevars[i]] = c.cell_contents
+    except:
+        pass
+
+    return parameters
+
 class SolverConfig():
     conditions = None
     ode_system = None
