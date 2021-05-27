@@ -60,11 +60,11 @@ def get_source(lambda_function):
     lambda_text = ""
     try:
         source_lines, _ = inspect.getsourcelines(lambda_function)
-        source_text = "".join([line.strip() for line in source_lines])
-        source_ast = ast.parse(source_text)
+        lambda_text = "".join([line.strip() for line in source_lines])
+        source_ast = ast.parse(lambda_text)
         lambda_node = next((node for node in ast.walk(source_ast)
                             if isinstance(node, ast.Lambda)), None)
-        lambda_text = source_text[lambda_node.col_offset:]
+        lambda_text = lambda_text[lambda_node.col_offset:]
     except:
         pass
 
