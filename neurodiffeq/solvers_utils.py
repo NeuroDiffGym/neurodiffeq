@@ -18,6 +18,7 @@ except KeyError:
 try:
     NEURODIFF_API_KEY = os.environ["NEURODIFF_API_KEY"]
 except KeyError:
+    print("No API Key was found in environment variable NEURODIFF_API_KEY")
     NEURODIFF_API_KEY = ""
 
 def is_solution_name(name):
@@ -55,10 +56,10 @@ def get_file(url, solution_name):
                     f.write(chunk)
     return solution_file_path
 
-def get_diff_eqs_source(diff_eqs):
+def get_source(lambda_function):
     lambda_text = ""
     try:
-        source_lines, _ = inspect.getsourcelines(diff_eqs)
+        source_lines, _ = inspect.getsourcelines(lambda_function)
         source_text = "".join([line.strip() for line in source_lines])
         source_ast = ast.parse(source_text)
         lambda_node = next((node for node in ast.walk(source_ast)
@@ -83,7 +84,7 @@ class PretrainedSolver():
     diff_eqs_source = ""
 
     def print_diff_eqs(self):
-        lambda_text = get_diff_eqs_source(self.diff_eqs)
+        lambda_text = get_source(self.diff_eqs)
         if lambda_text == "":
             lambda_text = self.diff_eqs_source
         print(lambda_text)
@@ -118,7 +119,7 @@ class PretrainedSolver():
             "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
             "diff_eqs": self.diff_eqs,
-            "diff_eqs_source": get_diff_eqs_source(self.diff_eqs),
+            "diff_eqs_source": get_source(self.diff_eqs),
             "generator": self.generator,
             "train_loss_history": self.metrics_history['train_loss'],
             "valid_loss_history": self.metrics_history['valid_loss'],
