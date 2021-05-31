@@ -1,4 +1,5 @@
 import os
+import json
 import dill
 import numpy as np
 import pathlib
@@ -9,6 +10,7 @@ from typing import Union
 from itertools import chain
 import inspect
 import ast
+import types
 
 try:
     NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
@@ -88,6 +90,41 @@ def get_parameters(lambda_function):
 
     return parameters
 
+def get_conditions(conditions):
+    condition_list = []
+    try:
+        for condition in conditions:
+            cond_dict = condition.__dict__
+            cond_dict["condition_type"] = condition.__class__.__name__
+
+            # Get the lambda functions in the condition
+            for key, value in cond_dict.items():
+                if isinstance(value, types.FunctionType):
+                    function_source = get_source(value)
+                    if function_source != "":
+                        cond_dict[key] = function_source
+
+            condition_list.append(cond_dict)
+    except:
+        pass
+    return condition_list
+
+def get_generator(generator):
+    gen_dict = {}
+    try:
+        gen_dict = generator["train"].__dict__['generator'].__dict__
+        if "examples" in gen_dict:
+            del gen_dict['examples']
+
+        if "grid_x" in gen_dict:
+            del gen_dict['grid_x']
+        if "grid_y" in gen_dict:
+            del gen_dict['grid_y']
+        del gen_dict['getter']
+    except:
+        pass
+    return gen_dict
+
 class SolverConfig():
     conditions = None
     ode_system = None
@@ -127,6 +164,14 @@ class PretrainedSolver():
             if self.optimizer.__class__.__name__ == cls.__name__:
                 optimizer_class = self.optimizer.__class__
 
+        # Get Diff equations details
+        diff_equation_details = {
+            "equation": get_source(self.diff_eqs),
+            "parameters": get_parameters(self.diff_eqs),
+            "conditions": get_conditions(self.conditions),
+            "generator": get_generator(self.generator),
+        }
+
         save_dict = {
             "metrics": self.metrics_fn,
             "criterion": self.criterion,
@@ -137,7 +182,7 @@ class PretrainedSolver():
             "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
             "diff_eqs": self.diff_eqs,
-            "diff_eqs_source": get_source(self.diff_eqs),
+            "diff_equation_details": diff_equation_details,
             "generator": self.generator,
             "train_loss_history": self.metrics_history['train_loss'],
             "valid_loss_history": self.metrics_history['valid_loss'],
@@ -155,30 +200,60 @@ class PretrainedSolver():
                 print("Saving solution to:",NEURODIFF_API_URL)
                 if repo is None:
                     print("Default repo will be used to save solution")
-
-                url = NEURODIFF_API_URL + "/solutions"
-                # Create a solution
+                else:
+                    # Check if user has access to repo
+                    url = NEURODIFF_API_URL + "/repos/check_access/{repo}"
+                    response = requests.get(
+                        url.format(repo=repo),
+                        headers=_make_api_headers()
+                    )
+                    if not response.ok:
+                        #response.raise_for_status()
+                        print("You do not have access to the repo:",repo)
+                    
+                # Upload the solution
+                url = NEURODIFF_API_URL + "/solutions/upload"
                 solution = {
                     "name":name,
                     "description":name,
-                    "diff_eqs_source": save_dict["diff_eqs_source"]
+                    "diff_equation_details": save_dict["diff_equation_details"],
+                    "reponame": repo,
+                    "type_name": save_dict["type_name"]
                 }
-                print(solution)
                 response = requests.post(
                     url,
-                    json=solution,
+                    data=solution,
+                    files={"file": open(tmp_file.name, "rb"), "solution": ("solution.json",json.dumps(solution))},
                     headers=_make_api_headers()
                 )
-                solution = process_response(response)
-                print(solution)
+                if not response.ok:
+                    print("Could not upload solution")
 
-                # Upload the solution file
-                url = NEURODIFF_API_URL + "/solutions/{id}/upload"
-                response = requests.post(
-                    url.format(id=solution["id"]),
-                    files={"file": open(tmp_file.name, "rb")},
-                    headers=_make_api_headers()
-                )
+
+                # url = NEURODIFF_API_URL + "/solutions"
+                # # Create a solution
+                # solution = {
+                #     "name":name,
+                #     "description":name,
+                #     "diff_equation_details": save_dict["diff_equation_details"],
+                #     "repo": repo
+                # }
+                # print(solution)
+                # response = requests.post(
+                #     url,
+                #     json=solution,
+                #     headers=_make_api_headers()
+                # )
+                # solution = process_response(response)
+                # print(solution)
+
+                # # Upload the solution file
+                # url = NEURODIFF_API_URL + "/solutions/{id}/upload"
+                # response = requests.post(
+                #     url.format(id=solution["id"]),
+                #     files={"file": open(tmp_file.name, "rb")},
+                #     headers=_make_api_headers()
+                # )
 
         else:
             # Save solution locally
@@ -310,7 +385,7 @@ class PretrainedSolver():
         solver.metrics_history['valid_loss'] = valid_loss
 
         try:
-            solver.diff_eqs_source = load_dict["diff_eqs_source"]
+            solver.diff_eqs_source = load_dict["diff_equation_details"]["equation"]
         except:
             pass
         return solver
