@@ -139,9 +139,8 @@ class JsonEncoder(json.JSONEncoder):
         return super(JsonEncoder, self).default(obj)
 
 def get_sample_solution(solver):
-    
-    t = np.linspace(solver.t_min,solver.t_max,10*(int(solver.t_max-solver.t_min)))
     try:
+        t = np.linspace(solver.t_min,solver.t_max,10*(int(solver.t_max-solver.t_min)))
         sample_solution = solver.get_solution()(t)
 
         if not isinstance(sample_solution,list):
