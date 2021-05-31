@@ -125,6 +125,36 @@ def get_generator(generator):
         pass
     return gen_dict
 
+class JsonEncoder(json.JSONEncoder):
+  def default(self, obj):
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, decimal.Decimal):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return super(JsonEncoder, self).default(obj)
+
+def get_sample_solution(solver):
+    
+    t = np.linspace(solver.t_min,solver.t_max,10*(int(solver.t_max-solver.t_min)))
+    try:
+        sample_solution = solver.get_solution()(t)
+
+        if not isinstance(sample_solution,list):
+            sample_solution = [sample_solution]
+
+        for i in range(len(sample_solution)):
+            sample_solution[i] = sample_solution[i].detach().numpy().tolist()
+
+        sample_solution_curve = json.dumps([t.tolist(),sample_solution],cls=JsonEncoder)
+    except:
+        pass
+    return sample_solution_curve
+
 class SolverConfig():
     conditions = None
     ode_system = None
@@ -170,6 +200,7 @@ class PretrainedSolver():
             "parameters": get_parameters(self.diff_eqs),
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
+            "sample_solution": get_sample_solution(self),
         }
 
         save_dict = {
