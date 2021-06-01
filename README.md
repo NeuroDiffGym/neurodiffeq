@@ -19,7 +19,7 @@
 
 ------
 
-:mortar_board: **Already familiar with neurodiffeq? ** :point_down: **[Jump to FAQs](#faq).**
+:mortar_board: **Already familiar with neurodiffeq?** :point_down: **[Jump to FAQs](#faq).**
 
 ------
 
