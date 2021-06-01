@@ -139,6 +139,7 @@ class JsonEncoder(json.JSONEncoder):
         return super(JsonEncoder, self).default(obj)
 
 def get_sample_solution(solver):
+    sample_solution_curve = {}
     try:
         t = np.linspace(solver.t_min,solver.t_max,10*(int(solver.t_max-solver.t_min)))
         sample_solution = solver.get_solution()(t)
@@ -178,7 +179,7 @@ class PretrainedSolver():
     def save(self,
         path: str = None,
         name: str = None,
-        repo: str = None,
+        project: str = None,
         save_to_hub=False):
         
         # Check params
@@ -228,18 +229,18 @@ class PretrainedSolver():
 
                 # Save remote
                 print("Saving solution to:",NEURODIFF_API_URL)
-                if repo is None:
-                    print("Default repo will be used to save solution")
+                if project is None:
+                    print("Default project will be used to save solution")
                 else:
-                    # Check if user has access to repo
-                    url = NEURODIFF_API_URL + "/repos/check_access/{repo}"
+                    # Check if user has access to project
+                    url = NEURODIFF_API_URL + "/projects/check_access/{project}"
                     response = requests.get(
-                        url.format(repo=repo),
+                        url.format(project=project),
                         headers=_make_api_headers()
                     )
                     if not response.ok:
                         #response.raise_for_status()
-                        print("You do not have access to the repo:",repo)
+                        print("You do not have access to the project:",project)
                     
                 # Upload the solution
                 url = NEURODIFF_API_URL + "/solutions/upload"
@@ -247,7 +248,7 @@ class PretrainedSolver():
                     "name":name,
                     "description":name,
                     "diff_equation_details": save_dict["diff_equation_details"],
-                    "reponame": repo,
+                    "projectname": project,
                     "type_name": save_dict["type_name"]
                 }
                 response = requests.post(
@@ -266,7 +267,7 @@ class PretrainedSolver():
                 #     "name":name,
                 #     "description":name,
                 #     "diff_equation_details": save_dict["diff_equation_details"],
-                #     "repo": repo
+                #     "project": project
                 # }
                 # print(solution)
                 # response = requests.post(
