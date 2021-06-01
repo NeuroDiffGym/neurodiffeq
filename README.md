@@ -231,11 +231,27 @@ Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3)
 
 #### Q: How to use GPU for training?
 
-Simple. When importing neurodiffeq, the library automatically detects if CUDA is available on your machine. Since the library is based on PyTorch, it will set default tensor type to `torch.cuda.DoubleTensor` for GPU acceleration.
+Simple. When importing neurodiffeq, the library automatically detects if CUDA is available on your machine. Since the library is based on PyTorch, it will set default tensor type to `torch.cuda.DoubleTensor` for if a compatible GPU device is found.
 
 #### Q: How to use pretrained nets?
 
 Refer to Sections [Custom Networks](#custom-networks) and [Transfer Learning](#transfer-learning).
+
+#### Q: How to change the learning rate?
+
+The standard PyTorch way. 
+
+1. Build your networks as explained in [Custom Networks](#custom-networks): `nets = [FCNN(), FCN(), ...]`
+
+2. Instantiate a custom optimizer and pass all parameters of these networks to it
+
+   ```python
+   parameters = [p for net in nets for p in net.parameters()]  # list of paramters of all networks
+   MY_LEARNING_RATE = 5e-3
+   optimizer = torch.optim.Adam(parameters, lr=MY_LEARNING_RATE, ...)
+   ```
+
+3. Pass BOTH your `nets ` and your `optimizer` to the solver: `solver = Solver1D(..., nets=nets, optimizer=optimizer)`
 
 #### Q: I got a bad solution.
 
