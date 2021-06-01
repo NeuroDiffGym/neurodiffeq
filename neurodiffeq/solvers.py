@@ -768,7 +768,11 @@ class SolverSpherical(BaseSolver):
         if self.enforcer:
             return self.enforcer(net, cond, coordinates)
 
-        n_params = len(signature(cond.enforce).parameters)
+        # Base .enforce takes a variable length *arg; n_params should be deduced from .parameterize
+        if cond.__class__.enforce == BaseCondition.enforce:
+            n_params = len(signature(cond.parameterize).parameters)
+        else:
+            n_params = len(signature(cond.enforce).parameters)
         coordinates = coordinates[:n_params - 1]
         return cond.enforce(net, *coordinates)
 
