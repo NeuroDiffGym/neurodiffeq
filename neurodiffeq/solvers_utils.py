@@ -112,7 +112,7 @@ def get_conditions(conditions):
 def get_generator(generator):
     gen_dict = {}
     try:
-        gen_dict = generator["train"].__dict__['generator'].__dict__
+        gen_dict = generator["train"].__dict__['generator'].__dict__.copy()
         if "examples" in gen_dict:
             del gen_dict['examples']
 
