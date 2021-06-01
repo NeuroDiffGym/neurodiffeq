@@ -698,10 +698,11 @@ class Monitor2D(BaseMonitor):
                     self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
                 else:
                     self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+                ax.set_title(f'u[{i}](x, y)')
             elif self.solution_style == 'curves':
                 df = pd.DataFrame(dict(u=u, x=self.xs_plot, t=self.ys_plot))
                 sns.lineplot(x='x', y='u', data=df, hue='t', ax=ax)
-            ax.set_title(f'u[{i}](x, y)')
+                ax.set_title(f'u[{i}](x) across different t')
 
         self.axs[-2].clear()
         self.axs[-2].plot(history['train_loss'], label='training loss')
