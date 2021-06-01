@@ -597,6 +597,21 @@ class Monitor2D(BaseMonitor):
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
+    :param valid_generator:
+        The generator used to sample points from the domain when visualizing the solution.
+        The generator is only called once (during instantiating the generator), and its outputs are stored.
+        Defaults to a 32x32 ``Generator2D`` with method 'equally-spaced'.
+    :type valid_generator: neurodiffeq.generators.BaseGenerator
+    :param solution_style:
+
+        - If set to 'heatmap', solution visualization will be a contour heat map of
+          :math:`u` w.r.t. :math:`x` and :math:`y`. Useful when visualizing a 2-D spatial solution.
+        - If set to 'curves', solution visualization will be :math:`u`-:math:`x` curves instead of a 2d heat map.
+          Each curve corresponds to a :math:`t` value. Useful when visualizing 1D spatio-temporal solution.
+          The first coordinate is interpreted as :math:`x` and the second as :math:`t`.
+
+        Defaults to 'heatmap'.
+    :type solution_style: str
     """
 
     def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap'):
