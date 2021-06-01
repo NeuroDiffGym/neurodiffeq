@@ -1,7 +1,7 @@
 import torch
 from torch import sin, cos
 from torch import autograd
-from neurodiffeq.neurodiffeq import safe_diff as diff
+from .neurodiffeq import safe_diff as diff
 
 
 def grad(u, *xs):
