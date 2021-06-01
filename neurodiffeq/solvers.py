@@ -48,7 +48,7 @@ class BaseSolver(ABC):
     :param analytic_solutions:
         **[DEPRECATED]** Pass ``metrics`` instead.
         The analytical solutions to be compared with neural net solutions.
-        It maps a tuple of three coordinates to a tuple of function values.
+        It maps a tuple of coordinates to a tuple of function values.
         The output shape should match that of networks.
     :type analytic_solutions: callable, optional
     :param optimizer:
