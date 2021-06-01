@@ -599,10 +599,13 @@ class Monitor2D(BaseMonitor):
     :type check_every: int, optional
     """
 
-    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None):
+    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap'):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
+        if solution_style not in ['heatmap', 'curves']:
+            raise ValueError(f"Unsupported 'solution_style' = {solution_style}")
+        self.solution_style = solution_style
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.fig = None
         self.axs = []  # subplots
@@ -671,15 +674,18 @@ class Monitor2D(BaseMonitor):
             for con, net in zip(conditions, nets)
         ]
 
-        for i, ax_u_con in enumerate(zip(self.axs[:-2], us, conditions)):
-            ax, u, con = ax_u_con
+        for i, (ax, u, con) in enumerate(zip(self.axs[:-2], us, conditions)):
             ax.clear()
             u = u.detach().cpu().numpy().flatten()
-            cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-            if self.cbs[i] is None:
-                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
-            else:
-                self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+            if self.solution_style == 'heatmap':
+                cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
+                if self.cbs[i] is None:
+                    self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
+                else:
+                    self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+            elif self.solution_style == 'curves':
+                df = pd.DataFrame(dict(u=u, x=self.xs_plot, t=self.ys_plot))
+                sns.lineplot(x='x', y='u', data=df, hue='t', ax=ax)
             ax.set_title(f'u[{i}](x, y)')
 
         self.axs[-2].clear()
