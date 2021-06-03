@@ -155,6 +155,13 @@ def get_sample_solution(solver):
         pass
     return sample_solution_curve
 
+def get_loss(loss):
+    try:
+        loss_sample = json.dumps(loss,cls = JsonEncoder)
+    except:
+        pass
+    return loss_sample
+
 class SolverConfig():
     conditions = None
     ode_system = None
@@ -201,6 +208,7 @@ class PretrainedSolver():
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
             "sample_solution": get_sample_solution(self),
+            "sample_loss":get_loss(self.metrics_history['valid_loss'])
         }
 
         save_dict = {
