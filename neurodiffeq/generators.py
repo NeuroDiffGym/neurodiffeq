@@ -28,6 +28,10 @@ class BaseGenerator:
         self.check_generator(other)
         return EnsembleGenerator(self, other)
 
+    def __xor__(self, other):
+        self.check_generator(other)
+        return MeshGenerator(self, other)
+
     def _internal_vars(self) -> dict:
         return dict(size=self.size)
 
@@ -734,6 +738,62 @@ class EnsembleGenerator(BaseGenerator):
 
     def _internal_vars(self) -> dict:
         d = super(EnsembleGenerator, self)._internal_vars()
+        d.update(dict(
+            generators=self.generators,
+        ))
+        return d
+
+
+class MeshGenerator(BaseGenerator):
+    r"""A generator for sampling points whose `get_examples` method returns a mesh of the samples of its sub-generators.
+    All sub-generators must return tensors of the same shape, or a tuple of tensors of the same shape.
+    The number of tensors returned by each sub-generator can be different, but the intent behind
+    this class is to create an N dimensional generator from several 1 dimensional generators, so each input generator
+    should represents one of the dimensions of your problem. An exception is made for
+    using a ``MeshGenerator`` as one of the inputs of another ``MeshGenerator``. In that case the original
+    meshed generators are extracted from the input ``MeshGenerator``, and the final mesh is used using those
+    (e.g ``MeshGenerator(MeshGenerator(g1, g2), g3)`` is equivalent to ``MeshGenerator(g1, g2, g3)``, where
+    g1, g2 and g3 are ``Generator1D``).
+    This is done to make the use of the ^ infix consistent with the use of
+    the ``MeshGenerator`` class itself (e.g ``MeshGenerator(g1, g2, g3)`` is equivalent to g1 ^ g2 ^ g3), where
+    g1, g2 and g3 are ``Generator1D``).
+
+    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type generators: Tuple[BaseGenerator]
+    """
+
+    def __init__(self, *generators):
+        super(MeshGenerator, self).__init__()
+        self.generators = []
+        for g in generators:
+            if isinstance(g, MeshGenerator):
+                for s in g.generators:
+                    self.generators.append(s)
+            else:
+                self.generators.append(g)
+        self.size = np.prod(tuple(g.size for g in self.generators))
+
+    def get_examples(self):
+        ret = tuple()
+        for g in self.generators:
+            ex = g.get_examples()
+            if isinstance(ex, list):
+                ex = tuple(ex)
+            elif isinstance(ex, torch.Tensor):
+                ex = (ex,)
+            ret += ex
+
+        if len(ret) == 1:
+            return ret[0]
+        else:
+            ret = torch.meshgrid(ret)
+            ret_f = tuple()
+            for r in ret:
+                ret_f += (r.flatten(),)
+            return ret_f
+
+    def _internal_vars(self) -> dict:
+        d = super(MeshGenerator, self)._internal_vars()
         d.update(dict(
             generators=self.generators,
         ))
