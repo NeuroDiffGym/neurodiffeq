@@ -15,7 +15,7 @@ from neurodiffeq.generators import Generator2D
 from neurodiffeq.function_basis import RealSphericalHarmonics
 from neurodiffeq.solvers_utils import PretrainedSolver
 
-class BaseSolver(ABC):
+class BaseSolver(ABC,PretrainedSolver):
     r"""A class for solving ODE/PDE systems.
 
     :param diff_eqs:
@@ -798,7 +798,7 @@ class Solution1D(BaseSolution):
         return condition.enforce(net, ts)
 
 
-class Solver1D(BaseSolver,PretrainedSolver):
+class Solver1D(BaseSolver):
     r"""A solver class for solving ODEs (single-input differential equations)
 
     :param ode_system:
@@ -956,7 +956,7 @@ class Solution2D(BaseSolution):
         return condition.enforce(net, xs, ys)
 
 
-class Solver2D(BaseSolver,PretrainedSolver):
+class Solver2D(BaseSolver):
     r"""A solver class for solving PDEs in 2 dimensions.
 
     :param pde_system:
