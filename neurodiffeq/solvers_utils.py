@@ -278,32 +278,6 @@ class PretrainedSolver():
                 if not response.ok:
                     print("Could not upload solution")
 
-
-                # url = NEURODIFF_API_URL + "/solutions"
-                # # Create a solution
-                # solution = {
-                #     "name":name,
-                #     "description":name,
-                #     "diff_equation_details": save_dict["diff_equation_details"],
-                #     "project": project
-                # }
-                # print(solution)
-                # response = requests.post(
-                #     url,
-                #     json=solution,
-                #     headers=_make_api_headers()
-                # )
-                # solution = process_response(response)
-                # print(solution)
-
-                # # Upload the solution file
-                # url = NEURODIFF_API_URL + "/solutions/{id}/upload"
-                # response = requests.post(
-                #     url.format(id=solution["id"]),
-                #     files={"file": open(tmp_file.name, "rb")},
-                #     headers=_make_api_headers()
-                # )
-
         else:
             # Save solution locally
             with open(path,'wb') as file:
@@ -438,29 +412,3 @@ class PretrainedSolver():
         except:
             pass
         return solver
-
-    #Saving the Solver Object
-    def save_solver(self,filename,path=pathlib.Path().absolute()):
-        PATH = os.path.join(path,filename)
-        try:
-            with open(PATH,'wb') as file:
-                dill.dump(self,file)
-            print("Solver has been saved.")
-            return True
-        except:
-            return False  
-
-    #Loading the Solver Object  
-    @classmethod
-    def load_solver(cls,path,retrain=False):
-        with open(path,'rb') as file:
-                solver = dill.load(file)
-        return solver
-
-def load_solver(solver_name_or_path):
-    ...
-    # Check if the solver exist locally
-
-    # Load the dict
-
-    # How do we know what type
