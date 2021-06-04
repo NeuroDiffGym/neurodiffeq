@@ -8,3 +8,5 @@ pytest
 pandas
 seaborn
 dill
+tensorboard
+requests
