@@ -12,10 +12,20 @@ import inspect
 import ast
 import types
 
+# Is Dev mode
+try:
+    DEV = os.environ["DEV"]
+    DEV = True
+except KeyError:
+    DEV = False
+
 try:
     NEURODIFF_API_URL = os.environ["NEURODIFF_API_URL"]
 except KeyError:
-    NEURODIFF_API_URL = "http://dev.neurodiff.io/api/v1"
+    if DEV:
+        NEURODIFF_API_URL = "http://dev.neurodiff.io/api/v1"
+    else:
+        NEURODIFF_API_URL = "http://www.neurodiff.io/api/v1"
 
 def is_solution_name(name):
     if name.startswith('./'):
