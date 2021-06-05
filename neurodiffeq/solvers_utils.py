@@ -160,14 +160,16 @@ def get_sample_solution(solver):
         for i in range(len(sample_solution)):
             sample_solution[i] = sample_solution[i].detach().numpy().tolist()
 
-        sample_solution_curve = json.dumps([t.tolist(),sample_solution],cls=JsonEncoder)
+#        sample_solution_curve = json.dumps([t.tolist(),sample_solution],cls=JsonEncoder)
+        sample_solution_curve = [t.tolist(),sample_solution]
     except:
         pass
     return sample_solution_curve
 
 def get_loss(loss):
     try:
-        loss_sample = json.dumps(loss,cls = JsonEncoder)
+#        loss_sample = json.dumps(loss,cls = JsonEncoder)
+#        loss_sample = loss
     except:
         pass
     return loss_sample
@@ -218,7 +220,7 @@ class PretrainedSolver():
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
             "sample_solution": get_sample_solution(self),
-            "sample_loss":get_loss(self.metrics_history['valid_loss'])
+            "sample_loss":self.metrics_history['valid_loss']
         }
 
         save_dict = {
