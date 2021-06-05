@@ -52,13 +52,14 @@ def _make_api_headers():
 
     return headers
 
-def get_file(url, solution_name):
+def get_file(url, name):
     cache_dir = os.path.join(os.path.expanduser('~'), '.neurodiff')
     if not os.path.exists(cache_dir):
       os.mkdir(cache_dir)
-    solution_file_path = os.path.join(cache_dir,solution_name)
+    solution_file_path = os.path.join(cache_dir,name.replace("/","_"))
+
     if not os.path.exists(solution_file_path):
-        url = url +"?name="+solution_name
+        url = url +"?name="+name
         # Download the solution
         with requests.get(url, stream=True,headers=_make_api_headers()) as r:
             r.raise_for_status()
@@ -168,6 +169,7 @@ def get_sample_solution(solver):
 
 def get_loss(loss):
     try:
+        ...
 #        loss_sample = json.dumps(loss,cls = JsonEncoder)
 #        loss_sample = loss
     except:
