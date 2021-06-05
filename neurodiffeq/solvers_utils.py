@@ -48,7 +48,7 @@ def _make_api_headers():
         print("No API Key was found in environment variable NEURODIFF_API_KEY")
         NEURODIFF_API_KEY = ""
 
-    headers["api_key"] = NEURODIFF_API_KEY
+    headers["apikey"] = NEURODIFF_API_KEY
 
     return headers
 
