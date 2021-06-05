@@ -299,7 +299,9 @@ class PretrainedSolver():
         
         # Load from remote
         if path is None:
+
             url = NEURODIFF_API_URL + "/solutions/download"
+
             solution_file_path = get_file(url,name)
         else:
             solution_file_path = path
@@ -353,14 +355,6 @@ class PretrainedSolver():
         else:
             # Declare a flag to check if optimizer is passed as a class. Link parameters and load state to the new class
             check_flag=False
-
-            #for classes in torch.optim.Optimizer.__subclasses__():
-            #    if config.optimizer.__class__.__name__ == classes.__name__:
-            #        if config.nets == None:
-            #            optimizer = config.optimizer
-            #            optimizer.param_groups[0]['state'] = load_dict['optimizer_state']['state']
-            #            optimizer.param_groups[0]['params'] = load_dict['optimizer_state']['param_groups'][0]['params']
-            #            check_flag=True
 
             if config.optimizer_params is not None: 
                 optimizer = config.optimizer(chain.from_iterable(n.parameters() for n in nets),**config.optimizer_params)   
