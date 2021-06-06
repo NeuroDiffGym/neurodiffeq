@@ -297,8 +297,6 @@ class PretrainedSolver():
         path: str = None,
         name: str = None,
         config=SolverConfig()):
-
-        print("Loading solution from:",NEURODIFF_API_URL)
         
         # Check params
         if path is None and name is None:
@@ -306,11 +304,11 @@ class PretrainedSolver():
         
         # Load from remote
         if path is None:
-
+            print("Loading solution from:",NEURODIFF_API_URL, name)
             url = NEURODIFF_API_URL + "/solutions/download"
-
             solution_file_path = get_file(url,name)
         else:
+            print("Loading solution from:",path)
             solution_file_path = path
         # Load the solution
         with open(solution_file_path,'rb') as file:
