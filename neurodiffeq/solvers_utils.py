@@ -58,14 +58,14 @@ def get_file(url, name):
       os.mkdir(cache_dir)
     solution_file_path = os.path.join(cache_dir,name.replace("/","_"))
 
-    if not os.path.exists(solution_file_path):
-        url = url +"?name="+name
-        # Download the solution
-        with requests.get(url, stream=True,headers=_make_api_headers()) as r:
-            r.raise_for_status()
-            with open(solution_file_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
+    #if not os.path.exists(solution_file_path):
+    url = url +"?name="+name
+    # Download the solution
+    with requests.get(url, stream=True,headers=_make_api_headers()) as r:
+        r.raise_for_status()
+        with open(solution_file_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
     return solution_file_path
 
 def get_source(lambda_function):
@@ -161,7 +161,6 @@ def get_sample_solution(solver):
         for i in range(len(sample_solution)):
             sample_solution[i] = sample_solution[i].detach().numpy().tolist()
 
-#        sample_solution_curve = json.dumps([t.tolist(),sample_solution],cls=JsonEncoder)
         sample_solution_curve = [t.tolist(),sample_solution]
     except:
         pass
@@ -240,7 +239,8 @@ class PretrainedSolver():
             "train_loss_history": self.metrics_history['train_loss'],
             "valid_loss_history": self.metrics_history['valid_loss'],
             "type": self.__class__,
-            "type_name": self.__class__.__name__
+            "type_name": self.__class__.__name__,
+            "solver": self
         }
 
         # Save remote if needed
@@ -248,6 +248,7 @@ class PretrainedSolver():
             # Save solution in temp file
             with tempfile.NamedTemporaryFile() as tmp_file:
                 dill.dump(save_dict,tmp_file)
+                tmp_file.flush()
 
                 # Save remote
                 print("Saving solution to:",NEURODIFF_API_URL)
@@ -296,6 +297,8 @@ class PretrainedSolver():
         path: str = None,
         name: str = None,
         config=SolverConfig()):
+
+        print("Loading solution from:",NEURODIFF_API_URL)
         
         # Check params
         if path is None and name is None:
