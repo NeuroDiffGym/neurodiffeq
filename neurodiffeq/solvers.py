@@ -7,14 +7,16 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
 from torch.optim import Adam
-from neurodiffeq.networks import FCNN
-from neurodiffeq._version_utils import deprecated_alias
-from neurodiffeq.generators import GeneratorSpherical
-from neurodiffeq.generators import SamplerGenerator
-from neurodiffeq.generators import Generator1D
-from neurodiffeq.generators import Generator2D
-from neurodiffeq.function_basis import RealSphericalHarmonics
-from neurodiffeq.neurodiffeq import safe_diff as diff
+from .networks import FCNN
+from ._version_utils import deprecated_alias
+from .generators import GeneratorSpherical
+from .generators import SamplerGenerator
+from .generators import Generator1D
+from .generators import Generator2D
+from .generators import GeneratorND
+from .function_basis import RealSphericalHarmonics
+from .conditions import BaseCondition
+from .neurodiffeq import safe_diff as diff
 from .losses import _losses
 
 
@@ -767,7 +769,11 @@ class SolverSpherical(BaseSolver):
         if self.enforcer:
             return self.enforcer(net, cond, coordinates)
 
-        n_params = len(signature(cond.enforce).parameters)
+        # Base .enforce takes a variable length *arg; n_params should be deduced from .parameterize
+        if cond.__class__.enforce == BaseCondition.enforce:
+            n_params = len(signature(cond.parameterize).parameters)
+        else:
+            n_params = len(signature(cond.enforce).parameters)
         coordinates = coordinates[:n_params - 1]
         return cond.enforce(net, *coordinates)
 

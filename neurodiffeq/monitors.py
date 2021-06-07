@@ -31,6 +31,7 @@ class BaseMonitor(ABC):
     def __init__(self, check_every=None):
         self.check_every = check_every or 100
         self.fig = ...
+        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
 
     @abstractmethod
     def check(self, nets, conditions, history):
@@ -116,7 +117,6 @@ class MonitorSpherical(BaseMonitor):
         if not self.contour_plot_available:
             warnings.warn("Warning: contourf plot only available for matplotlib version >= v3.3.0 "
                           "switching to matshow instead")
-        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.fig = None
         self.axs = []  # subplots
         self.ax_metrics = None
@@ -516,7 +516,6 @@ class Monitor1D(BaseMonitor):
         """Initializer method
         """
         super(Monitor1D, self).__init__(check_every=check_every)
-        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
         self.fig = plt.figure(figsize=(30, 8))
         self.ax1 = self.fig.add_subplot(131)
         self.ax2 = self.fig.add_subplot(132)
@@ -597,13 +596,30 @@ class Monitor2D(BaseMonitor):
         The frequency of checking the neural network represented by the number of epochs between two checks.
         Defaults to 100.
     :type check_every: int, optional
+    :param valid_generator:
+        The generator used to sample points from the domain when visualizing the solution.
+        The generator is only called once (during instantiating the generator), and its outputs are stored.
+        Defaults to a 32x32 ``Generator2D`` with method 'equally-spaced'.
+    :type valid_generator: neurodiffeq.generators.BaseGenerator
+    :param solution_style:
+
+        - If set to 'heatmap', solution visualization will be a contour heat map of
+          :math:`u` w.r.t. :math:`x` and :math:`y`. Useful when visualizing a 2-D spatial solution.
+        - If set to 'curves', solution visualization will be :math:`u`-:math:`x` curves instead of a 2d heat map.
+          Each curve corresponds to a :math:`t` value. Useful when visualizing 1D spatio-temporal solution.
+          The first coordinate is interpreted as :math:`x` and the second as :math:`t`.
+
+        Defaults to 'heatmap'.
+    :type solution_style: str
     """
 
-    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None):
+    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap'):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
-        self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
+        if solution_style not in ['heatmap', 'curves']:
+            raise ValueError(f"Unsupported 'solution_style' = {solution_style}")
+        self.solution_style = solution_style
         self.fig = None
         self.axs = []  # subplots
         # self.caxs = []  # colorbars
@@ -671,16 +687,20 @@ class Monitor2D(BaseMonitor):
             for con, net in zip(conditions, nets)
         ]
 
-        for i, ax_u_con in enumerate(zip(self.axs[:-2], us, conditions)):
-            ax, u, con = ax_u_con
+        for i, (ax, u, con) in enumerate(zip(self.axs[:-2], us, conditions)):
             ax.clear()
             u = u.detach().cpu().numpy().flatten()
-            cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-            if self.cbs[i] is None:
-                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
-            else:
-                self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
-            ax.set_title(f'u[{i}](x, y)')
+            if self.solution_style == 'heatmap':
+                cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
+                if self.cbs[i] is None:
+                    self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
+                else:
+                    self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+                ax.set_title(f'u[{i}](x, y)')
+            elif self.solution_style == 'curves':
+                df = pd.DataFrame(dict(u=u, x=self.xs_plot, t=self.ys_plot))
+                sns.lineplot(x='x', y='u', data=df, hue='t', ax=ax)
+                ax.set_title(f'u[{i}](x) across different t')
 
         self.axs[-2].clear()
         self.axs[-2].plot(history['train_loss'], label='training loss')
@@ -703,6 +723,48 @@ class Monitor2D(BaseMonitor):
         # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.axs[-1].legend()
+
+        self.fig.canvas.draw()
+        if not self.using_non_gui_backend:
+            plt.pause(0.05)
+
+
+class MetricsMonitor(BaseMonitor):
+    r"""A monitor for visualizing the loss and other metrics.
+    This monitor does not visualize the solution.
+
+    :param check_every:
+        The frequency of checking the neural network represented by the number of epochs between two checks.
+        Defaults to 100.
+    :type check_every: int, optional
+    """
+    def __init__(self, check_every=100):
+        super().__init__(check_every=check_every)
+        self.fig = plt.figure(figsize=(12, 6), dpi=125)
+        self.ax1, self.ax2 = self.fig.subplots(1, 2)
+
+    def check(self, nets, conditions, history):
+        self.ax1.clear()
+        self.ax1.plot(history['train_loss'], label='training loss')
+        self.ax1.plot(history['valid_loss'], label='validation loss')
+        self.ax1.set_title('loss during training')
+        self.ax1.set_ylabel('loss')
+        self.ax1.set_xlabel('epochs')
+        self.ax1.set_yscale('log')
+        self.ax1.legend()
+
+        self.ax2.clear()
+        for metric_name, metric_values in history.items():
+            if metric_name == 'train_loss' or metric_name == 'valid_loss':
+                continue
+            self.ax2.plot(metric_values, label=metric_name)
+        self.ax2.set_title('metrics during training')
+        self.ax2.set_ylabel('metrics')
+        self.ax2.set_xlabel('epochs')
+        self.ax2.set_yscale('log')
+        # if there're not custom metrics, then there won't be any labels in this axis
+        if len(history) > 2:
+            self.ax2.legend()
 
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:
