@@ -316,11 +316,12 @@ class PretrainedSolver():
         
         # Loading user defined generator and extracting time domain information
         if config.train_generator == None:
-            train_generator = load_dict['generator']['train']
-            valid_generator = load_dict['generator']['train']
+            train_generator = load_dict['generator']['train'].generator
+            valid_generator = load_dict['generator']['valid'].generator
         else:
             train_generator = config.train_generator
             valid_generator = config.valid_generator
+        
 
         # Loading user defined ode_system or system from load file 
         if (config.ode_system == None) and (config.pde_system == None):
