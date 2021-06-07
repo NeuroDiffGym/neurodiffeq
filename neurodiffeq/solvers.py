@@ -1155,14 +1155,14 @@ class BundleSolver1D(BaseSolver):
 
         n_input_units = len(r_min)
 
-        methods = ['equally-spaced' for i in range(n_input_units)]
-
-        grid = tuple(32 for j in range(n_input_units))
-
         if train_generator is None:
-            train_generator = GeneratorND(grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+            train_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced-noisy')
+            for i in range(n_input_units - 1):
+                train_generator ^= Generator1D(32, t_min=theta_min[i], t_max=theta_max[i], method='equally-spaced-noisy')
         if valid_generator is None:
-            valid_generator = GeneratorND(grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+            valid_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced')
+            for i in range(n_input_units - 1):
+                valid_generator ^= Generator1D(32, t_min=theta_min[i], t_max=theta_max[i], method='equally-spaced')
 
         self.r_min, self.r_max = r_min, r_max
 

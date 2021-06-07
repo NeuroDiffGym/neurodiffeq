@@ -19,6 +19,7 @@ from neurodiffeq.generators import FilterGenerator
 from neurodiffeq.generators import ResampleGenerator
 from neurodiffeq.generators import BatchGenerator
 from neurodiffeq.generators import SamplerGenerator
+from neurodiffeq.generators import MeshGenerator
 
 
 @pytest.fixture(autouse=True)
@@ -413,6 +414,49 @@ def test_ensemble_generator():
 
     str(ensemble_generator)
     repr(ensemble_generator)
+
+
+def test_mesh_generator():
+    size = 10
+    x_min, x_max = 0.0, 1.0
+    y_min, y_max = 1.0, 2.0
+    z_min, z_max = 2.0, 3.0
+
+    generator1 = Generator1D(size)
+    mesh_generator = MeshGenerator(generator1)
+    x = mesh_generator.get_examples()
+    assert _check_shape_and_grad(mesh_generator, size, x)
+
+    mesh_generator = MeshGenerator(generator1, generator1, generator1)
+    m1, m2, m3 = mesh_generator.get_examples()
+    assert _check_shape_and_grad(mesh_generator, (size ** 3), m1, m2, m3)
+
+    generator1x = Generator1D(size, x_min, x_max, method="equally-spaced")
+    generator1y = Generator1D(size, y_min, y_max, method="equally-spaced")
+    generator1z = Generator1D(size, z_min, z_max, method="equally-spaced")
+    generator3 = Generator3D((size, size, size), (x_min, y_min, z_min), (x_max, y_max, z_max), method="equally-spaced")
+    mesh_generator = MeshGenerator(generator1x, generator1y, generator1z)
+    m1, m2, m3 = mesh_generator.get_examples()
+    g1, g2, g3 = generator3.get_examples()
+    assert _check_shape_and_grad(mesh_generator, (size ** 3), m1, m2, m3)
+    assert _check_iterable_equal(g1, m1)
+    assert _check_iterable_equal(g2, m2)
+    assert _check_iterable_equal(g3, m3)
+
+    generator1x = Generator1D(size, x_min, x_max, method="equally-spaced")
+    generator1y = Generator1D(size, y_min, y_max, method="equally-spaced")
+    generator1z = Generator1D(size, z_min, z_max, method="equally-spaced")
+    generator3 = Generator3D((size, size, size), (x_min, y_min, z_min), (x_max, y_max, z_max), method="equally-spaced")
+    xor_generator = generator1x ^ generator1y ^ generator1z
+    m1, m2, m3 = xor_generator.get_examples()
+    g1, g2, g3 = generator3.get_examples()
+    assert _check_shape_and_grad(xor_generator, (size ** 3), m1, m2, m3)
+    assert _check_iterable_equal(g1, m1)
+    assert _check_iterable_equal(g2, m2)
+    assert _check_iterable_equal(g3, m3)
+
+    str(mesh_generator)
+    repr(mesh_generator)
 
 
 def test_filter_generator():
