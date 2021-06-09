@@ -178,24 +178,24 @@ def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
 
     # Bundle in u_0:
     y_bundle = y0 * lin
-    cond = BundleIVP(t_0=x0, bundle_conditions=['u_0'])
+    cond = BundleIVP(t_0=x0, bundle_conditions={'u_0': 0})
     y = cond.enforce(net21, x, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(t_0=x0, u_0_prime=y1, bundle_conditions=['u_0'])
+    cond = BundleIVP(t_0=x0, u_0_prime=y1, bundle_conditions={'u_0': 0})
     y = cond.enforce(net21, x, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in u_0_prime:
     y_prime_bundle = y1 * lin
-    cond = BundleIVP(t_0=x0, u_0=y0, bundle_conditions=['u_0_prime'])
+    cond = BundleIVP(t_0=x0, u_0=y0, bundle_conditions={'u_0_prime': 0})
     y = cond.enforce(net21, x, y_prime_bundle)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
 
     # Bundle in u_0 and u_0_prime:
-    cond = BundleIVP(t_0=x0, bundle_conditions=['u_0', 'u_0_prime'])
+    cond = BundleIVP(t_0=x0, bundle_conditions={'u_0': 0, 'u_0_prime': 1})
     y = cond.enforce(net31, x, y_bundle, y_prime_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
@@ -203,27 +203,27 @@ def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     # Bundle in t_0:
     x = x0 * lin
     x_bundle = x0 * lin
-    cond = BundleIVP(u_0=y0, bundle_conditions=['t_0'])
+    cond = BundleIVP(u_0=y0, bundle_conditions={'t_0': 0})
     y = cond.enforce(net21, x, x_bundle)
     assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(u_0=y0, u_0_prime=y1, bundle_conditions=['t_0'])
+    cond = BundleIVP(u_0=y0, u_0_prime=y1, bundle_conditions={'t_0': 0})
     y = cond.enforce(net21, x, x_bundle)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in t_0 and u_0:
-    cond = BundleIVP(bundle_conditions=['t_0', 'u_0'])
+    cond = BundleIVP(bundle_conditions={'t_0': 0, 'u_0': 1})
     y = cond.enforce(net31, x, x_bundle, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(u_0_prime=y1, bundle_conditions=['t_0', 'u_0'])
+    cond = BundleIVP(u_0_prime=y1, bundle_conditions={'t_0': 0, 'u_0': 1})
     y = cond.enforce(net31, x, x_bundle, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in t_0, u_0 and u_0_prime:
-    cond = BundleIVP(bundle_conditions=['t_0', 'u_0', 'u_0_prime'])
+    cond = BundleIVP(bundle_conditions={'t_0': 0, 'u_0': 1, 'u_0_prime': 2})
     y = cond.enforce(net41, x, x_bundle, y_bundle, y_prime_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
