@@ -1058,13 +1058,15 @@ class BundleSolver1D(BaseSolver):
     :type t_max: float, optional
     :param theta_min:
         Lower bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        they should be the first values in the tuple.
+        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
     :type theta_min: float or tuple, optional
     :param theta_max:
         Upper bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        they should be the first values in the tuple.
+        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
     :type theta_max: float or tuple, optional
@@ -1139,17 +1141,16 @@ class BundleSolver1D(BaseSolver):
                                  f"got t_min={t_min}, t_max={t_max}, "
                                  f"train_generator={train_generator}, valid_generator={valid_generator}")
 
-        if isinstance(theta_min, float) or isinstance(theta_min, int):
-            r_min = (t_min,) + (theta_min,)
+        if isinstance(theta_min, (float, int)):
+            theta_min = (theta_min,)
 
-        if isinstance(theta_max, float) or isinstance(theta_max, int):
-            r_max = (t_max,) + (theta_max,)
+        if isinstance(theta_max, (float, int)):
+            theta_max = (theta_max,)
 
         if theta_min is None and theta_max is None:
             r_min = (t_min,)
             r_max = (t_max,)
-
-        if isinstance(theta_min, tuple) and isinstance(theta_max, tuple):
+        else:
             r_min = (t_min,) + theta_min
             r_max = (t_max,) + theta_max
 
@@ -1158,16 +1159,32 @@ class BundleSolver1D(BaseSolver):
         if train_generator is None:
             train_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced-noisy')
             for i in range(n_input_units - 1):
-                train_generator ^= Generator1D(32, t_min=theta_min[i], t_max=theta_max[i], method='equally-spaced-noisy')
+                train_generator ^= Generator1D(32, t_min=r_min[i+1], t_max=r_max[i+1], method='equally-spaced-noisy')
         if valid_generator is None:
             valid_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced')
             for i in range(n_input_units - 1):
-                valid_generator ^= Generator1D(32, t_min=theta_min[i], t_max=theta_max[i], method='equally-spaced')
+                valid_generator ^= Generator1D(32, t_min=r_min[i+1], t_max=r_max[i+1], method='equally-spaced')
+
+        non_var = []
+        for c in conditions:
+            try:
+                bc = tuple(c.bundle_conditions.values())
+            except Exception:
+                bc = ()
+            for index in bc:
+                non_var.append(index)
+        non_var = list(set(non_var))
+
+        def non_var_filter(*variables):
+            variables = list(variables)
+            for i, n in enumerate(non_var):
+                del variables[len(conditions) + 1 + n - i]
+            return ode_system(*variables)
 
         self.r_min, self.r_max = r_min, r_max
 
         super(BundleSolver1D, self).__init__(
-            diff_eqs=ode_system,
+            diff_eqs=non_var_filter,
             conditions=conditions,
             nets=nets,
             train_generator=train_generator,
