@@ -228,15 +228,16 @@ class BundleIVP(BaseCondition):
     :param bundle_conditions:
         The initial conditions that will be included in the total bundle,
         in addition to the parameters of the ODE system.
-        The conditions listed in bundle_conditions (e.g bundle_conditions=['t_0', 'u_0', 'u_0_prime']),
-        must be listed in the same order that will be used in ``neurodiffeq.solvers.BundleSolver1D``,
-        when listing theta_min and theta_max.
-        Defaults to []
-    :type bundle_conditions: list[str, ..., str]
+        The values asociated with their respective keys used in bundle_conditions
+        (e.g bundle_conditions={'t_0': 0, 'u_0': 1, 'u_0_prime': 2}),
+        must reflect the index of the tuple used in theta_min and theta_max in ``neurodiffeq.solvers.BundleSolver1D``,
+        (e.g theta_min=(t_0_min, u_0_min, u_0_prime_min)).
+        Defaults to {}
+    :type bundle_conditions: dict{str: int, ..., str: int}
     """
 
     @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
-    def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_conditions=[]):
+    def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_conditions={}):
         super().__init__()
         self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
         self.bundle_conditions = bundle_conditions
@@ -276,13 +277,13 @@ class BundleIVP(BaseCondition):
 
         t_0, u_0, u_0_prime = self.t_0, self.u_0, self.u_0_prime
         if 'u_0' in self.bundle_conditions:
-            u_0 = theta[self.bundle_conditions.index('u_0')]
+            u_0 = theta[self.bundle_conditions['u_0']]
         if 'u_0_prime' in self.bundle_conditions:
-            u_0_prime = theta[self.bundle_conditions.index('u_0_prime')]
+            u_0_prime = theta[self.bundle_conditions['u_0_prime']]
 
         if 't_0' in self.bundle_conditions:
 
-            t_0 = theta[self.bundle_conditions.index('t_0')]
+            t_0 = theta[self.bundle_conditions['t_0']]
 
             if self.u_0_prime is None and 'u_0_prime' not in self.bundle_conditions:
                 return u_0 + (t - t_0) * output_tensor
