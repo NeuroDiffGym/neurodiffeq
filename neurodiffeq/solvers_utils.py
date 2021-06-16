@@ -149,7 +149,7 @@ class JsonEncoder(json.JSONEncoder):
     else:
         return super(JsonEncoder, self).default(obj)
 
-def get_sample_solution(solver):
+def get_sample_solution1D(solver):
     sample_solution_curve = {}
     try:
         t = np.linspace(solver.t_min,solver.t_max,10*(int(solver.t_max-solver.t_min)))
@@ -162,6 +162,20 @@ def get_sample_solution(solver):
             sample_solution[i] = sample_solution[i].detach().numpy().tolist()
 
         sample_solution_curve = [t.tolist(),sample_solution]
+    except:
+        pass
+    return sample_solution_curve
+
+def get_sample_solution2D(solver):
+    sample_solution_curve = []
+    try:
+        inputs =  solver.generator['train'].get_examples()
+        sample_solution = solver.get_solution()(inputs[0],inputs[1])
+
+        sample_solution = sample_solution.detach().numpy().tolist()
+        for _ in range(2):
+            inputs[i] = inputs[i].detach().numpy().tolist()
+        sample_solution_curve = [inputs,sample_solution]
     except:
         pass
     return sample_solution_curve
@@ -215,12 +229,17 @@ class PretrainedSolver():
                 optimizer_class = self.optimizer.__class__
 
         # Get Diff equations details
+        if self.__class__.__name__ == "Solver1D":
+            sample_solution = get_sample_solution1D(self)
+        elif self.__class__.__name__ == "Solver2D":
+            sample_solution = get_sample_solution2D(self)
+            
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
             "parameters": get_parameters(self.diff_eqs),
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
-            "sample_solution": get_sample_solution(self),
+            "sample_solution": sample_solution,
             "sample_loss":self.metrics_history['valid_loss']
         }
 
