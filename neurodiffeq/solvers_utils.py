@@ -170,11 +170,10 @@ def get_sample_solution2D(solver):
     sample_solution_curve = []
     try:
         inputs =  solver.generator['train'].get_examples()
-        sample_solution = solver.get_solution()(inputs[0],inputs[1])
-
+        sample_solution = solver.get_solution()(inputs[0].view(-1),inputs[1].view(-1))
         sample_solution = sample_solution.detach().numpy().tolist()
-        for _ in range(2):
-            inputs[i] = inputs[i].detach().numpy().tolist()
+        for i in range(2):
+            inputs[i] = inputs[i].view(-1).detach().numpy().tolist()
         sample_solution_curve = [inputs,sample_solution]
     except:
         pass
@@ -233,7 +232,7 @@ class PretrainedSolver():
             sample_solution = get_sample_solution1D(self)
         elif self.__class__.__name__ == "Solver2D":
             sample_solution = get_sample_solution2D(self)
-            
+
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
             "parameters": get_parameters(self.diff_eqs),
