@@ -176,7 +176,7 @@ def get_sample_solution1D(solver):
             sample_solution = [sample_solution]
 
         for i in range(len(sample_solution)):
-            sample_solution[i] = sample_solution[i].detach().numpy().tolist()
+            sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
 
         sample_solution_curve = [t.tolist(), sample_solution]
     except:
@@ -190,9 +190,9 @@ def get_sample_solution2D(solver):
         inputs = solver.generator['train'].get_examples()
         sample_solution = solver.get_solution()(
             inputs[0].view(-1), inputs[1].view(-1))
-        sample_solution = sample_solution.detach().numpy().tolist()
+        sample_solution = sample_solution.cpu().detach().numpy().tolist()
         for i in range(2):
-            inputs[i] = inputs[i].view(-1).detach().numpy().tolist()
+            inputs[i] = inputs[i].view(-1).cpu().detach().numpy().tolist()
         sample_solution_curve = [inputs, sample_solution]
     except:
         pass
