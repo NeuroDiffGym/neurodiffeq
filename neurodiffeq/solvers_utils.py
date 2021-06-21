@@ -261,7 +261,10 @@ class PretrainedSolver():
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
             "sample_solution": sample_solution,
-            "sample_loss": self.metrics_history['valid_loss']
+            "sample_loss": self.metrics_history['valid_loss'],
+            "criterion": {},
+            "nets": {},
+            "optimizer": {},
         }
 
         save_dict = {
