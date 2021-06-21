@@ -166,7 +166,7 @@ class JsonEncoder(json.JSONEncoder):
 
 
 def get_sample_solution1D(solver):
-    sample_solution_curve = {}
+    sample_solution_curve = []
     try:
         t = np.linspace(solver.t_min, solver.t_max, 10 *
                         (int(solver.t_max-solver.t_min)))
