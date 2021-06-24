@@ -199,6 +199,16 @@ def get_sample_solution2D(solver):
         pass
     return sample_solution_curve
 
+def get_arch(solver):
+  arch=[]
+  for net in solver.nets:
+    temp=[]
+    for i in net.NN:
+      if isinstance(i,torch.nn.Linear):
+        temp.append((i.in_features,i.out_features))
+    arch.append(temp)
+  return arch
+
 
 def get_loss(loss):
     try:
@@ -263,9 +273,9 @@ class PretrainedSolver():
             "generator": get_generator(self.generator),
             "sample_solution": sample_solution,
             "sample_loss": self.metrics_history['valid_loss'],
-            "criterion": {},
-            "nets": {},
-            "optimizer": {},
+            "criterion": get_source(self.criterion),
+            "nets": get_arch(self),
+            "optimizer": self.optimizer.state_dict()['param_groups'],
         }
 
         save_dict = {
