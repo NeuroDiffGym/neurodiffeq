@@ -186,14 +186,15 @@ def get_sample_solution1D(solver):
 
 def get_sample_solution2D(solver):
     sample_solution_curve = []
+    
     try:
         inputs = solver.generator['train'].get_examples()
         sample_solution = solver.get_solution()(
             inputs[0].view(-1), inputs[1].view(-1))
-        sample_solution = sample_solution.cpu().detach().numpy().tolist()
+        sample_solution = sample_solution.cpu().detach().numpy()
         for i in range(2):
             inputs[i] = inputs[i].view(-1).cpu().detach().numpy().tolist()
-        sample_solution_curve = [inputs, sample_solution]
+        sample_solution_curve = [inputs, sample_solution.reshape(solver.generator["train"].__dict__['generator'].__dict__['grid']).tolist()]
     except:
         pass
     return sample_solution_curve
