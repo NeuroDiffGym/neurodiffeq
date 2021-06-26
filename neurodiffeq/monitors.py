@@ -39,6 +39,13 @@ class BaseMonitor(ABC):
         self.fig = ...
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
 
+        if matplotlib.get_backend() == 'module://ipykernel.pylab.backend_inline':
+            warnings.warn(
+                "You seem to be using jupyter notebook with '%matplotlib inline' "
+                "which can lead to monitor plots not updating. "
+                "Consider using '%matplotlib notebook' or '%matplotlib widget' instead.",
+                UserWarning)
+
     @abstractmethod
     def check(self, nets, conditions, history):
         pass  # pragma: no cover
