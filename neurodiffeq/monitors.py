@@ -17,6 +17,12 @@ from .generators import Generator3D as _Generator3D
 from .conditions import IrregularBoundaryCondition as _IrregularBC
 
 
+def _updatable_contour_plot_available():
+    from packaging.version import parse as vparse
+    from matplotlib import __version__
+    return vparse(__version__) >= vparse('3.3.0')
+
+
 class BaseMonitor(ABC):
     r"""A tool for checking the status of the neural network during training.
 
@@ -113,7 +119,7 @@ class MonitorSpherical(BaseMonitor):
         """Initializer method
         """
         super(MonitorSpherical, self).__init__(check_every=check_every)
-        self.contour_plot_available = self._matplotlib_version_satisfies()
+        self.contour_plot_available = _updatable_contour_plot_available()
         if not self.contour_plot_available:
             warnings.warn("Warning: contourf plot only available for matplotlib version >= v3.3.0 "
                           "switching to matshow instead")
@@ -149,12 +155,6 @@ class MonitorSpherical(BaseMonitor):
         self.phi_label = phis.reshape(-1).detach().cpu().numpy()
 
         self.n_vars = None
-
-    @staticmethod
-    def _matplotlib_version_satisfies():
-        from packaging.version import parse as vparse
-        from matplotlib import __version__
-        return vparse(__version__) >= vparse('3.3.0')
 
     @staticmethod
     def _longitude_formatter(value, count):
@@ -619,6 +619,11 @@ class Monitor2D(BaseMonitor):
         super(Monitor2D, self).__init__(check_every=check_every)
         if solution_style not in ['heatmap', 'curves']:
             raise ValueError(f"Unsupported 'solution_style' = {solution_style}")
+        if not _updatable_contour_plot_available() and solution_style == 'heatmap':
+            warnings.warn("Heatmap-style solution does not work with your matplotlib version. "
+                          "Please upgrade matplotlib to v3.3.0 or higher. "
+                          "Otherwise you may experience buggy behavior.",
+                          UserWarning)
         self.solution_style = solution_style
         self.fig = None
         self.axs = []  # subplots
