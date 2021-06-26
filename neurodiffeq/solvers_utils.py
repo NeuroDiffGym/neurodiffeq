@@ -176,7 +176,8 @@ def get_sample_solution1D(solver):
             sample_solution = [sample_solution]
 
         for i in range(len(sample_solution)):
-            sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
+            sample_solution[i] = sample_solution[i].cpu(
+            ).detach().numpy().tolist()
 
         sample_solution_curve = [t.tolist(), sample_solution]
     except:
@@ -186,7 +187,7 @@ def get_sample_solution1D(solver):
 
 def get_sample_solution2D(solver):
     sample_solution_curve = []
-    
+
     try:
         inputs = solver.generator['train'].get_examples()
         sample_solution = solver.get_solution()(
@@ -194,20 +195,31 @@ def get_sample_solution2D(solver):
         sample_solution = sample_solution.cpu().detach().numpy()
         for i in range(2):
             inputs[i] = inputs[i].view(-1).cpu().detach().numpy().tolist()
-        sample_solution_curve = [inputs, sample_solution.reshape(solver.generator["train"].__dict__['generator'].__dict__['grid']).tolist()]
+        sample_solution_curve = [inputs, sample_solution.reshape(
+            solver.generator["train"].__dict__['generator'].__dict__['grid']).tolist()]
     except:
         pass
     return sample_solution_curve
 
-def get_arch(solver):
-  arch=[]
-  for net in solver.nets:
-    temp=[]
-    for i in net.NN:
-      if isinstance(i,torch.nn.Linear):
-        temp.append((i.in_features,i.out_features))
-    arch.append(temp)
-  return arch
+
+def get_network_architecture(solver):
+    network_architecture = []
+    for net in solver.nets:
+        for layer in net.NN:
+            layer_params = {
+                "layer": layer.__class__.__name__
+            }
+            layer_dict = layer.__dict__
+            if "in_features" in layer_dict:
+                layer_params["in_features"] = layer_dict["in_features"]
+            if "out_features" in layer_dict:
+                layer_params["out_features"] = layer_dict["out_features"]
+            if "bias" in layer_dict:
+                layer_params["bias"] = layer_dict["bias"]
+
+            network_architecture.append(layer_params)
+
+    return network_architecture
 
 
 def get_loss(loss):
@@ -274,8 +286,11 @@ class PretrainedSolver():
             "sample_solution": sample_solution,
             "sample_loss": self.metrics_history['valid_loss'],
             "criterion": get_source(self.criterion),
-            "nets": get_arch(self),
-            "optimizer": self.optimizer.state_dict()['param_groups'],
+            "network_architecture": get_network_architecture(self),
+            "optimizer": {
+                "name": self.optimizer.__class__.__name__,
+                "params": self.optimizer.state_dict()['param_groups']
+            },
         }
 
         save_dict = {
