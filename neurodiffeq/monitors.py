@@ -692,10 +692,9 @@ class Monitor2D(BaseMonitor):
             u = u.detach().cpu().numpy().flatten()
             if self.solution_style == 'heatmap':
                 cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-                if self.cbs[i] is None:
-                    self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
-                else:
-                    self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+                if self.cbs[i] is not None:
+                    self.cbs[i].remove()
+                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
                 ax.set_title(f'u[{i}](x, y)')
             elif self.solution_style == 'curves':
                 df = pd.DataFrame(dict(u=u, x=self.xs_plot, t=self.ys_plot))
@@ -738,6 +737,7 @@ class MetricsMonitor(BaseMonitor):
         Defaults to 100.
     :type check_every: int, optional
     """
+
     def __init__(self, check_every=100):
         super().__init__(check_every=check_every)
         self.fig = plt.figure(figsize=(12, 6), dpi=125)
