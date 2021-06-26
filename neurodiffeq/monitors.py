@@ -583,6 +583,7 @@ class Monitor1D(BaseMonitor):
 
 class Monitor2D(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
+    The number and layout of subplots (matplotlib axes) will be finalized after the first ``.check()`` call.
 
     :param xy_min:
         The lower bound of 2 dimensions.
@@ -611,9 +612,20 @@ class Monitor2D(BaseMonitor):
 
         Defaults to 'heatmap'.
     :type solution_style: str
+    :param ax_width:
+        Width for each solution visualization. Note that this is different from width for metrics history,
+        which is equal to ``ax_width`` :math:`\times` ``n_cols``.
+    :type ax_width: float
+    :param ax_height: Height for each solution visualization and metrics history plot.
+    :type ax_height: float
+    :param n_col:
+        Number of solution visualizations to plot in each row.
+        Note there is always only 1 plot for metrics history plot per row.
+    :type n_col: int
     """
 
-    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap'):
+    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap',
+                 ax_width=5.0, ax_height=4.0, n_col=2):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
@@ -626,6 +638,9 @@ class Monitor2D(BaseMonitor):
                           UserWarning)
         self.solution_style = solution_style
         self.fig = None
+        self.ax_width = ax_width
+        self.ax_height = ax_height
+        self.n_col = n_col
         self.axs = []  # subplots
         # self.caxs = []  # colorbars
         self.cbs = []  # color bars
@@ -679,13 +694,19 @@ class Monitor2D(BaseMonitor):
             # size of the figure, number of the subplots, etc.
 
             # one for each dependent variable, plus one for training and validation loss, plus one for metrics
-            n_axs = len(conditions) + 2
-            n_row, n_col = (n_axs + 1) // 2, 2
-            self.fig = plt.figure(figsize=(20, 8 * n_row))
-            for i in range(n_axs):
+            n_func = len(conditions)
+            n_col = self.n_col
+            n_row_sols = math.ceil(n_func / n_col)
+            n_row = n_row_sols + 2
+            self.fig = plt.figure(figsize=(self.ax_width * n_col, self.ax_height * n_row))
+            self.fig.tight_layout()
+            # axes and color bars for solutions (aka dependent variables)
+            for i in range(n_func):
                 self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
-            for i in range(n_axs - 2):
                 self.cbs.append(None)
+            # axes for history plot of loss and other metrics, these plots should take the whole row
+            self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 1))
+            self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 2))
 
         us = [
             con.enforce(net, self.xs_ann, self.ys_ann)
