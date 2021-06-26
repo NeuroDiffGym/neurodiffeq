@@ -17,6 +17,12 @@ from .generators import Generator3D as _Generator3D
 from .conditions import IrregularBoundaryCondition as _IrregularBC
 
 
+def _updatable_contour_plot_available():
+    from packaging.version import parse as vparse
+    from matplotlib import __version__
+    return vparse(__version__) >= vparse('3.3.0')
+
+
 class BaseMonitor(ABC):
     r"""A tool for checking the status of the neural network during training.
 
@@ -32,6 +38,13 @@ class BaseMonitor(ABC):
         self.check_every = check_every or 100
         self.fig = ...
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
+
+        if matplotlib.get_backend() == 'module://ipykernel.pylab.backend_inline':
+            warnings.warn(
+                "You seem to be using jupyter notebook with '%matplotlib inline' "
+                "which can lead to monitor plots not updating. "
+                "Consider using '%matplotlib notebook' or '%matplotlib widget' instead.",
+                UserWarning)
 
     @abstractmethod
     def check(self, nets, conditions, history):
@@ -113,7 +126,7 @@ class MonitorSpherical(BaseMonitor):
         """Initializer method
         """
         super(MonitorSpherical, self).__init__(check_every=check_every)
-        self.contour_plot_available = self._matplotlib_version_satisfies()
+        self.contour_plot_available = _updatable_contour_plot_available()
         if not self.contour_plot_available:
             warnings.warn("Warning: contourf plot only available for matplotlib version >= v3.3.0 "
                           "switching to matshow instead")
@@ -149,12 +162,6 @@ class MonitorSpherical(BaseMonitor):
         self.phi_label = phis.reshape(-1).detach().cpu().numpy()
 
         self.n_vars = None
-
-    @staticmethod
-    def _matplotlib_version_satisfies():
-        from packaging.version import parse as vparse
-        from matplotlib import __version__
-        return vparse(__version__) >= vparse('3.3.0')
 
     @staticmethod
     def _longitude_formatter(value, count):
@@ -583,6 +590,7 @@ class Monitor1D(BaseMonitor):
 
 class Monitor2D(BaseMonitor):
     r"""A monitor for checking the status of the neural network during training.
+    The number and layout of subplots (matplotlib axes) will be finalized after the first ``.check()`` call.
 
     :param xy_min:
         The lower bound of 2 dimensions.
@@ -611,16 +619,35 @@ class Monitor2D(BaseMonitor):
 
         Defaults to 'heatmap'.
     :type solution_style: str
+    :param ax_width:
+        Width for each solution visualization. Note that this is different from width for metrics history,
+        which is equal to ``ax_width`` :math:`\times` ``n_cols``.
+    :type ax_width: float
+    :param ax_height: Height for each solution visualization and metrics history plot.
+    :type ax_height: float
+    :param n_col:
+        Number of solution visualizations to plot in each row.
+        Note there is always only 1 plot for metrics history plot per row.
+    :type n_col: int
     """
 
-    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap'):
+    def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap',
+                 ax_width=5.0, ax_height=4.0, n_col=2):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
         if solution_style not in ['heatmap', 'curves']:
             raise ValueError(f"Unsupported 'solution_style' = {solution_style}")
+        if not _updatable_contour_plot_available() and solution_style == 'heatmap':
+            warnings.warn("Heatmap-style solution does not work with your matplotlib version. "
+                          "Please upgrade matplotlib to v3.3.0 or higher. "
+                          "Otherwise you may experience buggy behavior.",
+                          UserWarning)
         self.solution_style = solution_style
         self.fig = None
+        self.ax_width = ax_width
+        self.ax_height = ax_height
+        self.n_col = n_col
         self.axs = []  # subplots
         # self.caxs = []  # colorbars
         self.cbs = []  # color bars
@@ -674,13 +701,19 @@ class Monitor2D(BaseMonitor):
             # size of the figure, number of the subplots, etc.
 
             # one for each dependent variable, plus one for training and validation loss, plus one for metrics
-            n_axs = len(conditions) + 2
-            n_row, n_col = (n_axs + 1) // 2, 2
-            self.fig = plt.figure(figsize=(20, 8 * n_row))
-            for i in range(n_axs):
+            n_func = len(conditions)
+            n_col = self.n_col
+            n_row_sols = math.ceil(n_func / n_col)
+            n_row = n_row_sols + 2
+            self.fig = plt.figure(figsize=(self.ax_width * n_col, self.ax_height * n_row))
+            self.fig.tight_layout()
+            # axes and color bars for solutions (aka dependent variables)
+            for i in range(n_func):
                 self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
-            for i in range(n_axs - 2):
                 self.cbs.append(None)
+            # axes for history plot of loss and other metrics, these plots should take the whole row
+            self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 1))
+            self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 2))
 
         us = [
             con.enforce(net, self.xs_ann, self.ys_ann)
@@ -692,10 +725,9 @@ class Monitor2D(BaseMonitor):
             u = u.detach().cpu().numpy().flatten()
             if self.solution_style == 'heatmap':
                 cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-                if self.cbs[i] is None:
-                    self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
-                else:
-                    self.cbs[i].mappable.set_clim(vmin=u.min(), vmax=u.max())
+                if self.cbs[i] is not None:
+                    self.cbs[i].remove()
+                self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
                 ax.set_title(f'u[{i}](x, y)')
             elif self.solution_style == 'curves':
                 df = pd.DataFrame(dict(u=u, x=self.xs_plot, t=self.ys_plot))
@@ -738,6 +770,7 @@ class MetricsMonitor(BaseMonitor):
         Defaults to 100.
     :type check_every: int, optional
     """
+
     def __init__(self, check_every=100):
         super().__init__(check_every=check_every)
         self.fig = plt.figure(figsize=(12, 6), dpi=125)
