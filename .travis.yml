@@ -2,7 +2,7 @@ language: python
 python:
   - "3.6"
 install:
-  - pip install -r requirements.txt > /dev/null # discard installation output
+  - pip install -r requirements.txt > /dev/null 2> /dev/null # discard installation output
   - pip install .
   - pip install --upgrade pytest-cov pytest
   - pip install codecov
