@@ -257,7 +257,6 @@ class PretrainedSolver():
     def save(self,
              path: str = None,
              name: str = None,
-             project: str = None,
              save_to_hub=False):
 
         # Check params
@@ -324,6 +323,9 @@ class PretrainedSolver():
 
                 # Save remote
                 print("Saving solution to:", NEURODIFF_API_URL)
+                project = None
+                if "/" in name:
+                    project = name.split('/')[0]
                 if project is None:
                     print("Default project will be used to save solution")
                 else:
@@ -344,7 +346,6 @@ class PretrainedSolver():
                     "name": name,
                     "description": name,
                     "diff_equation_details": save_dict["diff_equation_details"],
-                    "projectname": project,
                     "type_name": save_dict["type_name"]
                 }
                 response = requests.post(
