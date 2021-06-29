@@ -202,9 +202,10 @@ def get_sample_solution2D(solver):
     return sample_solution_curve
 
 
-def get_network_architecture(solver):
-    network_architecture = []
-    for net in solver.nets:
+def get_networks(solver):
+    networks = []
+    for idx, net in enumerate(solver.nets):
+        layers = []
         for layer in net.NN:
             layer_params = {
                 "layer": layer.__class__.__name__
@@ -217,9 +218,10 @@ def get_network_architecture(solver):
             if "bias" in layer_dict:
                 layer_params["bias"] = layer_dict["bias"]
 
-            network_architecture.append(layer_params)
+            layers.append(layer_params)
+        networks.append({"layers": layers})
 
-    return network_architecture
+    return networks
 
 
 def get_loss(loss):
@@ -285,7 +287,7 @@ class PretrainedSolver():
             "sample_solution": sample_solution,
             "sample_loss": self.metrics_history['valid_loss'],
             "criterion": get_source(self.criterion),
-            "network_architecture": get_network_architecture(self),
+            "networks": get_networks(self),
             "optimizer": {
                 "name": self.optimizer.__class__.__name__,
                 "params": self.optimizer.state_dict()['param_groups']
