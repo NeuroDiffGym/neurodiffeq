@@ -776,7 +776,7 @@ class MetricsMonitor(BaseMonitor):
     :type check_every: int, optional
     """
 
-    def __init__(self, check_every=100):
+    def __init__(self, check_every=None):
         super().__init__(check_every=check_every)
         self.fig = plt.figure(figsize=(12, 6), dpi=125)
         self.ax1, self.ax2 = self.fig.subplots(1, 2)
