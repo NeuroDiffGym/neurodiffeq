@@ -830,6 +830,8 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.xs_ann, self.ys_ann = _xs_ann.reshape(-1, 1), _ys_ann.reshape(-1, 1)
         self.xs_plot = _xs_ann.detach().cpu().numpy()
         self.ys_plot = _ys_ann.detach().cpu().numpy()
+        self.xlim = xy_min[0], xy_max[0]
+        self.ylim = xy_min[1], xy_max[1]
 
         if mask_fn:
             self.mask = mask_fn(self.xs_plot, self.ys_plot)
@@ -863,6 +865,8 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.cbs[cb_idx] = self.fig.colorbar(stream.lines, ax=ax)
         if self.equal_aspect:
             ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(*self.xlim)
+        ax.set_ylim(*self.ylim)
         if is_grad:
             ax.set_title(f'Gradient of {self.field_names[cb_idx]}')
         else:
