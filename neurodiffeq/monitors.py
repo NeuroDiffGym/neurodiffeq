@@ -807,3 +807,70 @@ class MetricsMonitor(BaseMonitor):
         self.fig.canvas.draw()
         if not self.using_non_gui_backend:
             plt.pause(0.05)
+
+
+class StreamPlotMonitor2D(BaseMonitor):
+    def __init__(self, xy_min, xy_max, pairs, nx=32, ny=32, check_every=None, mask_fn=None,
+                 ax_width=13.0, ax_height=10.0, n_col=2, stream_kwargs=None, equal_aspect=True):
+        super(StreamPlotMonitor2D, self).__init__(check_every=check_every)
+        self.pairs = pairs
+        n_row = int(np.ceil(len(self.pairs) / n_col))
+        self.nx, self.ny = nx, ny
+        self.fig = plt.figure(figsize=(n_col * ax_width, n_row * ax_height))
+        self.axes = self.fig.subplots(n_row, n_col).reshape(-1)
+        self.cbs = [None] * len(pairs)  # colorbars
+        _xs_ann, _ys_ann = torch.meshgrid([
+            torch.linspace(xy_min[0], xy_max[0], nx),
+            torch.linspace(xy_min[1], xy_max[1], ny),
+        ])
+        self.xs_ann, self.ys_ann = _xs_ann.reshape(-1, 1), _ys_ann.reshape(-1, 1)
+        self.xs_plot = _xs_ann.detach().cpu().numpy()
+        self.ys_plot = _ys_ann.detach().cpu().numpy()
+
+        if mask_fn:
+            self.mask = mask_fn(self.xs_plot, self.ys_plot)
+            # TODO use antialiasing
+            _pcolor_x, _pcolor_y = np.meshgrid(
+                np.linspace(xy_min[0], xy_max[0], nx * 8),
+                np.linspace(xy_min[1], xy_max[1], ny * 8),
+            )
+            _pcolor_mask = mask_fn(_pcolor_x, _pcolor_y)
+            self._pcolor_args = (_pcolor_x, _pcolor_y, ~_pcolor_mask)
+        else:
+            self.mask = None
+            self._pcolor_args = ()
+        self.stream_kwargs = dict(
+            density=(self.nx / 30, self.ny / 30),
+        )
+        self.stream_kwargs.update(stream_kwargs or {})
+        self.equal_aspect = equal_aspect
+
+    def _plot_streamlines(self, ax, us, vs, norms, cb_idx):
+        ax.clear()
+        if self.mask is not None:
+            us[~self.mask] = np.nan
+            vs[~self.mask] = np.nan
+            ax.pcolor(*self._pcolor_args, shading='auto', cmap='Purples')
+        kwargs = dict(color=norms)
+        kwargs.update(self.stream_kwargs)
+        stream = ax.streamplot(self.xs_plot[:, 0], self.ys_plot[0, :], us, vs, **kwargs)
+        if self.cbs[cb_idx] is not None:
+            self.cbs[cb_idx].remove()
+        self.cbs[cb_idx] = self.fig.colorbar(stream.lines, ax=ax)
+        if self.equal_aspect:
+            ax.set_aspect('equal', adjustable='box')
+        ax.set_title(f'Stream Plot of Field[{cb_idx}]')
+
+    def check(self, nets, conditions, history):
+        for idx, (ui, vi) in enumerate(self.pairs):
+            us = conditions[ui].enforce(nets[ui], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
+            vs = conditions[vi].enforce(nets[vi], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
+            norms = torch.sqrt(us ** 2 + vs ** 2)
+
+            self._plot_streamlines(
+                ax=self.axes[idx],
+                us=us.detach().cpu().numpy(),
+                vs=vs.detach().cpu().numpy(),
+                norms=norms.detach().cpu().numpy(),
+                cb_idx=idx,
+            )
