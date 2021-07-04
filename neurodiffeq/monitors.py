@@ -812,9 +812,12 @@ class MetricsMonitor(BaseMonitor):
 
 class StreamPlotMonitor2D(BaseMonitor):
     def __init__(self, xy_min, xy_max, pairs, nx=32, ny=32, check_every=None, mask_fn=None,
-                 ax_width=13.0, ax_height=10.0, n_col=2, stream_kwargs=None, equal_aspect=True):
+                 ax_width=13.0, ax_height=10.0, n_col=2, stream_kwargs=None, equal_aspect=True, field_names=None):
         super(StreamPlotMonitor2D, self).__init__(check_every=check_every)
         self.pairs = pairs
+        self.field_names = field_names or [f'Field[{i}]' for i, _ in enumerate(pairs)]
+        if len(self.field_names) != len(self.pairs):
+            raise ValueError(f"Length of field_names ({len(self.field_names)}) != Length of pairs({len(self.pairs)})")
         n_row = int(np.ceil(len(self.pairs) / n_col))
         self.nx, self.ny = nx, ny
         self.fig = plt.figure(figsize=(n_col * ax_width, n_row * ax_height))
@@ -861,10 +864,9 @@ class StreamPlotMonitor2D(BaseMonitor):
         if self.equal_aspect:
             ax.set_aspect('equal', adjustable='box')
         if is_grad:
-            ax.set_title(f'Gradient of Field[{cb_idx}]')
+            ax.set_title(f'Gradient of {self.field_names[cb_idx]}')
         else:
-            ax.set_title(f'Stream Plot of Field[{cb_idx}]')
-
+            ax.set_title(f'Stream Plot of {self.field_names[cb_idx]}')
 
     def check(self, nets, conditions, history):
         for idx, pair in enumerate(self.pairs):
