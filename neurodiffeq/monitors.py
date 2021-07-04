@@ -652,7 +652,7 @@ class Monitor2D(BaseMonitor):
         self.ax_width = ax_width
         self.ax_height = ax_height
         self.n_col = n_col
-        self.equal_aspect = equal_aspect,
+        self.equal_aspect = equal_aspect
         self.axs = []  # subplots
         # self.caxs = []  # colorbars
         self.cbs = []  # color bars
