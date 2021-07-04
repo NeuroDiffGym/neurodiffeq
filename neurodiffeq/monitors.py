@@ -854,7 +854,7 @@ class StreamPlotMonitor2D(BaseMonitor):
             ax.pcolor(*self._pcolor_args, shading='auto', cmap='Purples')
         kwargs = dict(color=norms)
         kwargs.update(self.stream_kwargs)
-        stream = ax.streamplot(self.xs_plot[:, 0], self.ys_plot[0, :], us, vs, **kwargs)
+        stream = ax.streamplot(self.xs_plot[:, 0], self.ys_plot[0, :], us.transpose(), vs.transpose(), **kwargs)
         if self.cbs[cb_idx] is not None:
             self.cbs[cb_idx].remove()
         self.cbs[cb_idx] = self.fig.colorbar(stream.lines, ax=ax)
