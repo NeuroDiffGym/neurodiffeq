@@ -15,6 +15,7 @@ from .generators import Generator1D as _Generator1D
 from .generators import Generator2D as _Generator2D
 from .generators import Generator3D as _Generator3D
 from .conditions import IrregularBoundaryCondition as _IrregularBC
+from .operators import grad
 
 
 def _updatable_contour_plot_available():
@@ -820,8 +821,8 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.axes = self.fig.subplots(n_row, n_col).reshape(-1)
         self.cbs = [None] * len(pairs)  # colorbars
         _xs_ann, _ys_ann = torch.meshgrid([
-            torch.linspace(xy_min[0], xy_max[0], nx),
-            torch.linspace(xy_min[1], xy_max[1], ny),
+            torch.linspace(xy_min[0], xy_max[0], nx, requires_grad=True),
+            torch.linspace(xy_min[1], xy_max[1], ny, requires_grad=True),
         ])
         self.xs_ann, self.ys_ann = _xs_ann.reshape(-1, 1), _ys_ann.reshape(-1, 1)
         self.xs_plot = _xs_ann.detach().cpu().numpy()
@@ -845,7 +846,7 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.stream_kwargs.update(stream_kwargs or {})
         self.equal_aspect = equal_aspect
 
-    def _plot_streamlines(self, ax, us, vs, norms, cb_idx):
+    def _plot_streamlines(self, ax, us, vs, norms, cb_idx, is_grad=False):
         ax.clear()
         if self.mask is not None:
             us[~self.mask] = np.nan
@@ -859,12 +860,26 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.cbs[cb_idx] = self.fig.colorbar(stream.lines, ax=ax)
         if self.equal_aspect:
             ax.set_aspect('equal', adjustable='box')
-        ax.set_title(f'Stream Plot of Field[{cb_idx}]')
+        if is_grad:
+            ax.set_title(f'Gradient of Field[{cb_idx}]')
+        else:
+            ax.set_title(f'Stream Plot of Field[{cb_idx}]')
+
 
     def check(self, nets, conditions, history):
-        for idx, (ui, vi) in enumerate(self.pairs):
-            us = conditions[ui].enforce(nets[ui], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
-            vs = conditions[vi].enforce(nets[vi], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
+        for idx, pair in enumerate(self.pairs):
+            if isinstance(pair, int):
+                p = conditions[pair].enforce(nets[pair], self.xs_ann, self.ys_ann)
+                us, vs = grad(p, self.xs_ann, self.ys_ann)
+                us = us.reshape(self.nx, self.ny)
+                vs = vs.reshape(self.nx, self.ny)
+                is_grad = True
+            else:
+                ui, vi = pair
+                us = conditions[ui].enforce(nets[ui], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
+                vs = conditions[vi].enforce(nets[vi], self.xs_ann, self.ys_ann).reshape(self.nx, self.ny)
+                is_grad = False
+
             norms = torch.sqrt(us ** 2 + vs ** 2)
 
             self._plot_streamlines(
@@ -873,4 +888,5 @@ class StreamPlotMonitor2D(BaseMonitor):
                 vs=vs.detach().cpu().numpy(),
                 norms=norms.detach().cpu().numpy(),
                 cb_idx=idx,
+                is_grad=is_grad,
             )
