@@ -41,7 +41,7 @@ def test_monitor_1d(history):
 def test_stream_plot_monitor(mask_fn):
     nets = [FCNN(2, 1, hidden_units=(3,)) for _ in range(5)]
     conditions = [NoCondition() for _ in nets]
-    pairs = [(0, 1), (2, 3), (0, 3)]
+    pairs = [(0, 1), (2, 3), (0, 3), 4, 2]
 
     monitor = StreamPlotMonitor2D(
         xy_min=(-1, -1),
