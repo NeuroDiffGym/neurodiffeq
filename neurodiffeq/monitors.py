@@ -619,6 +619,10 @@ class Monitor2D(BaseMonitor):
 
         Defaults to 'heatmap'.
     :type solution_style: str
+    :param equal_aspect:
+        Whether to set aspect ratio to 1:1 for heatmap. Defaults to True.
+        Ignored if `solutions_style` is 'curves'.
+    :type equal_aspect: bool
     :param ax_width:
         Width for each solution visualization. Note that this is different from width for metrics history,
         which is equal to ``ax_width`` :math:`\times` ``n_cols``.
@@ -632,7 +636,7 @@ class Monitor2D(BaseMonitor):
     """
 
     def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap',
-                 ax_width=5.0, ax_height=4.0, n_col=2):
+                 equal_aspect=True, ax_width=5.0, ax_height=4.0, n_col=2):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
@@ -648,6 +652,7 @@ class Monitor2D(BaseMonitor):
         self.ax_width = ax_width
         self.ax_height = ax_height
         self.n_col = n_col
+        self.equal_aspect = equal_aspect,
         self.axs = []  # subplots
         # self.caxs = []  # colorbars
         self.cbs = []  # color bars
@@ -660,8 +665,7 @@ class Monitor2D(BaseMonitor):
         self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
 
     # draw a contour plot of the surface (xs, ys) -> zs
-    @staticmethod
-    def _create_contour(ax, xs, ys, zs, condition):
+    def _create_contour(self, ax, xs, ys, zs, condition):
         triang = tri.Triangulation(xs, ys)
         xs = xs[triang.triangles].mean(axis=1)
         ys = ys[triang.triangles].mean(axis=1)
@@ -674,7 +678,8 @@ class Monitor2D(BaseMonitor):
         contour = ax.tricontourf(triang, zs, cmap='coolwarm')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
-        ax.set_aspect('equal', adjustable='box')
+        if self.equal_aspect:
+            ax.set_aspect('equal', adjustable='box')
         return contour
 
     def check(self, nets, conditions, history):
