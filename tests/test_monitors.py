@@ -37,20 +37,37 @@ def test_monitor_1d(history):
     monitor.check(nets, conditions, history=history)
 
 
+@pytest.mark.parametrize(argnames='specify_field_names', argvalues=[False, True])
 @pytest.mark.parametrize(argnames='mask_fn', argvalues=[None, lambda x, y: (x ** 2 + y ** 2 < 1)])
-def test_stream_plot_monitor(mask_fn):
+@pytest.mark.parametrize(argnames=['nx', 'ny'], argvalues=[(30, 50), (40, 20)])
+def test_stream_plot_monitor(mask_fn, nx, ny, specify_field_names):
     nets = [FCNN(2, 1, hidden_units=(3,)) for _ in range(5)]
     conditions = [NoCondition() for _ in nets]
     pairs = [(0, 1), (2, 3), (0, 3), 4, 2]
 
+    if specify_field_names:
+        field_names = [str(i) for i in range(len(pairs))]
+    else:
+        field_names = None
     monitor = StreamPlotMonitor2D(
         xy_min=(-1, -1),
         xy_max=(1, 1),
-        nx=16, ny=16,
+        nx=nx,
+        ny=ny,
         pairs=pairs,
         mask_fn=mask_fn,
         equal_aspect=True,
+        field_names=field_names,
     )
+
+    if specify_field_names:
+        with pytest.raises(ValueError):
+            StreamPlotMonitor2D(
+                xy_min=(-1, -1),
+                xy_max=(1, 1),
+                pairs=[0, 1],
+                field_names=['a', 'b', 'c'],
+            )
 
     monitor.check(nets, conditions, history=None)
     monitor.check(nets[::-1], conditions, history=None)
