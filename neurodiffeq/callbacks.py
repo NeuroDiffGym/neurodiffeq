@@ -104,7 +104,7 @@ class MonitorCallback(ActionCallback):
         )
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.{self.format}")
-            self.monitor.fig.savefig(pic_path)
+            self.monitor.fig.savefig(pic_path, bbox_inches='tight')
             self.logger.info(f'plot saved to {pic_path}')
 
 
