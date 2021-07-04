@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from neurodiffeq.conditions import NoCondition
 from neurodiffeq.networks import FCNN
-from neurodiffeq.monitors import Monitor2D, MetricsMonitor, Monitor1D
+from neurodiffeq.monitors import Monitor2D, MetricsMonitor, Monitor1D, StreamPlotMonitor2D
 
 N_FUNCTIONS = 2
 EMPTY_HISTORY = dict(train_loss=[], valid_loss=[])
@@ -35,3 +35,22 @@ def test_monitor_1d(history):
     nets = [FCNN() for _ in range(N_FUNCTIONS)]
     conditions = [NoCondition() for _ in range(N_FUNCTIONS)]
     monitor.check(nets, conditions, history=history)
+
+
+@pytest.mark.parametrize(argnames='mask_fn', argvalues=[None, lambda x, y: (x ** 2 + y ** 2 < 1)])
+def test_stream_plot_monitor(mask_fn):
+    nets = [FCNN(2, 1, hidden_units=(3,)) for _ in range(5)]
+    conditions = [NoCondition() for _ in nets]
+    pairs = [(0, 1), (2, 3), (0, 3)]
+
+    monitor = StreamPlotMonitor2D(
+        xy_min=(-1, -1),
+        xy_max=(1, 1),
+        nx=16, ny=16,
+        pairs=pairs,
+        mask_fn=mask_fn,
+        equal_aspect=True,
+    )
+
+    monitor.check(nets, conditions, history=None)
+    monitor.check(nets[::-1], conditions, history=None)
