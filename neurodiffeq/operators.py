@@ -34,11 +34,39 @@ def grad(u, *xs):
 
 
 def div(*us_xs):
+    r"""Derives and evaluates the divergence of a :math:`n`-dimensional vector field :math:`\mathbf{u}`
+    with respect to :math:`\mathbf{x}`.
+
+    :param us_xs:
+        The input must have :math:`2n` tensors, each of shape (n_samples, 1)
+        with the former :math:`n` tensors being the entries of :math:`u`
+        and the latter :math:`n` tensors being the entries of :math:`x`.
+    :type us_xs: `torch.Tensor`
+    :return: The divergence evaluated at :math:`x`, with shape (n_samples, 1).
+    :rtype: `torch.Tensor`
+    """
     us, xs = _split_u_x(*us_xs)
     return sum(diff(u, x) for u, x in zip(us, xs))
 
 
 def curl(u_x, u_y, u_z, x, y, z):
+    r"""Derives and evaluates the curl of a vector field :math:`\mathbf{u}` in three dimensional cartesian coordinates.
+
+    :param u_x: The :math:`x`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_x: `torch.Tensor`
+    :param u_y: The :math:`y`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_y: `torch.Tensor`
+    :param u_z: The :math:`z`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_z: `torch.Tensor`
+    :param x: A vector of :math:`x`-coordinate values, must have shape (n_samples, 1).
+    :type x: `torch.Tensor`
+    :param y: A vector of :math:`y`-coordinate values, must have shape (n_samples, 1).
+    :type y: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The :math:`x`, :math:`y`, and :math:`z` components of the curl, each with shape (n_samples, 1).
+    :rtype: tuple[`torch.Tensor`]
+    """
     dxy, dxz = grad(u_x, y, z)
     dyx, dyz = grad(u_y, x, z)
     dzx, dzy = grad(u_z, x, y)
@@ -47,11 +75,41 @@ def curl(u_x, u_y, u_z, x, y, z):
 
 
 def laplacian(u, *xs):
+    r"""Derives and evaluates the laplacian of a scalar field :math:`u`
+    with respect to :math:`\mathbf{x}=[x_1, x_2, \dots]`
+
+    :param u: A scalar field :math:`u`, must have shape (n_samples, 1).
+    :type u: `torch.Tensor`
+    :param xs: The sequence of :math:`x_i` described above. Each with shape (n_samples, 1)
+    :type xs: `torch.Tensor`
+    :return: The laplacian of :math:`u` evaluated at :math:`\mathbf{x}`, with shape (n_samples, 1).
+    :rtype: `torch.Tensor`
+    """
     gs = grad(u, *xs)
     return sum(diff(g, x) for g, x in zip(gs, xs))
 
 
 def vector_laplacian(u_x, u_y, u_z, x, y, z):
+    r"""Derives and evaluates the vector laplacian of a vector field :math:`\mathbf{u}`
+    in three dimensional cartesian coordinates.
+
+    :param u_x: The :math:`x`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_x: `torch.Tensor`
+    :param u_y: The :math:`y`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_y: `torch.Tensor`
+    :param u_z: The :math:`z`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_z: `torch.Tensor`
+    :param x: A vector of :math:`x`-coordinate values, must have shape (n_samples, 1).
+    :type x: `torch.Tensor`
+    :param y: A vector of :math:`y`-coordinate values, must have shape (n_samples, 1).
+    :type y: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return:
+        Components of vector laplacian of :math:`\mathbf{u}` evaluated at :math:`\mathbf{x}`,
+        each with shape (n_samples, 1).
+    :rtype: tuple[`torch.Tensor`]
+    """
     return laplacian(u_x, x, y, z), laplacian(u_y, x, y, z), laplacian(u_z, x, y, z)
 
 
