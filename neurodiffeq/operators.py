@@ -4,6 +4,14 @@ from torch import autograd
 from .neurodiffeq import safe_diff as diff
 
 
+def _split_u_x(*us_xs):
+    if len(us_xs) == 0 or len(us_xs) % 2 != 0:
+        raise RuntimeError("Number of us and xs must be equal and positive")
+    us = us_xs[:len(us_xs) // 2]
+    xs = us_xs[len(us_xs) // 2:]
+    return us, xs
+
+
 def grad(u, *xs):
     r"""Gradient of tensor u with respect to a tuple of tensors xs.
     Given :math:`u` and :math:`x_1`, ..., :math:`x_n`, the function returns
@@ -23,6 +31,28 @@ def grad(u, *xs):
         else:
             grads.append(g.requires_grad_(True))
     return grads
+
+
+def div(*us_xs):
+    us, xs = _split_u_x(*us_xs)
+    return sum(diff(u, x) for u, x in zip(us, xs))
+
+
+def curl(u_x, u_y, u_z, x, y, z):
+    dxy, dxz = grad(u_x, y, z)
+    dyx, dyz = grad(u_y, x, z)
+    dzx, dzy = grad(u_z, x, y)
+
+    return dzy - dyz, dxz - dzx, dyx - dxy
+
+
+def laplacian(u, *xs):
+    gs = grad(u, *xs)
+    return sum(diff(g, x) for g, x in zip(gs, xs))
+
+
+def vector_laplacian(u_x, u_y, u_z, x, y, z):
+    return laplacian(u_x, x, y, z), laplacian(u_y, x, y, z), laplacian(u_z, x, y, z)
 
 
 def spherical_curl(u_r, u_theta, u_phi, r, theta, phi):
