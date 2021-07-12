@@ -104,7 +104,7 @@ class MonitorCallback(ActionCallback):
         )
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.{self.format}")
-            self.monitor.fig.savefig(pic_path)
+            self.monitor.fig.savefig(pic_path, bbox_inches='tight')
             self.logger.info(f'plot saved to {pic_path}')
 
 
@@ -116,7 +116,7 @@ class StopCallback(ActionCallback):
 
     .. note::
         This callback should always be used together with a `ConditionCallback`,
-        otherwise the ``.fit()`` call with exit after first epoch.
+        otherwise the ``solver.fit()`` call will exit after first epoch.
     """
 
     def __call__(self, solver):
@@ -124,7 +124,7 @@ class StopCallback(ActionCallback):
 
 
 class CheckpointCallback(ActionCallback):
-    r"""A callback that saves the networks (and its weights) to the disk.
+    r"""A callback that saves the networks (and their weights) to the disk.
 
     :param ckpt_dir:
         The directory to save model checkpoints.
@@ -182,20 +182,25 @@ ReportOnFitCallback = warn_deprecate_class(ReportCallback)
 
 
 class EveCallback(ActionCallback):
-    r"""A callback that readjusts the number of batches based on latest value of a specified metric.
-    The number of batches will be :math:`\displaystyle{2^n}`,
-
-    where :math:`\displaystyle{n=\max\left(0,\left\lfloor\log_p{\frac{v}{v_0}}\right\rfloor\right)}`
+    r"""A callback that readjusts the number of batches for training based on latest value of a specified metric.
+    The number of batches will be :math:`\displaystyle{\left(n_0 \cdot 2^k\right)}`
+    or :math:`n_\mathrm{max}` (if specified), whichever is lower,
+    where :math:`\displaystyle{k=\max\left(0,\left\lfloor\log_p{\frac{v}{v_0}}\right\rfloor\right)}`
     and :math:`v` is the value of the metric in the last epoch.
 
     :param base_value:
         Base value of the specified metric (:math:`v_0` in the above equation).
-        When the metric value is higher than ``base_value``, number of batches will be 1.
+        When the metric value is higher than ``base_value``, number of batches will be :math:`n_0`.
     :type base_value: float
     :param double_at:
         The ratio at which the batch number will be doubled (:math:`p` in the above equation).
-        When :math:`\displaystyle{\frac{v}{v_0}=p^n}`, the number of batches will be :math:`\displaystyle{2^n}`.
+        When :math:`\displaystyle{\frac{v}{v_0}=p^k}`,
+        the number of batches will be :math:`\displaystyle{\left(n_0 \cdot 2^k\right)}`.
     :type double_at: float
+    :param n_0: Minimum number of batches (:math:`n_0`). Defaults to 1.
+    :type n_0: int
+    :param n_max: Maximum number of batches (:math:`n_\mathrm{max}`). Defaults to infinity.
+    :type n_max: int
     :param use_train: Whether to use the training (instead of validation) phase value of the metric. Defaults to True.
     :type use_train: bool
     :param metric:
@@ -206,10 +211,12 @@ class EveCallback(ActionCallback):
     """
     EPS = 1e-4
 
-    def __init__(self, base_value=1.0, double_at=0.1, use_train=True, metric='loss', logger=None):
+    def __init__(self, base_value=1.0, double_at=0.1, n_0=1, n_max=None, use_train=True, metric='loss', logger=None):
         super(EveCallback, self).__init__(logger=logger)
         self.base_value = base_value
         self.double_at = double_at
+        self.n_0 = n_0
+        self.n_max = n_max or np.inf
         key = 'train' if use_train else 'valid'
         self.key = f'{key}_{metric}'
 
@@ -217,12 +224,45 @@ class EveCallback(ActionCallback):
         value = solver.metrics_history[self.key][-1]
         double_times = int(self.__class__.EPS + (np.log(value) - np.log(self.base_value)) / np.log(self.double_at))
         double_times = max(double_times, 0)
-        solver.n_batches['train'] = 2 ** double_times
+        solver.n_batches['train'] = min(self.n_0 * 2 ** double_times, self.n_max)
+
+
+class SimpleTensorboardCallback(ActionCallback):
+    r"""A callback that writes all metric values to the disk for TensorBoard to plot.
+    Tensorboard must be installed for this callback to work.
+
+    :param writer:
+        The summary writer for writing values to disk.
+        Defaults to a new ``SummaryWriter`` instance created with default kwargs.
+    :type writer: ``torch.utils.tensorboard.SummaryWriter``
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, writer=None, logger=None):
+        super(SimpleTensorboardCallback, self).__init__(logger=logger)
+        if not writer:
+            self.logger.info('No writer specified, creating a SummaryWriter automatically.')
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError as e:
+            raise ImportError(f"TensorBoard doesn't seem to be installed. See the following\n{e}")
+
+        self.writer = writer or SummaryWriter()
+
+    def __call__(self, solver):
+        for name, values in solver.metrics_history.items():
+            self.writer.add_scalar(
+                tag=name,
+                scalar_value=values[-1] if values else np.nan,
+                global_step=solver.global_epoch,
+            )
 
 
 class ConditionCallback(BaseCallback):
     r"""Base class of condition callbacks.
-    Custom callbacks that *determines whether some action shall be performed* should subclass this class.
+    Custom callbacks that *determines whether some action shall be performed* should subclass this class and overwrite
+    the ``.condition`` method.
 
     Instances of ``ConditionCallback`` (and its children classes) support (short-circuit) evaluation of
     common boolean operations: ``&`` (and), ``|`` (or), ``~`` (not), and ``^`` (xor).
@@ -269,9 +309,9 @@ class ConditionCallback(BaseCallback):
 
 
 class AndCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff none of its sub-\`ConditionCallback\`s evaluates to False.
+    r"""A ``ConditionCallback`` which evaluates to True iff none of its sub-``ConditionCallback`` s evaluates to False.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -293,9 +333,9 @@ class AndCallback(ConditionCallback):
 
 
 class OrCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to False iff none of its sub-\`ConditionCallback\`s evaluates to True.
+    r"""A ``ConditionCallback`` which evaluates to False iff none of its sub-``ConditionCallback`` s evaluates to True.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -316,9 +356,9 @@ class OrCallback(ConditionCallback):
 
 
 class NotCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff its sub-\`ConditionCallback\` evaluates to False.
+    r"""A ``ConditionCallback`` which evaluates to True iff its sub-``ConditionCallback`` evaluates to False.
 
-    :param condition_callback: The sub-\`ConditionCallbacks\`.
+    :param condition_callback: The sub-``ConditionCallback`` .
     :type condition_callback: ConditionCallback
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``
@@ -337,9 +377,9 @@ class NotCallback(ConditionCallback):
 
 class XorCallback(ConditionCallback):
     r"""A ``ConditionCallback`` which evaluates to False iff
-    evenly many of its sub-\`ConditionCallback\`s evaluates to True.
+    evenly many of its sub-``ConditionCallback`` s evaluates to True.
 
-    :param condition_callbacks: List of sub-\`ConditionCallbacks\`.
+    :param condition_callbacks: List of sub-``ConditionCallback`` s.
     :type condition_callbacks: list[``ConditionCallback``]
     :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
     :type logger: str or ``logging.Logger``

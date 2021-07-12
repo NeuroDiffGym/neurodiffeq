@@ -25,7 +25,7 @@ Solution = warn_deprecate_class(Solution2D)
 
 
 # Calculate the output of a neural network with 2 input.
-# In the case where the neural network has multiple output unit, 
+# In the case where the neural network has multiple output unit,
 # `ith_unit` specifies which unit do we want.
 def _network_output_2input(net, xs, ys, ith_unit):
     xys = torch.cat((xs, ys), 1)
@@ -306,8 +306,8 @@ def solve2D_system(
 
     if additional_loss_term:
         class CustomSolver2D(Solver2D):
-            def additional_loss(self, funcs, key):
-                return additional_loss_term(*funcs, *self._batch_examples[key])
+            def additional_loss(self, residual, funcs, coords):
+                return additional_loss_term(*funcs, *coords)
     else:
         class CustomSolver2D(Solver2D):
             pass
@@ -355,8 +355,8 @@ def make_animation(solution, xs, ts):
     sol_net = solution(xx, tt, to_numpy=True)
 
     def u_gen():
-        for i in range(len(sol_net)):
-            yield sol_net[i]
+        for net in sol_net:
+            yield net
 
     fig, ax = plt.subplots()
     line, = ax.plot([], [], lw=2)
@@ -526,7 +526,7 @@ class CustomBoundaryCondition(IrregularBoundaryCondition):
 
         return l_ds * l_ms * numer / denom
 
-    # This method is called by Monitor2D when creating a contour. It returns a 
+    # This method is called by Monitor2D when creating a contour. It returns a
     # mask indicating whether a point are inside the problem. The mask is used
     # to crop the contour plot. Here we assume if a point (x, y) have positive
     # length factor L_D(x, y) then it's inside the domain.
@@ -540,7 +540,7 @@ class CustomBoundaryCondition(IrregularBoundaryCondition):
         # enforce Dirichlet and Neumann boundary condition, equation[10] in MAcfall's paper
         return self.a_d(*dimensions) + self.a_m(net, *dimensions) + self.f(net, *dimensions)
 
-    # This method removes the control points that are too close to each other 
+    # This method removes the control points that are too close to each other
     # and sort the control points 'clockwise' (the center is the center_point).
     # We sort the points because we want to map them to equally spaced points on
     # a circle, and the points need to be ordered so that we can assign corresponding

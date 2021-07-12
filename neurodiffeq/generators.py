@@ -28,6 +28,10 @@ class BaseGenerator:
         self.check_generator(other)
         return EnsembleGenerator(self, other)
 
+    def __xor__(self, other):
+        self.check_generator(other)
+        return MeshGenerator(self, other)
+
     def _internal_vars(self) -> dict:
         return dict(size=self.size)
 
@@ -83,13 +87,13 @@ class Generator1D(BaseGenerator):
     """
 
     def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform', noise_std=None):
-        super(Generator1D, self).__init__()
         r"""Initializer method
 
         .. note::
-            A instance method `get_examples` is dynamically created to generate 1-D training points. 
+            A instance method `get_examples` is dynamically created to generate 1-D training points.
             It will be called by the function `solve` and `solve_system`.
         """
+        super(Generator1D, self).__init__()
         self.size = size
         self.t_min, self.t_max = t_min, t_max
         self.method = method
@@ -302,6 +306,162 @@ class Generator3D(BaseGenerator):
             xyz_min=self.xyz_min,
             xyz_max=self.xyz_max,
             method=self.method,
+        ))
+        return d
+
+
+class GeneratorND(BaseGenerator):
+    r"""An example generator for generating N-D training points.
+
+        :param grid:
+            The discretization of the N dimensions.
+            If we want to generate points on a :math:`n_1 \times n_2 \times ... \times n_N` grid,
+            then `grid` is `(n_1, n_2, ... , n_N)`.
+            Defaults to `(10, 10)`.
+        :type grid: tuple[int, int, ... , int], or it can be int if N=1, optional
+        :param r_min:
+            The lower bound of N dimensions.
+            If we only care about :math:`r_1 \geq r_1^{min}`, :math:`r_2 \geq r_2^{min}`, ... ,
+            and :math:`r_N \geq r_N^{min}` then `r_min` is `(r_1_min, r_2_min, ... , r_N_min)`.
+            Defaults to `(0.0, 0.0)`.
+        :type r_min: tuple[float, ... , float], or it can be float if N=1, optional
+        :param r_max:
+            The upper boound of N dimensions.
+            If we only care about :math:`r_1 \leq r_1^{max}`, :math:`r_2 \leq r_2^{max}`, ... ,
+            and :math:`r_N \leq r_N^{max}` then `r_max` is `(r_1_max, r_2_max, ... , r_N_max)`.
+            Defaults to `(1.0, 1.0)`.
+        :type r_max: tuple[float, ... , float], or it can be float if N=1, optional
+        :param methods:
+            The a list of the distributions of each of the 1-D points generated that make the total N-D points.
+
+            - If set to 'uniform',
+              the points will be drew from a uniform distribution Unif(r_min[i], r_max[i]).
+            - If set to 'equally-spaced',
+              the points will be fixed to a set of linearly-spaced points that go from r_min[i] to r_max[i].
+            - If set to 'log-spaced',
+              the points will be fixed to a set of log-spaced points that go from r_min[i] to r_max[i].
+            - If set to 'exp-spaced',
+              the points will be fixed to a set of exp-spaced points that go from r_min[i] to r_max[i].
+
+            Defaults to ['equally-spaced', 'equally-spaced'].
+        :type methods: list[str, str, ... , str], or it can be str if N=1, optional
+        :param noisy:
+            if set to True a normal noise will be added to all of the N sets of points that make the generator.
+            Defaults to True.
+        :type noisy: bool
+        :raises ValueError: When provided with unknown methods.
+    """
+
+    def __init__(self, grid=(10, 10), r_min=(0.0, 0.0), r_max=(1.0, 1.0),
+                 methods=['equally-spaced', 'equally-spaced'], noisy=True, r_noise_std=None,
+                 **kwargs):
+
+        super(GeneratorND, self).__init__()
+        self.size = np.prod(grid)
+        self.grid = grid
+        self.r_min = r_min
+        self.r_max = r_max
+        self.methods = methods
+        self.noisy = noisy
+        self.r_noise_std = r_noise_std
+
+        if isinstance(methods, str):
+            methods = [methods]
+
+        if isinstance(grid, int):
+            grid = (grid,)
+
+        if isinstance(r_min, float) or isinstance(r_min, int):
+            r_min = (r_min,)
+
+        if isinstance(r_max, float) or isinstance(r_max, int):
+            r_max = (r_max,)
+
+        if isinstance(r_noise_std, float) or isinstance(r_noise_std, int):
+            r_noise_std = (r_noise_std,)
+
+        N = len(grid)
+
+        cut = kwargs.pop('cut', tuple((None, None) for i in range(N)))
+
+        base = kwargs.pop('base', tuple(10 for i in range(N)))
+
+        abs_value = kwargs.pop('abs_value', False)
+
+        if kwargs:
+            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
+
+        if isinstance(base, float) or isinstance(base, int):
+            base = (base,)
+
+        if isinstance(cut[0], float) or isinstance(cut[0], int) or cut[0] is None:
+            cut = (cut,)
+
+        r = []
+        r_noise_std_list = []
+        for i in range(N):
+
+            method = methods[i]
+
+            if r_noise_std:
+                noise_rstd = r_noise_std[i]
+            else:
+                noise_rstd = ((r_max[i] - r_min[i]) / grid[i]) / 4.0
+
+            if method == 'equally-spaced':
+                x = torch.linspace(r_min[i], r_max[i], grid[i], requires_grad=True)
+                noise_rstd_tensor = noise_rstd * torch.ones(x.size())
+
+            elif method == 'uniform':
+                x = torch.zeros(grid[i], requires_grad=True)
+                x = x + torch.rand(grid[i]) * (r_max[i] - r_min[i]) + r_min[i]
+                noise_rstd_tensor = torch.zeros(x.size())
+
+            elif method == 'log-spaced':
+                r_min_log = np.log10(r_min[i])
+                r_max_log = np.log10(r_max[i])
+                x = torch.logspace(r_min_log, r_max_log, grid[i], requires_grad=True)
+                noise_rstd_tensor = (noise_rstd * torch.logspace(r_min_log, r_max_log, grid[i]))
+
+            elif method == 'exp-spaced':
+                r_min_exp = base[i] ** r_min[i]
+                r_max_exp = base[i] ** r_max[i]
+                x = torch.linspace(r_min_exp, r_max_exp, grid[i], requires_grad=True)
+                x = (torch.log(x)/np.log(base[i])).clone().detach().requires_grad_(True)
+                noise_rstd_tensor = (noise_rstd * x).clone().detach()
+
+            else:
+                raise ValueError(f'Unknown method: {method}')
+
+            x = x[cut[i][0]:cut[i][1]]
+            noise_rstd_tensor = noise_rstd_tensor[cut[i][0]:cut[i][1]]
+            r.append(x)
+            r_noise_std_list.append(noise_rstd_tensor)
+
+        grid_r = torch.meshgrid(r)
+        grid_std = torch.meshgrid(r_noise_std_list)
+        self.grid_r = [grid_r[j].flatten() for j in range(N)]
+        self.grid_std = [grid_std[j].flatten() for j in range(N)]
+        if noisy:
+            if abs_value:
+                self.getter = lambda: tuple(torch.abs(torch.normal(self.grid_r[n], self.grid_std[n]))for n in range(N))
+            else:
+                self.getter = lambda: tuple(torch.normal(self.grid_r[n], self.grid_std[n]) for n in range(N))
+        else:
+            self.getter = lambda: tuple(self.grid_r[n] for n in range(N))
+
+    def get_examples(self):
+        return self.getter()
+
+    def _internal_vars(self) -> dict:
+        d = super(GeneratorND, self)._internal_vars()
+        d.update(dict(
+            grid=self.grid,
+            r_min=self.r_min,
+            r_max=self.r_max,
+            methods=self.methods,
+            noisy=self.noisy,
+            r_noise_std=self.r_noise_std
         ))
         return d
 
@@ -578,6 +738,62 @@ class EnsembleGenerator(BaseGenerator):
 
     def _internal_vars(self) -> dict:
         d = super(EnsembleGenerator, self)._internal_vars()
+        d.update(dict(
+            generators=self.generators,
+        ))
+        return d
+
+
+class MeshGenerator(BaseGenerator):
+    r"""A generator for sampling points whose `get_examples` method returns a mesh of the samples of its sub-generators.
+    All sub-generators must return tensors of the same shape, or a tuple of tensors of the same shape.
+    The number of tensors returned by each sub-generator can be different, but the intent behind
+    this class is to create an N dimensional generator from several 1 dimensional generators, so each input generator
+    should represents one of the dimensions of your problem. An exception is made for
+    using a ``MeshGenerator`` as one of the inputs of another ``MeshGenerator``. In that case the original
+    meshed generators are extracted from the input ``MeshGenerator``, and the final mesh is used using those
+    (e.g ``MeshGenerator(MeshGenerator(g1, g2), g3)`` is equivalent to ``MeshGenerator(g1, g2, g3)``, where
+    g1, g2 and g3 are ``Generator1D``).
+    This is done to make the use of the ^ infix consistent with the use of
+    the ``MeshGenerator`` class itself (e.g ``MeshGenerator(g1, g2, g3)`` is equivalent to g1 ^ g2 ^ g3), where
+    g1, g2 and g3 are ``Generator1D``).
+
+    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
+    :type generators: Tuple[BaseGenerator]
+    """
+
+    def __init__(self, *generators):
+        super(MeshGenerator, self).__init__()
+        self.generators = []
+        for g in generators:
+            if isinstance(g, MeshGenerator):
+                for s in g.generators:
+                    self.generators.append(s)
+            else:
+                self.generators.append(g)
+        self.size = np.prod(tuple(g.size for g in self.generators))
+
+    def get_examples(self):
+        ret = tuple()
+        for g in self.generators:
+            ex = g.get_examples()
+            if isinstance(ex, list):
+                ex = tuple(ex)
+            elif isinstance(ex, torch.Tensor):
+                ex = (ex,)
+            ret += ex
+
+        if len(ret) == 1:
+            return ret[0]
+        else:
+            ret = torch.meshgrid(ret)
+            ret_f = tuple()
+            for r in ret:
+                ret_f += (r.flatten(),)
+            return ret_f
+
+    def _internal_vars(self) -> dict:
+        d = super(MeshGenerator, self)._internal_vars()
         d.update(dict(
             generators=self.generators,
         ))

@@ -37,3 +37,27 @@ def set_tensor_type(device=None, float_bits=32):
 
 def safe_mkdir(path):
     Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def get_residual_info(solution, data, diff_eqs, highest_order=0, detach=True):
+    # XXX this function is not tested
+    from .neurodiffeq import diff
+
+    funcs = solution(data)
+    residuals = diff_eqs(*funcs, *data)
+
+    ret = [residuals]
+    for order in range(1, highest_order + 1):
+        ret.append([[diff(pdr, x) for pdr, x in zip(prev_drs, data)] for prev_drs in ret[-1]])
+
+    if detach:
+        def recurse(l):
+            for i, entry in enumerate(l):
+                if isinstance(entry, torch.Tensor):
+                    l[i] = entry.detach()
+                else:
+                    recurse(entry)
+
+        recurse(ret)
+
+    return ret

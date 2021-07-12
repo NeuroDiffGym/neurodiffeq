@@ -22,8 +22,8 @@ html_static_path = []
 # -- Project information -----------------------------------------------------
 
 project = 'neurodiffeq'
-copyright = '2019, odegym'
-author = 'odegym'
+copyright = '2019, NeuroDiffGym'
+author = 'NeuroDiffGym'
 
 # The short X.Y version
 version = ''
@@ -83,7 +83,8 @@ MOCK_MODULES = [
     'numpy', 'scipy', 'pandas', 'seaborn',
     'matplotlib', 'matplotlib.pyplot', 'matplotlib.animation', 'matplotlib.colors',
     'matplotlib.tri', 'matplotlib.cm',
-    'torch', 'torch.autograd', 'torch.nn', 'torch.optim',
+    'torch', 'torch.autograd', 'torch.nn', 'torch.optim', 'torch.utils', 'torch.utils.tensorboard',
+    'torch.nn.modules', 'torch.nn.modules.module',
     'dill', 'scipy.special'
 ]
 for mod_name in MOCK_MODULES:
@@ -154,7 +155,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'neurodiffeq.tex', 'neurodiffeq Documentation',
-     'odegym', 'manual'),
+     'NeuroDiffGym', 'manual'),
 ]
 
 

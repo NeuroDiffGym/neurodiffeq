@@ -7,7 +7,7 @@ from ._version_utils import deprecated_alias
 def unsafe_diff(u, t, order=1):
     r"""The derivative of a variable with respect to another.
     While there's no requirement for shapes, errors could occur in some cases.
-    See `this issue <https://github.com/odegym/neurodiffeq/issues/63#issue-719436650>`_ for details
+    See `this issue <https://github.com/NeuroDiffGym/neurodiffeq/issues/63#issue-719436650>`_ for details
 
     :param u: The :math:`u` in :math:`\displaystyle\frac{\partial u}{\partial t}`.
     :type u: `torch.Tensor`
@@ -38,7 +38,7 @@ def unsafe_diff(u, t, order=1):
 def safe_diff(u, t, order=1):
     r"""The derivative of a variable with respect to another.
     Both tensors must have a shape of (n_samples, 1)
-    See `this issue comment <https://github.com/odegym/neurodiffeq/issues/63#issuecomment-718007133>`_ for details
+    See `this issue comment <https://github.com/NeuroDiffGym/neurodiffeq/issues/63#issuecomment-718007133>`_ for details
 
     :param u: The :math:`u` in :math:`\displaystyle\frac{\partial u}{\partial t}`.
     :type u: `torch.Tensor`

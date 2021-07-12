@@ -73,19 +73,22 @@ class FCNN(nn.Module):
 class Resnet(nn.Module):
     """A residual network with a trainable linear skip connection between input and output
 
-    :param n_input_units: number of units in the input layer, defaults to 1.
+    :param n_input_units: Number of units in the input layer, defaults to 1.
     :type n_input_units: int
-    :param n_input_units: number of units in the output layer, defaults to 1.
+    :param n_input_units: Number of units in the output layer, defaults to 1.
     :type n_input_units: int
-    :param n_hidden_units: number of hidden units in each hidden layer, defaults to 32.
+    :param n_hidden_units: [DEPRECATED] Number of hidden units in each layer
     :type n_hidden_units: int
-    :param n_hidden_layers: number of hidden layers, defaults to 1.
+    :param n_hidden_layers: [DEPRECATED] Number of hidden mappsings (1 larger than the actual number of hidden layers)
     :type n_hidden_layers: int
     :param actv: the activation layer constructor after each hidden layer, defaults to `torch.nn.Tanh`.
     :type actv: class
+    :param hidden_units: Number of hidden units in each hidden layer. Defaults to (32, 32).
+    :param hidden_units: Tuple[int]
     """
 
-    def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=32, n_hidden_layers=1, actv=nn.Tanh):
+    def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=None, n_hidden_layers=None, actv=nn.Tanh,
+                 hidden_units=(32, 32)):
         super(Resnet, self).__init__()
 
         self.residual = FCNN(
@@ -94,6 +97,7 @@ class Resnet(nn.Module):
             n_hidden_units=n_hidden_units,
             n_hidden_layers=n_hidden_layers,
             actv=actv,
+            hidden_units=hidden_units,
         )
         self.skip_connection = nn.Linear(n_input_units, n_output_units, bias=False)
 

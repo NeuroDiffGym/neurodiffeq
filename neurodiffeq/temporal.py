@@ -23,7 +23,7 @@ def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     return xx, tt
 
 class Approximator(ABC):
-    """The base class of approximators. An approximator is an approximation of the differential equation's solution.
+    r"""The base class of approximators. An approximator is an approximation of the differential equation's solution.
     It knows the parameters in the neural network, and how to calculate the loss function and the metrics.
     """
     @abstractmethod
@@ -44,14 +44,14 @@ class Approximator(ABC):
 
 
 class SingleNetworkApproximator1DSpatialTemporal(Approximator):
-    """An approximator to approximate the solution of a 1D time-dependent problem.
+    r"""An approximator to approximate the solution of a 1D time-dependent problem.
     The boundary condition will be enforced by a regularization term in the loss function
     and the initial condition will be enforced by transforming the output of the
     neural network.
 
     :param single_network: A neural network with 2 input nodes (x, t) and 1 output node.
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde` 
+    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde`
         should be a function that maps :math:`(u, x, t)` to :math:`F(u, x, t)`.
     :type pde: function
     :param initial_condition: A first order initial condition.
@@ -110,7 +110,7 @@ class SingleNetworkApproximator2DSpatial(Approximator):
 
     :param single_network: A neural network with 2 input nodes (x, y) and 1 output node.
     :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde` 
+    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde`
         should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
     :type pde: function
     :param boundary_conditions: A list of boundary conditions.
@@ -344,7 +344,7 @@ class SecondOrderInitialCondition:
 
 
 class BoundaryCondition:
-    """A boundary condition. It is used to initialize ``temporal.Approximator``\s.
+    r"""A boundary condition. It is used to initialize ``temporal.Approximator``\s.
 
     :param form: The form of the boundary condition.
 
@@ -372,7 +372,7 @@ class BoundaryCondition:
 
 
 def generator_1dspatial(size, x_min, x_max, random=True):
-    """Return a generator that generates 1D points range from x_min to x_max
+    r"""Return a generator that generates 1D points range from x_min to x_max
 
     :param size:
         Number of points to generated when ``__next__`` is invoked.
@@ -404,7 +404,7 @@ def generator_1dspatial(size, x_min, x_max, random=True):
 
 
 def generator_2dspatial_segment(size, start, end, random=True):
-    """Return a generator that generates 2D points in a line segment.
+    r"""Return a generator that generates 2D points in a line segment.
 
     :param size:
         Number of points to generated when `__next__` is invoked.
@@ -442,7 +442,7 @@ def generator_2dspatial_segment(size, start, end, random=True):
 
 
 def generator_2dspatial_rectangle(size, x_min, x_max, y_min, y_max, random=True):
-    """Return a generator that generates 2D points in a rectangle.
+    r"""Return a generator that generates 2D points in a rectangle.
 
     :param size:
         Number of points to generated when `__next__` is invoked.
@@ -473,7 +473,7 @@ def generator_2dspatial_rectangle(size, x_min, x_max, y_min, y_max, random=True)
 
 
 def generator_temporal(size, t_min, t_max, random=True):
-    """Return a generator that generates 1D points range from t_min to t_max
+    r"""Return a generator that generates 1D points range from t_min to t_max
 
     :param size:
         Number of points to generated when `__next__` is invoked.
@@ -505,7 +505,7 @@ def generator_temporal(size, t_min, t_max, random=True):
 
 
 class MonitorMinimal:
-    """A monitor that shows the loss function and custom metrics.
+    r"""A monitor that shows the loss function and custom metrics.
     """
     def __init__(self, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
@@ -545,7 +545,7 @@ class MonitorMinimal:
 
 
 class Monitor1DSpatialTemporal:
-    """A monitor for 1D time-dependent problems.
+    r"""A monitor for 1D time-dependent problems.
     """
     def __init__(self, check_on_x, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
@@ -603,7 +603,7 @@ class Monitor1DSpatialTemporal:
 
 
 class Monitor2DSpatialTemporal:
-    """A monitor for 2D time-dependent problems.
+    r"""A monitor for 2D time-dependent problems.
     """
     def __init__(self, check_on_x, check_on_y, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
@@ -685,7 +685,7 @@ class Monitor2DSpatialTemporal:
 
 
 class Monitor2DSpatial:
-    """A Monitor for 2D steady-state problems
+    r"""A Monitor for 2D steady-state problems
     """
     def __init__(self, check_on_x, check_on_y, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
@@ -757,7 +757,7 @@ def _solve_1dspatial_temporal(
     train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
-    """Solve a 1D time-dependent problem
+    r"""Solve a 1D time-dependent problem
 
     :param train_generator_spatial:
         A generator to generate 1D spatial points for training.
@@ -807,7 +807,7 @@ def _solve_2dspatial_temporal(
     train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
-    """Solve a 2D time-dependent problem
+    r"""Solve a 2D time-dependent problem
 
     :param train_generator_spatial:
         A generator to generate 2D spatial points for training.
@@ -857,7 +857,7 @@ def _solve_2dspatial(
     train_generator_spatial, valid_generator_spatial,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor
 ):
-    """Solve a 2D steady-state problem
+    r"""Solve a 2D steady-state problem
 
     :param train_generator_spatial:
         A generator to generate 2D spatial points for training.

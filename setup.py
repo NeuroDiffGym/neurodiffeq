@@ -1,30 +1,39 @@
+import re
 import setuptools
 
 with open("README.md", "r") as fh:
+    def func(m):
+        match = m.group()
+        url = m.group(1)
+        if url.startswith('resources/'):
+            return match.replace(url, 'https://raw.githubusercontent.com/NeuroDiffGym/neurodiffeq/master/' + url)
+        return match
+
     long_description = fh.read()
+    long_description = re.sub(r"!\[.*?\]\((.*?)\)", func, long_description)
 
 with open("requirements.txt", "r") as fh:
     requirements = [line.strip() for line in fh.read().split('\n') if line.strip() != '']
 
 setuptools.setup(
     name="neurodiffeq",
-    version="0.3.1",
-    author="odegym",
-    author_email="wish1104@icloud.com",
+    version="0.4.0",
+    author="neurodiffgym",
+    author_email="shuheng_liu@g.harvard.edu",
     description="A light-weight & flexible library for solving differential equations using neural networks based on PyTorch. ",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/odegym/neurodiffeq",
-    download_url="https://github.com/odegym/neurodiffeq/archive/v0.3.1.tar.gz",
+    url="https://github.com/NeuroDiffGym/neurodiffeq",
+    download_url="https://github.com/NeuroDiffGym/neurodiffeq/archive/v0.4.0.tar.gz",
     keywords=[
-        "neural network", 
-        "deep learning", 
-        "differential equation", 
-        "ODE", 
-        "PDE", 
+        "neural network",
+        "deep learning",
+        "differential equation",
+        "ODE",
+        "PDE",
         "spectral method",
         "numerical method",
-        "pytorch", 
+        "pytorch",
     ],
     packages=setuptools.find_packages(),
     classifiers=[
