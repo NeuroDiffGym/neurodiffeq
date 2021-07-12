@@ -132,15 +132,17 @@ def spherical_curl(u_r, u_theta, u_phi, r, theta, phi):
     :rtype: tuple[`torch.Tensor`]
     """
 
-    d_r = lambda u: diff(u, r)
-    d_theta = lambda u: diff(u, theta)
-    d_phi = lambda u: diff(u, phi)
+    ur_dth, ur_dph = grad(u_r, theta, phi)
+    uth_dr, uth_dph = grad(u_theta, r, phi)
+    uph_dr, uph_dth = grad(u_phi, r, theta)
+    csc_th = 1 / sin(theta)
+    r_inv = 1 / r
 
-    curl_r = (d_theta(u_phi * sin(theta)) - d_phi(u_theta)) / (r * sin(theta))
-    curl_theta = (d_phi(u_r) / sin(theta) - d_r(u_phi * r)) / r
-    curl_phi = (d_r(u_theta * r) - d_theta(u_r)) / r
+    curl_r = r_inv * (uph_dth + (u_phi * cos(theta) - uth_dph) * csc_th)
+    curl_th = r_inv * (csc_th * ur_dph - u_phi) - uph_dr
+    curl_ph = uth_dr + r_inv * (u_theta - ur_dth)
 
-    return curl_r, curl_theta, curl_phi
+    return curl_r, curl_th, curl_ph
 
 
 def spherical_grad(u, r, theta, phi):
@@ -157,10 +159,9 @@ def spherical_grad(u, r, theta, phi):
     :return: The :math:`r`, :math:`\theta`, and :math:`\phi` components of the gradient, each with shape (n_samples, 1).
     :rtype: tuple[`torch.Tensor`]
     """
-    grad_r = diff(u, r)
-    grad_theta = diff(u, theta) / r
-    grad_phi = diff(u, phi) / (r * sin(theta))
-    return grad_r, grad_theta, grad_phi
+    u_dr, u_dth, u_dph = grad(u, r, theta, phi)
+    r_inv = 1 / r
+    return u_dr, u_dth * r_inv, u_dph * r_inv / sin(theta)
 
 
 def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
@@ -181,10 +182,8 @@ def spherical_div(u_r, u_theta, u_phi, r, theta, phi):
     :return: The divergence evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1).
     :rtype: `torch.Tensor`
     """
-    div_r = diff(u_r * r ** 2, r) / r ** 2
-    div_theta = diff(u_theta * sin(theta), theta) / (r * sin(theta))
-    div_phi = diff(u_phi, phi) / (r * sin(theta))
-    return div_r + div_theta + div_phi
+    sin_th = sin(theta)
+    return (diff(u_r * r ** 2, r) / r + (diff(u_theta * sin_th, theta) + diff(u_phi, phi)) / sin_th) / r
 
 
 def spherical_laplacian(u, r, theta, phi):
@@ -201,14 +200,11 @@ def spherical_laplacian(u, r, theta, phi):
     :return: The laplacian evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1).
     :rtype: `torch.Tensor`
     """
-    d_r = lambda u: diff(u, r)
-    d_theta = lambda u: diff(u, theta)
-    d_phi = lambda u: diff(u, phi)
+    u_dr, u_dth, u_dph = grad(u, r, theta, phi)
+    sin_th = sin(theta)
+    r2 = r ** 2
 
-    lap_r = d_r(d_r(u) * r ** 2) / r ** 2
-    lap_theta = d_theta(d_theta(u) * sin(theta)) / (r ** 2 * sin(theta))
-    lap_phi = d_phi(d_phi(u)) / (r ** 2 * sin(theta) ** 2)
-    return lap_r + lap_theta + lap_phi
+    return (diff(r2 * u_dr, r) + diff(sin_th * u_dth, theta) / sin_th + diff(u_dph, phi) / sin_th ** 2) / r2
 
 
 def spherical_vector_laplacian(u_r, u_theta, u_phi, r, theta, phi):
@@ -229,26 +225,19 @@ def spherical_vector_laplacian(u_r, u_theta, u_phi, r, theta, phi):
     :return: The laplacian evaluated at :math:`(r, \theta, \phi)`, with shape (n_samples, 1).
     :rtype: `torch.Tensor`
     """
-    d_theta = lambda u: diff(u, theta)
-    d_phi = lambda u: diff(u, phi)
-    scalar_lap = lambda u: spherical_laplacian(u, r, theta, phi)
+    ur_dr, ur_dth, ur_dph = grad(u_r, r, theta, phi)
+    uth_dr, uth_dth, uth_dph = grad(u_theta, r, theta, phi)
+    uph_dr, uph_dth, uph_dph = grad(u_phi, r, theta, phi)
+    sin_th, cos_th = sin(theta), cos(theta)
+    sin2_th = sin_th ** 2
+    r2 = r ** 2
 
-    lap_r = \
-        scalar_lap(u_r) \
-        - 2 * u_r / r ** 2 \
-        - 2 * d_theta(u_theta * sin(theta)) / (r ** 2 * sin(theta)) \
-        - 2 * d_phi(u_phi) / (r ** 2 * sin(theta))
+    scalar_lap_r = (diff(r2 * ur_dr, r) + diff(sin_th * ur_dth, theta) / sin_th + diff(ur_dph, phi) / sin2_th) / r2
+    scalar_lap_th = (diff(r2 * uth_dr, r) + diff(sin_th * uth_dth, theta) / sin_th + diff(uth_dph, phi) / sin2_th) / r2
+    scalar_lap_ph = (diff(r2 * uph_dr, r) + diff(sin_th * uph_dth, theta) / sin_th + diff(uph_dph, phi) / sin2_th) / r2
 
-    lap_theta = \
-        scalar_lap(u_theta) \
-        - u_theta / (r ** 2 * sin(theta) ** 2) \
-        + 2 * d_theta(u_r) / r ** 2 \
-        - 2 * cos(theta) * d_phi(u_phi) / (r ** 2 * sin(theta) ** 2)
+    vec_lap_r = scalar_lap_r - 2 * (u_r + uth_dth + (cos_th * u_theta + uph_dph) / sin_th) / r2
+    vec_lap_th = scalar_lap_th + (2 * ur_dth - (u_theta + 2 * cos_th * uph_dph) / sin2_th) / r2
+    vec_lap_ph = scalar_lap_ph + ((2 * cos_th * uth_dph - u_phi) / sin_th + 2 * ur_dph) / (r2 * sin_th)
 
-    lap_phi = \
-        scalar_lap(u_phi) \
-        - u_phi / (r ** 2 * sin(theta) ** 2) \
-        + 2 * d_phi(u_r) / (r ** 2 * sin(theta)) \
-        + 2 * cos(theta) * d_phi(u_theta) / (r ** 2 * sin(theta) ** 2)
-
-    return lap_r, lap_theta, lap_phi
+    return vec_lap_r, vec_lap_th, vec_lap_ph
