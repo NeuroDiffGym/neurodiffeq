@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
 from torch.optim import Adam
-from .sovlers_utils import PretrainedSolver
+from .solvers_utils import PretrainedSolver
 from .networks import FCNN
 from ._version_utils import deprecated_alias
 from .generators import GeneratorSpherical
