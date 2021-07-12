@@ -241,3 +241,39 @@ def spherical_vector_laplacian(u_r, u_theta, u_phi, r, theta, phi):
     vec_lap_ph = scalar_lap_ph + ((2 * cos_th * uth_dph - u_phi) / sin_th + 2 * ur_dph) / (r2 * sin_th)
 
     return vec_lap_r, vec_lap_th, vec_lap_ph
+
+
+def spherical_to_cartesian(r, theta, phi):
+    r"""Convert spherical coordinate :math:`(r, \theta, \phi)` to cartesian coordinates :math:`(x, y, z)`.
+    The input shapes of r, theta, and phi must be the same.
+
+    :param r: The :math:`r`-component of spherical coordinates.
+    :type r: `torch.Tensor`
+    :param theta: The :math:`\theta`-component (polar angle) of spherical coordinates.
+    :type theta: `torch.Tensor`
+    :param phi: The :math:`\phi`-component (azimuthal angle) of spherical coordinates.
+    :type phi: `torch.Tensor`
+    :return: The :math:`x`-, :math:`y`-, and :math:`z`-component in cartesian coordinates.
+    :rtype: tuple[`torch.Tensor`]
+    """
+    rho = r * sin(theta)
+    return rho * cos(phi), rho * sin(phi), r * cos(theta)
+
+
+def cartesian_to_spherical(x, y, z):
+    r"""Convert cartesian coordinates :math:`(x, y, z)` to spherical coordinate :math:`(r, \theta, \phi)`.
+    The input shapes of x, y, and z must be the same.
+    If either the polar angle :math:`\theta` or the azimuthal angle :math:`phi` is not defined,
+    the default value will be 0.
+
+    :param x: The :math:`x`-component of cartesian coordinates.
+    :type x: `torch.Tensor`
+    :param y: The :math:`y`-component of cartesian coordinates.
+    :type y: `torch.Tensor`
+    :param z: The :math:`z`-component of cartesian coordinates.
+    :type z: `torch.Tensor`
+    :return: The :math:`r`-, :math:`\theta`-, and :math:`\phi`-component in spherical coordinates.
+    :rtype: tuple[`torch.Tensor`]
+    """
+    rho2 = x ** 2 + y ** 2
+    return torch.sqrt(rho2 + z ** 2), torch.atan2(torch.sqrt(rho2), z), torch.atan2(y, x)
