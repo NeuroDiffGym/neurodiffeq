@@ -12,6 +12,7 @@ from neurodiffeq.operators import spherical_div
 from neurodiffeq.operators import spherical_laplacian
 from neurodiffeq.operators import spherical_vector_laplacian
 from neurodiffeq.operators import grad
+from neurodiffeq.operators import spherical_to_cartesian, cartesian_to_spherical
 
 
 @pytest.fixture(autouse=True)
@@ -46,12 +47,32 @@ def x():
 @pytest.fixture
 def U(x):
     F = [HarmonicsNN(degrees, ZonalSphericalHarmonics(degrees=degrees)) for _ in range(3)]
-    return list(map(lambda f: f(*x), F))
+    return tuple(map(lambda f: f(*x), F))
 
 
 @pytest.fixture
 def u(x):
     return HarmonicsNN(degrees, ZonalSphericalHarmonics(degrees=degrees))(*x)
+
+
+def test_cartesian_to_spherical():
+    x = torch.rand(1000, 1, requires_grad=True)
+    y = torch.rand(1000, 1, requires_grad=True)
+    z = torch.rand(1000, 1, requires_grad=True)
+    r, theta, phi = cartesian_to_spherical(x, y, z)
+    assert torch.allclose(r * torch.sin(theta) * cos(phi), x)
+    assert torch.allclose(r * torch.sin(theta) * sin(phi), y)
+    assert torch.allclose(r * torch.cos(theta), z)
+
+
+def test_spherical_to_cartesian():
+    r = torch.rand(1000, 1, requires_grad=True)
+    theta = torch.rand(1000, 1, requires_grad=True) * np.pi
+    phi = torch.rand(1000, 1, requires_grad=True) * np.pi * 2
+    x, y, z = spherical_to_cartesian(r, theta, phi)
+    assert torch.allclose(r * torch.sin(theta) * cos(phi), x)
+    assert torch.allclose(r * torch.sin(theta) * sin(phi), y)
+    assert torch.allclose(r * torch.cos(theta), z)
 
 
 def is_zero(t):
