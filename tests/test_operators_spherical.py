@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch import sin, cos
 import numpy as np
+from neurodiffeq import diff
 from neurodiffeq.generators import GeneratorSpherical
 from neurodiffeq.function_basis import ZonalSphericalHarmonics
 from neurodiffeq.networks import FCNN
@@ -11,7 +12,6 @@ from neurodiffeq.operators import spherical_grad
 from neurodiffeq.operators import spherical_div
 from neurodiffeq.operators import spherical_laplacian
 from neurodiffeq.operators import spherical_vector_laplacian
-from neurodiffeq.operators import grad
 from neurodiffeq.operators import spherical_to_cartesian, cartesian_to_spherical
 
 
@@ -47,7 +47,7 @@ def x():
 @pytest.fixture
 def U(x):
     F = [HarmonicsNN(degrees, ZonalSphericalHarmonics(degrees=degrees)) for _ in range(3)]
-    return tuple(map(lambda f: f(*x), F))
+    return tuple(f(*x) for f in F)
 
 
 @pytest.fixture
@@ -122,3 +122,75 @@ def test_curl_curl(U, x):
 
 def test_vec_laplacian(U, x):
     test_curl_curl(U, x)
+
+
+def test_spherical_div(U, x):
+    out = spherical_div(*U, *x)
+    ur, utheta, uphi = U
+    r, theta, phi = x
+    ans = diff(r ** 2 * ur, r) / r ** 2 + \
+          diff(utheta * sin(theta), theta) / (r * sin(theta)) + \
+          diff(uphi, phi) / (r * sin(theta))
+
+    assert torch.allclose(out, ans)
+
+
+def test_spherical_grad(u, x):
+    out_r, out_theta, out_phi = spherical_grad(u, *x)
+    r, theta, phi = x
+    assert torch.allclose(out_r, diff(u, r))
+    assert torch.allclose(out_theta, diff(u, theta) / r)
+    assert torch.allclose(out_phi, diff(u, phi) / (r * sin(theta)))
+
+
+def test_spherical_curl(U, x):
+    out_r, out_theta, out_phi = spherical_curl(*U, *x)
+    ur, utheta, uphi = U
+    r, theta, phi = x
+    assert torch.allclose(out_r, (diff(uphi * sin(theta), theta) - diff(utheta, phi)) / (r * sin(theta)))
+    assert torch.allclose(out_theta, (diff(ur, phi) / sin(theta) - diff(r * uphi, r)) / r)
+    assert torch.allclose(out_phi, (diff(r * utheta, r) - diff(ur, theta)) / r)
+
+
+def test_spherical_laplacian(u, x):
+    out = spherical_laplacian(u, *x)
+    r, theta, phi = x
+    assert torch.allclose(
+        out,
+        diff(r ** 2 * diff(u, r), r) / r ** 2
+        + diff(sin(theta) * diff(u, theta), theta) / (r ** 2 * sin(theta))
+        + diff(u, phi, order=2) / (r ** 2 * sin(theta) ** 2)
+    )
+
+
+def test_spherical_vector_laplacian(U, x):
+    out_r, out_theta, out_phi = spherical_vector_laplacian(*U, *x)
+    ur, utheta, uphi = U
+    r, theta, phi = x
+
+    def scalar_lap(u):
+        return diff(r ** 2 * diff(u, r), r) / r ** 2 \
+               + diff(sin(theta) * diff(u, theta), theta) / (r ** 2 * sin(theta)) \
+               + diff(u, phi, order=2) / (r ** 2 * sin(theta) ** 2)
+
+    assert torch.allclose(
+        out_r,
+        scalar_lap(ur)
+        - 2 * ur / r ** 2
+        - 2 / (r ** 2 * sin(theta)) * diff(utheta * sin(theta), theta)
+        - 2 / (r ** 2 * sin(theta)) * diff(uphi, phi)
+    )
+    assert torch.allclose(
+        out_theta,
+        scalar_lap(utheta)
+        - utheta / (r ** 2 * sin(theta) ** 2)
+        + 2 / r ** 2 * diff(ur, theta)
+        - 2 * cos(theta) / (r ** 2 * sin(theta) ** 2) * diff(uphi, phi)
+    )
+    assert torch.allclose(
+        out_phi,
+        scalar_lap(uphi)
+        - uphi / (r ** 2 * sin(theta) ** 2)
+        + 2 / (r ** 2 * sin(theta)) * diff(ur, phi)
+        + 2 * cos(theta) / (r ** 2 * sin(theta) ** 2) * diff(utheta, phi)
+    )
