@@ -277,3 +277,47 @@ def cartesian_to_spherical(x, y, z):
     """
     rho2 = x ** 2 + y ** 2
     return torch.sqrt(rho2 + z ** 2), torch.atan2(torch.sqrt(rho2), z), torch.atan2(y, x)
+
+
+def cylindrical_grad(u, rho, phi, z):
+    u_drho, u_dphi, u_dz = grad(u, rho, phi, z)
+    return u_drho, u_dphi / rho, u_dz
+
+
+def cylindrical_div(u_rho, u_phi, u_z, rho, phi, z):
+    return diff(u_rho, rho) + (u_rho + diff(u_phi, phi)) / rho + diff(u_z, z)
+
+
+def cylindrical_curl(u_rho, u_phi, u_z, rho, phi, z):
+    urho_dphi, urho_dz = grad(u_rho, phi, z)
+    uphi_drho, uphi_dz = grad(u_phi, rho, z)
+    uz_drho, uz_dphi = grad(u_z, rho, phi)
+
+    return (
+        uz_dphi / rho - uphi_dz,
+        urho_dz - uz_drho,
+        uphi_drho + (u_phi - urho_dphi) / rho
+    )
+
+
+def cylindrical_laplacian(u, rho, phi, z):
+    u_drho, u_dphi, u_dz = grad(u, rho, phi, z)
+    return diff(u_drho, rho) + u_drho / rho + diff(u_dphi, phi) / rho ** 2 + diff(u_dz, z)
+
+
+def cylindrical_vector_laplacian(u_rho, u_phi, u_z, rho, phi, z):
+    rho2 = rho ** 2
+    urho_drho, urho_dphi, urho_dz = grad(u_rho, rho, phi, z)
+    uphi_drho, uphi_dphi, uphi_dz = grad(u_phi, rho, phi, z)
+    uz_drho, uz_dphi, uz_dz = grad(u_z, rho, phi, z)
+
+    scalar_lap_rho = diff(urho_drho, rho) + urho_drho / rho + diff(urho_dphi, phi) / rho ** 2 + diff(urho_dz, z)
+    scalar_lap_phi = diff(uphi_drho, rho) + uphi_drho / rho + diff(uphi_dphi, phi) / rho ** 2 + diff(uphi_dz, z)
+    scalar_lap_z = diff(uz_drho, rho) + uz_drho / rho + diff(uz_dphi, phi) / rho ** 2 + diff(uz_dz, z)
+
+    return (
+        scalar_lap_rho - (u_rho + 2 * uphi_dphi) / rho2,
+        scalar_lap_phi + (2 * urho_dphi - u_phi) / rho2,
+        scalar_lap_z,
+    )
+
