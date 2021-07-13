@@ -280,15 +280,62 @@ def cartesian_to_spherical(x, y, z):
 
 
 def cylindrical_grad(u, rho, phi, z):
+    r"""Derives and evaluates the cylindrical gradient of a cylindrical scalar field :math:`u`.
+
+    :param u: A scalar field :math:`u`, must have shape (n_samples, 1).
+    :type u: `torch.Tensor`
+    :param rho: A vector of :math:`\rho`-coordinate values, must have shape (n_samples, 1).
+    :type rho: `torch.Tensor`
+    :param phi: A vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1).
+    :type phi: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The :math:`\rho`, :math:`\phi`, and :math:`z` components of the gradient, each with shape (n_samples, 1).
+    :rtype: tuple[`torch.Tensor`]
+    """
     u_drho, u_dphi, u_dz = grad(u, rho, phi, z)
     return u_drho, u_dphi / rho, u_dz
 
 
 def cylindrical_div(u_rho, u_phi, u_z, rho, phi, z):
+    r"""Derives and evaluates the cylindrical divergence of a cylindrical vector field :math:`u`.
+
+    :param u_rho: The :math:`\rho`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_rho: `torch.Tensor`
+    :param u_phi: The :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_phi: `torch.Tensor`
+    :param u_z: The :math:`z`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_z: `torch.Tensor`
+    :param rho: A vector of :math:`\rho`-coordinate values, must have shape (n_samples, 1).
+    :type rho: `torch.Tensor`
+    :param phi: A vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1).
+    :type phi: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The divergence evaluated at :math:`(\rho, \phi, z)`, with shape (n_samples, 1).
+    :rtype: `torch.Tensor`
+    """
     return diff(u_rho, rho) + (u_rho + diff(u_phi, phi)) / rho + diff(u_z, z)
 
 
 def cylindrical_curl(u_rho, u_phi, u_z, rho, phi, z):
+    r"""Derives and evaluates the cylindrical curl of a cylindrical vector field :math:`u`.
+
+    :param u_rho: The :math:`\rho`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_rho: `torch.Tensor`
+    :param u_phi: The :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_phi: `torch.Tensor`
+    :param u_z: The :math:`z`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_z: `torch.Tensor`
+    :param rho: A vector of :math:`\rho`-coordinate values, must have shape (n_samples, 1).
+    :type rho: `torch.Tensor`
+    :param phi: A vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1).
+    :type phi: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The :math:`\rho`, :math:`\phi`, and :math:`z` components of the curl, each with shape (n_samples, 1).
+    :rtype: tuple[`torch.Tensor`]
+    """
     urho_dphi, urho_dz = grad(u_rho, phi, z)
     uphi_drho, uphi_dz = grad(u_phi, rho, z)
     uz_drho, uz_dphi = grad(u_z, rho, phi)
@@ -301,11 +348,41 @@ def cylindrical_curl(u_rho, u_phi, u_z, rho, phi, z):
 
 
 def cylindrical_laplacian(u, rho, phi, z):
+    r"""Derives and evaluates the cylindrical laplacian of a cylindrical scalar field :math:`u`.
+
+    :param u: A scalar field :math:`u`, must have shape (n_samples, 1).
+    :type u: `torch.Tensor`
+    :param rho: A vector of :math:`\rho`-coordinate values, must have shape (n_samples, 1).
+    :type rho: `torch.Tensor`
+    :param phi: A vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1).
+    :type phi: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The laplacian evaluated at :math:`(\rho, \phi, z)`, with shape (n_samples, 1).
+    :rtype: `torch.Tensor`
+    """
     u_drho, u_dphi, u_dz = grad(u, rho, phi, z)
     return diff(u_drho, rho) + u_drho / rho + diff(u_dphi, phi) / rho ** 2 + diff(u_dz, z)
 
 
 def cylindrical_vector_laplacian(u_rho, u_phi, u_z, rho, phi, z):
+    r"""Derives and evaluates the cylindrical laplacian of a cylindrical vector field :math:`u`.
+
+    :param u_rho: The :math:`\rho`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_rho: `torch.Tensor`
+    :param u_phi: The :math:`\phi`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_phi: `torch.Tensor`
+    :param u_z: The :math:`z`-component of the vector field :math:`u`, must have shape (n_samples, 1).
+    :type u_z: `torch.Tensor`
+    :param rho: A vector of :math:`\rho`-coordinate values, must have shape (n_samples, 1).
+    :type rho: `torch.Tensor`
+    :param phi: A vector of :math:`\phi`-coordinate values, must have shape (n_samples, 1).
+    :type phi: `torch.Tensor`
+    :param z: A vector of :math:`z`-coordinate values, must have shape (n_samples, 1).
+    :type z: `torch.Tensor`
+    :return: The laplacian evaluated at :math:`(\rho, \phi, z)`, with shape (n_samples, 1).
+    :rtype: `torch.Tensor`
+    """
     rho2 = rho ** 2
     urho_drho, urho_dphi, urho_dz = grad(u_rho, rho, phi, z)
     uphi_drho, uphi_dphi, uphi_dz = grad(u_phi, rho, phi, z)
@@ -323,8 +400,33 @@ def cylindrical_vector_laplacian(u_rho, u_phi, u_z, rho, phi, z):
 
 
 def cylindrical_to_cartesian(rho, phi, z):
+    r"""Convert cylindrical coordinate :math:`(\rho, \phi, z)` to cartesian coordinates :math:`(x, y, z)`.
+    The input shapes of rho, phi, and z must be the same.
+
+    :param rho: The :math:`\rho`-component of cylindrical coordinates.
+    :type rho: `torch.Tensor`
+    :param phi: The :math:`\phi`-component (azimuthal angle) of cylindrical coordinates.
+    :type phi: `torch.Tensor`
+    :param z: The :math:`z`-component of cylindrical coordinates.
+    :type z: `torch.Tensor`
+    :return: The :math:`x`-, :math:`y`-, and :math:`z`-component in cartesian coordinates.
+    :rtype: tuple[`torch.Tensor`]
+    """
     return rho * cos(phi), rho * sin(phi), z
 
 
 def cartesian_to_cylindrical(x, y, z):
+    r"""Convert cartesian coordinates :math:`(x, y, z)` to cylindrical coordinate :math:`(\rho, \phi, z)`.
+    The input shapes of x, y, and z must be the same.
+    If the azimuthal angle :math:`phi` is undefined, the default value will be 0.
+
+    :param x: The :math:`x`-component of cartesian coordinates.
+    :type x: `torch.Tensor`
+    :param y: The :math:`y`-component of cartesian coordinates.
+    :type y: `torch.Tensor`
+    :param z: The :math:`z`-component of cartesian coordinates.
+    :type z: `torch.Tensor`
+    :return: The :math:`\rho`-, :math:`\phi`-, and :math:`z`-component in cylindrical coordinates.
+    :rtype: tuple[`torch.Tensor`]
+    """
     return torch.sqrt(x ** 2 + y ** 2), torch.atan2(y, x), z
