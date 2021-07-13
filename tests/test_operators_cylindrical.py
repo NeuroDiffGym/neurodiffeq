@@ -10,6 +10,7 @@ from neurodiffeq.operators import cylindrical_grad
 from neurodiffeq.operators import cylindrical_div
 from neurodiffeq.operators import cylindrical_laplacian
 from neurodiffeq.operators import cylindrical_vector_laplacian
+from neurodiffeq.operators import cylindrical_to_cartesian, cartesian_to_cylindrical
 
 R_MIN, R_MAX = 1.0, 10.
 Z_MIN, Z_MAX = -10., 10.
@@ -38,6 +39,26 @@ def U(x):
     cond = NoCondition()
     nets = [FCNN(3, 1) for _ in range(3)]
     return tuple(cond.enforce(net, *x) for net in nets)
+
+
+def test_cylindrical_to_cartesian(x):
+    rho, phi, zs = x
+    x, y, zc = cylindrical_to_cartesian(*x)
+
+    assert torch.allclose(rho * torch.cos(phi), x)
+    assert torch.allclose(rho * torch.sin(phi), y)
+    assert torch.allclose(zs, zc)
+
+
+def test_cartesian_to_cylindrical():
+    x = torch.rand(1024, requires_grad=True)
+    y = torch.rand(1024, requires_grad=True)
+    zc = torch.rand(1024, requires_grad=True)
+    rho, phi, zs = cartesian_to_cylindrical(x, y, zc)
+
+    assert torch.allclose(rho * torch.cos(phi), x)
+    assert torch.allclose(rho * torch.sin(phi), y)
+    assert torch.allclose(zs, zc)
 
 
 def test_cylindrical_grad(u, x):
