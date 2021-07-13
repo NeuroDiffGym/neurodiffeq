@@ -321,3 +321,10 @@ def cylindrical_vector_laplacian(u_rho, u_phi, u_z, rho, phi, z):
         scalar_lap_z,
     )
 
+
+def cylindrical_to_cartesian(rho, phi, z):
+    return rho * cos(phi), rho * sin(phi), z
+
+
+def cartesian_to_cylindrical(x, y, z):
+    return torch.sqrt(x ** 2 + y ** 2), torch.atan2(y, x), z
