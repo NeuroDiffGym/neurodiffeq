@@ -75,55 +75,6 @@ def test_spherical_to_cartesian():
     assert torch.allclose(r * torch.cos(theta), z)
 
 
-def is_zero(t):
-    if isinstance(t, (tuple, list)):
-        for i in t:
-            if not is_zero(i):
-                return False
-        return True
-    elif isinstance(t, torch.Tensor):
-        return t.detach().cpu().max() < EPS
-    else:
-        raise ValueError(f"t must be list, tuple or tensor; got {type(t)}")
-
-
-def test_div_curl(U, x):
-    curl_u = spherical_curl(*U, *x)
-    div_curl_u = spherical_div(*curl_u, *x)
-    assert is_zero(div_curl_u), div_curl_u
-
-
-def test_curl_grad(u, x):
-    grad_u = spherical_grad(u, *x)
-    curl_grad_u = spherical_curl(*grad_u, *x)
-    assert is_zero(curl_grad_u), curl_grad_u
-
-
-def test_div_grad(u, x):
-    grad_u = spherical_grad(u, *x)
-    div_grad_u = spherical_div(*grad_u, *x)
-    lap_u = spherical_laplacian(u, *x)
-    delta = div_grad_u - lap_u
-    assert is_zero(delta), delta
-
-
-def test_laplacian(u, x):
-    test_div_grad(u, x)
-
-
-def test_curl_curl(U, x):
-    curl_curl_u = spherical_curl(*spherical_curl(*U, *x), *x)
-    grad_div_u = spherical_grad(spherical_div(*U, *x), *x)
-    vec_lap_u = spherical_vector_laplacian(*U, *x)
-
-    vec_delta = [cc - (gd - vl) for cc, gd, vl in zip(curl_curl_u, grad_div_u, vec_lap_u)]
-    assert is_zero(vec_delta), vec_delta
-
-
-def test_vec_laplacian(U, x):
-    test_curl_curl(U, x)
-
-
 def test_spherical_div(U, x):
     out = spherical_div(*U, *x)
     ur, utheta, uphi = U
