@@ -117,3 +117,8 @@ docs/_build/
 
 # VSCode
 .vscode/
+
+# Test
+_test/
+
+.DS_Store
