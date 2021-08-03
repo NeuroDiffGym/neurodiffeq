@@ -1,11 +1,11 @@
-from neurodiffeq.hypersolver.numerical_solver import Euler
+from neurodiffeq.hypersolver.numerical_solvers import Euler
 import torch
 import numpy as np
 
 
 def test_euler():
     try_solver = Euler()
-    ts, us = try_solver.solve(lambda u, t: -u, 1, 0, 1, 100)
+    ts, us = try_solver.solve(lambda u, t: [-u], 1, 0, 1, 100)
     vs = torch.exp(-ts)
     print(us.shape, vs.shape)
     assert torch.allclose(us, vs, rtol=1e-2)

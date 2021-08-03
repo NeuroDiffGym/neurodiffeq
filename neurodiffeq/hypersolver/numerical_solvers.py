@@ -4,7 +4,6 @@ import torch
 
 class NumericalSolver(ABC):
     @abstractmethod
-    # tn: end of t 只取一段
     def solve(self, func, u0, t0, tn, n_steps):
         pass
 
