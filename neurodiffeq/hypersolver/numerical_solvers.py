@@ -22,9 +22,9 @@ class Euler(NumericalSolver):
             u_new = u_old + h * torch.tensor(func(*u_old, t))
             us.append(u_new)
 
-        us = torch.vstack(us)
-        ans = []
+        us = torch.stack(us, dim=0)
+        ans = [ts]
         for j in range(us.shape[1]):
             ans.append(us[:, j])
 
-        return ts, *ans
+        return ans
