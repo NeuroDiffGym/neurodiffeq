@@ -1,4 +1,4 @@
-from neurodiffeq.hypersolver.hypersolver import DiscreteSolution1D
+from neurodiffeq.hypersolver.hypersolver import DiscreteSolution1D, Hypersolver
 from neurodiffeq.hypersolver.numerical_solvers import Euler
 import torch
 import numpy as np
@@ -28,3 +28,41 @@ def test_discrete_solution_1d():
 
     assert torch.allclose(other_fs, fs_true, rtol=1e-2, atol=1e-2)
     assert torch.allclose(other_gs, gs_true, rtol=1e-2, atol=1e-2)
+
+
+def test_hypersolver():
+    solver = Hypersolver(
+        func=lambda u, t: [-u],
+        u0=1,
+        t0=0,
+        tn=1,
+        n_steps=100,
+        sol=lambda t: [torch.exp(-t)],
+        numerical_solver=Euler(),
+    )
+    solver.fit(max_epochs=1)
+    sol = solver.get_solution()
+    ts = torch.rand(100)
+    hypersolver_sol = sol(ts)
+    analytical_sol = solver.solution(ts)
+
+    for h_s, a_s in zip(hypersolver_sol, analytical_sol):
+        assert torch.allclose(h_s, a_s, rtol=1e-2)
+
+    solver = Hypersolver(
+        func=lambda u, v, t: [v, -u],
+        u0=[1, 1],
+        t0=0,
+        tn=np.pi,
+        n_steps=314,
+        sol=lambda t: [torch.sin(t) + torch.cos(t), torch.cos(t) - torch.sin(t)],
+        numerical_solver=Euler(),
+    )
+    solver.fit(max_epochs=10000)
+    sol = solver.get_solution()
+    ts = torch.rand(100) * np.pi
+    hypersolver_sol = sol(ts)
+    analytical_sol = solver.solution(ts)
+
+    for h_s, a_s in zip(hypersolver_sol, analytical_sol):
+        assert torch.allclose(h_s, a_s, rtol=1e-2, atol=1e-2)
