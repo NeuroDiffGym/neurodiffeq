@@ -23,8 +23,8 @@ class Euler(NumericalSolver):
             us.append(u_new)
 
         us = torch.vstack(us)
-        ans = []
+        ans = [ts]
         for j in range(us.shape[1]):
             ans.append(us[:, j])
 
-        return ts, *ans
+        return ans
