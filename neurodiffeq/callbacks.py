@@ -681,3 +681,57 @@ class RepeatedMetricDiverge(_RepeatedMetricChange):
 
     def _last_satisfied(self, last, second2last):
         return abs(last - second2last) > self.gap
+
+
+class RepeatedMetricBelow(_RepeatedMetricChange):
+    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been less than
+    a given value :math:`v` for the latest :math:`n` epochs.
+
+    :param threshold: The value `v`.
+    :type threshold: float
+    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
+    :type use_train: bool
+    :param metric:
+        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
+    :type metric: str
+    :param repetition: Number of times the metric should diverge beyond said gap.
+    :type repetition: int
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, threshold, use_train, metric, repetition, logger):
+        super(RepeatedMetricBelow, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.threshold = threshold
+
+    def _last_satisfied(self, last, second2last):
+        return last < self.threshold
+
+
+class RepeatedMetricAbove(_RepeatedMetricChange):
+    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been greater than
+    a given value :math:`v` for the latest :math:`n` epochs.
+
+    :param threshold: The value `v`.
+    :type threshold: float
+    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
+    :type use_train: bool
+    :param metric:
+        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
+    :type metric: str
+    :param repetition: Number of times the metric should diverge beyond said gap.
+    :type repetition: int
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, threshold, use_train, metric, repetition, logger):
+        super(RepeatedMetricAbove, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.threshold = threshold
+
+    def _last_satisfied(self, last, second2last):
+        return last > self.threshold
