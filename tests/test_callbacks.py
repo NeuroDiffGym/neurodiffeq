@@ -18,7 +18,7 @@ from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Ran
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
 from neurodiffeq.callbacks import EveCallback, StopCallback
-from neurodiffeq.callbacks import SetCriterion
+from neurodiffeq.callbacks import SetCriterion, SetOptimizer
 
 
 @pytest.fixture
@@ -365,6 +365,7 @@ def test_set_criterion_callback_reset(solver):
     funcs = torch.exp(coords * 1.01)
     residuals = diff(funcs, coords) - funcs
 
+    # w/o resetting
     callback = SetCriterion(criterion='l1', reset=False)
     callback(solver)
     assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
@@ -373,6 +374,7 @@ def test_set_criterion_callback_reset(solver):
     callback(solver)
     assert torch.allclose(solver.criterion(residuals, funcs, coords), (residuals ** 2).mean())
 
+    # w/ resetting
     callback = SetCriterion(criterion='l1', reset=True)
     callback(solver)
     assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
@@ -380,3 +382,45 @@ def test_set_criterion_callback_reset(solver):
     solver._set_criterion('l2')
     callback(solver)
     assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+
+def test_set_optimizer_polymorphism(solver):
+    # passing an instance
+    params = [p for net in solver.nets for p in net.parameters()]
+    optimizer = torch.optim.ASGD(params, lr=0.123)
+    callback = SetOptimizer(optimizer)
+    callback(solver)
+    assert solver.optimizer is optimizer
+
+    # passing a class constructor w/ args and kwargs
+    optimizer = torch.optim.ASGD
+    lr, alpha = 0.1234, 0.5678
+    optimizer_args = (lr,)
+    optimizer_kwargs = dict(alpha=alpha)
+    callback = SetOptimizer(optimizer, optimizer_args, optimizer_kwargs)
+    callback(solver)
+    for p1, p2 in zip(solver.optimizer.param_groups[0]['params'], params):
+        assert p1 is p2
+    assert solver.optimizer.param_groups[0]['lr'] == lr
+    assert solver.optimizer.param_groups[0]['alpha'] == alpha
+
+
+def test_set_optimizer_reset(solver):
+    params = [p for net in solver.nets for p in net.parameters()]
+    optimizer = torch.optim.ASGD(params, lr=0.123)
+
+    # w/o resetting
+    callback = SetOptimizer(optimizer, reset=False)
+    callback(solver)
+    assert solver.optimizer is optimizer
+    solver.optimizer = None
+    callback(solver)
+    assert solver.optimizer is None
+
+    # w/ resetting
+    callback = SetOptimizer(optimizer, reset=True)
+    callback(solver)
+    assert solver.optimizer is optimizer
+    solver.optimizer = None
+    callback(solver)
+    assert solver.optimizer is optimizer
