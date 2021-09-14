@@ -259,6 +259,41 @@ class SimpleTensorboardCallback(ActionCallback):
             )
 
 
+class SetCriterion(ActionCallback):
+    r"""A callback that sets the ``criterion`` (a.k.a. loss function) of the solver.
+    Best used together with a condition callback.
+
+    :param criterion:
+        The loss function to be set for the solver. It can be
+
+        - An instance of ``torch.nn.modules.loss._Loss``
+          which computes loss of the PDE/ODE residuals against a zero tensor.
+        - A callable object which maps residuals, function values, and input coordinates to a scalar loss; or
+        - A str which is present in ``neurodiffeq.losses._losses.keys()``.
+
+    :type criterion: ``torch.nn.modules.loss._Loss`` or callable or str.
+    :param reset:
+        If True, the criterion will be reset every time the callback is called.
+        Otherwise, the criterion will only be set once.
+        Defaults to False.
+    :type reset: bool
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, criterion, reset=False, logger=None):
+        super(SetCriterion, self).__init__(logger=logger)
+        self.criterion = criterion
+        self.reset = reset
+        self.called = False
+
+    def __call__(self, solver):
+        if (not self.called) or self.reset:
+            self.called = True
+            # noinspection PyProtectedMember
+            solver._set_criterion(self.criterion)
+
+
 class ConditionCallback(BaseCallback):
     r"""Base class of condition callbacks.
     Custom callbacks that *determines whether some action shall be performed* should subclass this class and overwrite
