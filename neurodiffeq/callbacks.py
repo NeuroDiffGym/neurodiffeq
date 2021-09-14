@@ -5,6 +5,9 @@ import random
 import numpy as np
 from datetime import datetime
 import logging
+from itertools import chain
+import torch
+
 from .utils import safe_mkdir as _safe_mkdir
 from ._version_utils import deprecated_alias, warn_deprecate_class
 from abc import ABC, abstractmethod
@@ -288,10 +291,55 @@ class SetCriterion(ActionCallback):
         self.called = False
 
     def __call__(self, solver):
-        if (not self.called) or self.reset:
+        if self.reset or (not self.called):
             self.called = True
             # noinspection PyProtectedMember
             solver._set_criterion(self.criterion)
+
+
+class SetOptimizer(ActionCallback):
+    r"""A callback that sets the optimizer of the solver. Best used together with a condition callback.
+
+    - If an optimizer *instance* is passed, it must contain a sequence of parameters to be updated.
+    - If an optimizer *subclass* is passed, optimizer_args and optimizer_kwargs can be supplied.
+
+    :param optimizer: Optimizer instance (or its class) to be set.
+    :type optimizer: type or ``torch.optim.Optimizer``
+    :param optimizer_args:
+        Positional arguments to be passed to the optimizer constructor in addition to the parameter sequence.
+        Ignored if optimizer is an instance (instead of a class).
+    :type optimizer_args: tuple
+    :param optimizer_kwargs:
+        Keyword arguments to be passed to the optimizer constructor in addition to the parameter sequence.
+        Ignored if optimizer is an instance (instead of a class).
+    :type optimizer_kwargs: dict
+    :param reset:
+        If True, the optimizer will be reset every time the callback is called.
+        Otherwise, the optimizer will only be set once.
+        Defaults to False.
+    :type reset: bool
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, optimizer, optimizer_args=None, optimizer_kwargs=None, reset=False, logger=None):
+        super(SetOptimizer, self).__init__(logger=logger)
+        self.optimizer = optimizer
+        self.optimizer_args = optimizer_args or ()
+        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.reset = reset
+        self.called = False
+
+    def __call__(self, solver):
+        if self.reset or (not self.called):
+            self.called = True
+            if isinstance(self.optimizer, torch.optim.Optimizer):
+                solver.optimizer = self.optimizer
+            elif issubclass(self.optimizer, torch.optim.Optimizer):
+                params = chain.from_iterable(net.parameters() for net in solver.nets)
+                solver.optimizer = self.optimizer(params, *self.optimizer_args, **self.optimizer_kwargs)
+            else:
+                raise TypeError(f"Unknown optimizer instance/type {self.optimizer}")
 
 
 class ConditionCallback(BaseCallback):
