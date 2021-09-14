@@ -18,6 +18,7 @@ from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Ran
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
 from neurodiffeq.callbacks import EveCallback, StopCallback
+from neurodiffeq.callbacks import SetCriterion
 
 
 @pytest.fixture
@@ -35,6 +36,7 @@ def solver():
         conditions=[NoCondition()],
         t_min=0.0,
         t_max=1.0,
+        criterion='l2',
     )
 
 
@@ -342,3 +344,39 @@ def test_tensorboard_callback(solver, tmp_dir):
     default_path = Path('.') / 'runs'
     assert os.path.isdir(default_path)
     shutil.rmtree(default_path, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    argnames='criterion',
+    argvalues=['l1', torch.nn.modules.loss.L1Loss(), lambda r, f, x: torch.abs(r).mean()]
+)
+def test_set_criterion_callback_polymorphism(solver, criterion):
+    coords = torch.rand(10, 1, requires_grad=True)
+    funcs = torch.exp(coords * 1.01)
+    residuals = diff(funcs, coords) - funcs
+
+    callback = SetCriterion(criterion=criterion)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+
+def test_set_criterion_callback_reset(solver):
+    coords = torch.rand(10, 1, requires_grad=True)
+    funcs = torch.exp(coords * 1.01)
+    residuals = diff(funcs, coords) - funcs
+
+    callback = SetCriterion(criterion='l1', reset=False)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+    solver._set_criterion('l2')
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), (residuals ** 2).mean())
+
+    callback = SetCriterion(criterion='l1', reset=True)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+    solver._set_criterion('l2')
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
