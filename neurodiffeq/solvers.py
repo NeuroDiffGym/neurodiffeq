@@ -161,15 +161,7 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-
-        if criterion is None:
-            self.criterion = lambda r, f, x: (r ** 2).mean()
-        elif isinstance(criterion, nn.modules.loss._Loss):
-            self.criterion = lambda r, f, x: criterion(r, torch.zeros_like(r))
-        elif isinstance(criterion, str):
-            self.criterion = _losses[criterion.lower()]
-        else:
-            self.criterion = criterion
+        self._set_criterion(criterion)
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -195,6 +187,18 @@ class BaseSolver(ABC, PretrainedSolver):
         self._stop_training = False
         # the _phase variable is registered for callback functions to access
         self._phase = None
+
+    def _set_criterion(self, criterion):
+        if criterion is None:
+            self.criterion = lambda r, f, x: (r ** 2).mean()
+        elif isinstance(criterion, nn.modules.loss._Loss):
+            self.criterion = lambda r, f, x: criterion(r, torch.zeros_like(r))
+        elif isinstance(criterion, str):
+            self.criterion = _losses[criterion.lower()]
+        elif callable(criterion):
+            self.criterion = criterion
+        else:
+            raise TypeError(f"Unknown type of criterion {type(criterion)}")
 
     @property
     def global_epoch(self):
@@ -1160,11 +1164,12 @@ class BundleSolver1D(BaseSolver):
         if train_generator is None:
             train_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced-noisy')
             for i in range(n_input_units - 1):
-                train_generator ^= Generator1D(32, t_min=r_min[i+1], t_max=r_max[i+1], method='equally-spaced-noisy')
+                train_generator ^= Generator1D(32, t_min=r_min[i + 1], t_max=r_max[i + 1],
+                                               method='equally-spaced-noisy')
         if valid_generator is None:
             valid_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced')
             for i in range(n_input_units - 1):
-                valid_generator ^= Generator1D(32, t_min=r_min[i+1], t_max=r_max[i+1], method='equally-spaced')
+                valid_generator ^= Generator1D(32, t_min=r_min[i + 1], t_max=r_max[i + 1], method='equally-spaced')
 
         non_var = []
         for c in conditions:
