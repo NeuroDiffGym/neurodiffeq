@@ -9,3 +9,4 @@ pandas
 seaborn
 dill
 tensorboard
+requests

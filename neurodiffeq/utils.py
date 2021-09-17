@@ -61,3 +61,16 @@ def get_residual_info(solution, data, diff_eqs, highest_order=0, detach=True):
         recurse(ret)
 
     return ret
+
+
+def split_columns(mat):
+    if len(mat.shape) != 2:
+        raise ValueError(f'matrix must have 2 dimensions, but matrix has shape {mat.shape}.')
+    return [mat[:, j] for j in range(mat.shape[1])]
+
+
+def hstack(tensors):
+    return torch.stack(tensors, dim=1)
+
+def vstack(tensors):
+    return torch.stack(tensors, dim=0)

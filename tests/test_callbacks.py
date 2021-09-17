@@ -4,6 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 import dill
 import shutil
 from pathlib import Path
+import numpy as np
 import os
 import pytest
 from neurodiffeq import diff
@@ -17,8 +18,9 @@ from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, Peri
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
-from neurodiffeq.callbacks import EveCallback, StopCallback
 from neurodiffeq.callbacks import SetCriterion, SetOptimizer
+from neurodiffeq.callbacks import EveCallback, StopCallback, ProgressBarCallBack
+from neurodiffeq.hypersolver import Hypersolver, Euler
 
 
 @pytest.fixture
@@ -424,3 +426,22 @@ def test_set_optimizer_reset(solver):
     solver.optimizer = None
     callback(solver)
     assert solver.optimizer is optimizer
+
+
+def test_progress_bar(solver):
+    solver.fit(max_epochs=500, callbacks=[ProgressBarCallBack()])
+
+
+def test_progress_bar_hypersolver():
+    solver = Hypersolver(
+        func=lambda u, v, t: [v, -u],
+        u0=[1, 1],
+        t0=0,
+        tn=np.pi,
+        n_steps=314,
+        sol=lambda t: [torch.sin(t) + torch.cos(t), torch.cos(t) - torch.sin(t)],
+        numerical_solver=Euler(),
+    )
+    solver.fit(max_epochs=10000)
+    callback = ProgressBarCallBack()
+    callback(solver)
