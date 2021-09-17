@@ -39,6 +39,8 @@ class Hypersolver:
         self.solution = sol
         self.numerical_solver = numerical_solver
         self.us = torch.stack(self.solution(self.ts), dim=1)
+        self.local_epoch = 0
+        self._max_local_epoch = 1
 
         us_no_head = self.us[1:, :]
         us_no_tail = self.us[:-1, :]
@@ -61,7 +63,9 @@ class Hypersolver:
         self.metrics_history['valid_loss'] = []
 
     def fit(self, max_epochs):
+        self._max_local_epoch = max_epochs
         for epoch in range(max_epochs):
+            self.local_epoch += 1
             input = torch.cat((self.ts.reshape(-1, 1), self.us), dim=1)
             output = self.net(input)
             loss = self.loss_fcn(self.residual, output[1:])
