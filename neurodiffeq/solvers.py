@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
 from torch.optim import Adam
+from .solvers_utils import PretrainedSolver
 from .networks import FCNN
 from ._version_utils import deprecated_alias
 from .generators import GeneratorSpherical
@@ -24,7 +25,7 @@ def _requires_closure(optimizer):
     return inspect.signature(optimizer.step).parameters.get('closure').default == inspect._empty
 
 
-class BaseSolver(ABC):
+class BaseSolver(ABC, PretrainedSolver):
     r"""A class for solving ODE/PDE systems.
 
     :param diff_eqs:
