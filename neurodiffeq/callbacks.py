@@ -681,3 +681,12 @@ class RepeatedMetricDiverge(_RepeatedMetricChange):
 
     def _last_satisfied(self, last, second2last):
         return abs(last - second2last) > self.gap
+
+
+class ProgressBarCallBack(ActionCallback):
+    def __call__(self, solver):
+        a = solver.local_epoch
+        b = solver._max_local_epoch
+
+        progress = int(a / b * 100)
+        print('#' * progress + '.' * (100 - progress), end='\r', flush=True)
