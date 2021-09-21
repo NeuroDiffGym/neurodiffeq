@@ -279,7 +279,7 @@ def test_dirichlet_bvp(x0, x1, y0, y1, ones, net11):
     assert all_close(y, y1), "y(x_1) != y_1"
 
 
-def test_bvp_legacy_signature(x0, x1, y0, y1):
+def test_bvp_legacy_signature():
     with warns(FutureWarning):
         DirichletBVP(t_0=0, t_1=0, x_0=0, x_1=0)
     with warns(FutureWarning):
