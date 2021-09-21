@@ -348,7 +348,7 @@ class MonitorSpherical(BaseMonitor):
             # see https://github.com/matplotlib/matplotlib/issues/15986
             theta = self.theta_label.reshape(*self.shape)[0, :, 0]
             phi = self.phi_label.reshape(*self.shape)[0, 0, :]
-            cax = ax.contourf(phi, theta, u, cmap='magma')
+            cax = ax.contourf(phi, theta, u, cmap='magma', levels=max(self.shape[-2:]))
             ax.xaxis.set_major_locator(plt.MultipleLocator(math.pi / 6))
             ax.xaxis.set_minor_locator(plt.MultipleLocator(math.pi / 12))
             ax.xaxis.set_major_formatter(plt.FuncFormatter(self._longitude_formatter))
@@ -634,10 +634,12 @@ class Monitor2D(BaseMonitor):
         Number of solution visualizations to plot in each row.
         Note there is always only 1 plot for metrics history plot per row.
     :type n_col: int
+    :param levels: Number of levels to plot with contourf (heatmap). Defaults to 20.
+    :type levels: int
     """
 
     def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap',
-                 equal_aspect=True, ax_width=5.0, ax_height=4.0, n_col=2):
+                 equal_aspect=True, ax_width=5.0, ax_height=4.0, n_col=2, levels=20):
         """Initializer method
         """
         super(Monitor2D, self).__init__(check_every=check_every)
@@ -664,6 +666,7 @@ class Monitor2D(BaseMonitor):
         self.xs_ann, self.ys_ann = xs_ann.reshape(-1, 1), ys_ann.reshape(-1, 1)
         self.xs_plot = self.xs_ann.detach().cpu().numpy().flatten()
         self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
+        self.levels = levels
 
     # draw a contour plot of the surface (xs, ys) -> zs
     def _create_contour(self, ax, xs, ys, zs, condition):
@@ -676,7 +679,7 @@ class Monitor2D(BaseMonitor):
                 in_domain = condition.in_domain(xs, ys)
                 triang.set_mask(~in_domain)
 
-        contour = ax.tricontourf(triang, zs, cmap='coolwarm')
+        contour = ax.tricontourf(triang, zs, cmap='coolwarm', levels=self.levels)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         if self.equal_aspect:
