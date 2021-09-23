@@ -22,6 +22,7 @@ def _h1_norm(residual, funcs, coords):
 
 def _h1_semi_norm(residual, funcs, coords):
     g = grad(residual, *coords)
+    g = torch.cat(g)
     return (g ** 2).mean()
 
 
