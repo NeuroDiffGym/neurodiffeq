@@ -697,6 +697,14 @@ class SolverSpherical(BaseSolver):
         Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
         Defaults to 4.
     :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``diff_eq``.
+
+    :type metrics: dict, optional
     :param enforcer:
         A function of signature
         ``enforcer(net: nn.Module, cond: neurodiffeq.conditions.BaseCondition,
@@ -721,7 +729,7 @@ class SolverSpherical(BaseSolver):
 
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
+                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
                  shuffle=None, batch_size=None):
@@ -752,6 +760,7 @@ class SolverSpherical(BaseSolver):
             criterion=criterion,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
+            metrics=metrics,
             n_input_units=3,
             n_output_units=n_output_units,
             shuffle=shuffle,
