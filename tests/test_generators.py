@@ -146,6 +146,21 @@ def test_generator2d():
     assert _check_shape_and_grad(generator, size, x, y)
     assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
 
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev1')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev2')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
     str(generator)
     repr(generator)
 
