@@ -5,6 +5,20 @@ import numpy as np
 from typing import List
 
 
+def _chebyshev_first(a, b, n):
+    nodes = torch.cos((torch.arange(n) / float(n) + 0.5) * np.pi)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
+
+def _chebyshev_second(a, b, n):
+    nodes = torch.cos(torch.arange(n) / float(n-1) * np.pi)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
+
 class BaseGenerator:
     """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field.
     """
@@ -80,7 +94,8 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
-        - If set to 'chebyshev', the points will be chebyshev nodes of the first kind over [t_min, t_max].
+        - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
+        - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
 
         defaults to 'uniform'.
     :type method: str, optional
@@ -117,10 +132,11 @@ class Generator1D(BaseGenerator):
         elif method == 'log-spaced-noisy':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
-        elif method == 'chebyshev':
-            examples = torch.cos((torch.arange(size) / float(size) + 0.5) * np.pi)
-            self.examples = ((t_max + t_min) + (t_max - t_min) * examples) / 2
-            self.examples.requires_grad_(True)
+        elif method in ['chebyshev', 'chebyshev1']:
+            self.examples = _chebyshev_first(t_min, t_max, size)
+            self.getter = lambda: self.examples
+        elif method == 'chebyshev2':
+            self.examples = _chebyshev_second(t_min, t_max, size)
             self.getter = lambda: self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
