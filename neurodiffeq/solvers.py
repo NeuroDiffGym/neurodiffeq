@@ -57,8 +57,19 @@ class BaseSolver(ABC, PretrainedSolver):
         The optimizer to be used for training.
     :type optimizer: `torch.nn.optim.Optimizer`, optional
     :param criterion:
-        A function that maps a PDE residual vector (torch tensor with shape (-1, 1)) to a scalar loss.
-    :type criterion: callable, optional
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type criterion:
+        str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
         Defaults to 1.
@@ -687,8 +698,19 @@ class SolverSpherical(BaseSolver):
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
     :param criterion:
-        Function that maps a PDE residual tensor (of shape (-1, 1)) to a scalar loss.
-    :type criterion: callable, optional
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type criterion:
+        str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
         Defaults to 1.
@@ -935,8 +957,19 @@ class Solver1D(BaseSolver):
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
     :param criterion:
-        Function that maps a ODE residual tensor (of shape (-1, 1)) to a scalar loss.
-    :type criterion: callable, optional
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type criterion:
+        str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
         Defaults to 1.
@@ -1108,8 +1141,19 @@ class BundleSolver1D(BaseSolver):
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
     :param criterion:
-        Function that maps a ODE residual tensor (of shape (-1, 1)) to a scalar loss.
-    :type criterion: callable, optional
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type criterion:
+        str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
         Defaults to 1.
@@ -1308,8 +1352,19 @@ class Solver2D(BaseSolver):
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
     :param criterion:
-        Function that maps a PDE residual tensor (of shape (-1, 1)) to a scalar loss.
-    :type criterion: callable, optional
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type criterion:
+        str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
         Defaults to 1.
