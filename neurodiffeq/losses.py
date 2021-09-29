@@ -16,13 +16,13 @@ def _infinity_norm(residual, funcs, coords):
 
 def _h1_norm(residual, funcs, coords):
     g = grad(residual, *coords)
-    rg = torch.cat([residual, *g])
+    rg = torch.cat([residual, *g], dim=1)
     return (rg ** 2).mean()
 
 
 def _h1_semi_norm(residual, funcs, coords):
     g = grad(residual, *coords)
-    g = torch.cat(g)
+    g = torch.cat(g, dim=1)
     return (g ** 2).mean()
 
 
