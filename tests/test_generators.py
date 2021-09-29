@@ -183,6 +183,24 @@ def test_generator3d():
     assert _check_shape_and_grad(generator, size, x, y, z)
     assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
 
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev1')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev2')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
     str(generator)
     repr(generator)
 
