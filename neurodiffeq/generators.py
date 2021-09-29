@@ -303,14 +303,25 @@ class Generator3D(BaseGenerator):
         self.xyz_max = xyz_max
         self.method = method
 
-        x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
-        y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
-        z = torch.linspace(xyz_min[2], xyz_max[2], grid[2], requires_grad=True)
-        # noinspection PyTypeChecker
+        if method in ['equally-spaced', 'equally-spaced-noisy']:
+            x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
+            y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
+            z = torch.linspace(xyz_min[2], xyz_max[2], grid[2], requires_grad=True)
+        elif method in ['chebyshev', 'chebyshev1']:
+            x = _chebyshev_first(xyz_min[0], xyz_max[0], grid[0])
+            y = _chebyshev_first(xyz_min[1], xyz_max[1], grid[1])
+            z = _chebyshev_first(xyz_min[2], xyz_max[2], grid[2])
+        elif method == 'chebyshev2':
+            x = _chebyshev_second(xyz_min[0], xyz_max[0], grid[0])
+            y = _chebyshev_second(xyz_min[1], xyz_max[1], grid[1])
+            z = _chebyshev_second(xyz_min[2], xyz_max[2], grid[2])
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
-        if method == 'equally-spaced':
+        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2']:
             self.getter = lambda: (self.grid_x, self.grid_y, self.grid_z)
         elif method == 'equally-spaced-noisy':
             self.noise_xmean = torch.zeros(self.size)
