@@ -5,6 +5,9 @@ import random
 import numpy as np
 from datetime import datetime
 import logging
+from itertools import chain
+import torch
+
 from .utils import safe_mkdir as _safe_mkdir
 from ._version_utils import deprecated_alias, warn_deprecate_class
 from abc import ABC, abstractmethod
@@ -104,7 +107,7 @@ class MonitorCallback(ActionCallback):
         )
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.{self.format}")
-            self.monitor.fig.savefig(pic_path)
+            self.monitor.fig.savefig(pic_path, bbox_inches='tight')
             self.logger.info(f'plot saved to {pic_path}')
 
 
@@ -257,6 +260,86 @@ class SimpleTensorboardCallback(ActionCallback):
                 scalar_value=values[-1] if values else np.nan,
                 global_step=solver.global_epoch,
             )
+
+
+class SetCriterion(ActionCallback):
+    r"""A callback that sets the ``criterion`` (a.k.a. loss function) of the solver.
+    Best used together with a condition callback.
+
+    :param criterion:
+        The loss function to be set for the solver. It can be
+
+        - An instance of ``torch.nn.modules.loss._Loss``
+          which computes loss of the PDE/ODE residuals against a zero tensor.
+        - A callable object which maps residuals, function values, and input coordinates to a scalar loss; or
+        - A str which is present in ``neurodiffeq.losses._losses.keys()``.
+
+    :type criterion: ``torch.nn.modules.loss._Loss`` or callable or str.
+    :param reset:
+        If True, the criterion will be reset every time the callback is called.
+        Otherwise, the criterion will only be set once.
+        Defaults to False.
+    :type reset: bool
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, criterion, reset=False, logger=None):
+        super(SetCriterion, self).__init__(logger=logger)
+        self.criterion = criterion
+        self.reset = reset
+        self.called = False
+
+    def __call__(self, solver):
+        if self.reset or (not self.called):
+            self.called = True
+            # noinspection PyProtectedMember
+            solver._set_criterion(self.criterion)
+
+
+class SetOptimizer(ActionCallback):
+    r"""A callback that sets the optimizer of the solver. Best used together with a condition callback.
+
+    - If an optimizer *instance* is passed, it must contain a sequence of parameters to be updated.
+    - If an optimizer *subclass* is passed, optimizer_args and optimizer_kwargs can be supplied.
+
+    :param optimizer: Optimizer instance (or its class) to be set.
+    :type optimizer: type or ``torch.optim.Optimizer``
+    :param optimizer_args:
+        Positional arguments to be passed to the optimizer constructor in addition to the parameter sequence.
+        Ignored if optimizer is an instance (instead of a class).
+    :type optimizer_args: tuple
+    :param optimizer_kwargs:
+        Keyword arguments to be passed to the optimizer constructor in addition to the parameter sequence.
+        Ignored if optimizer is an instance (instead of a class).
+    :type optimizer_kwargs: dict
+    :param reset:
+        If True, the optimizer will be reset every time the callback is called.
+        Otherwise, the optimizer will only be set once.
+        Defaults to False.
+    :type reset: bool
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, optimizer, optimizer_args=None, optimizer_kwargs=None, reset=False, logger=None):
+        super(SetOptimizer, self).__init__(logger=logger)
+        self.optimizer = optimizer
+        self.optimizer_args = optimizer_args or ()
+        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.reset = reset
+        self.called = False
+
+    def __call__(self, solver):
+        if self.reset or (not self.called):
+            self.called = True
+            if isinstance(self.optimizer, torch.optim.Optimizer):
+                solver.optimizer = self.optimizer
+            elif issubclass(self.optimizer, torch.optim.Optimizer):
+                params = chain.from_iterable(net.parameters() for net in solver.nets)
+                solver.optimizer = self.optimizer(params, *self.optimizer_args, **self.optimizer_kwargs)
+            else:
+                raise TypeError(f"Unknown optimizer instance/type {self.optimizer}")
 
 
 class ConditionCallback(BaseCallback):
@@ -681,3 +764,66 @@ class RepeatedMetricDiverge(_RepeatedMetricChange):
 
     def _last_satisfied(self, last, second2last):
         return abs(last - second2last) > self.gap
+
+
+class RepeatedMetricBelow(_RepeatedMetricChange):
+    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been less than
+    a given value :math:`v` for the latest :math:`n` epochs.
+
+    :param threshold: The value `v`.
+    :type threshold: float
+    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
+    :type use_train: bool
+    :param metric:
+        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
+    :type metric: str
+    :param repetition: Number of times the metric should diverge beyond said gap.
+    :type repetition: int
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, threshold, use_train, metric, repetition, logger):
+        super(RepeatedMetricBelow, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.threshold = threshold
+
+    def _last_satisfied(self, last, second2last):
+        return last < self.threshold
+
+
+class RepeatedMetricAbove(_RepeatedMetricChange):
+    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been greater than
+    a given value :math:`v` for the latest :math:`n` epochs.
+
+    :param threshold: The value `v`.
+    :type threshold: float
+    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
+    :type use_train: bool
+    :param metric:
+        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
+    :type metric: str
+    :param repetition: Number of times the metric should diverge beyond said gap.
+    :type repetition: int
+    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
+    :type logger: str or ``logging.Logger``
+    """
+
+    def __init__(self, threshold, use_train, metric, repetition, logger):
+        super(RepeatedMetricAbove, self).__init__(
+            use_train=use_train, metric=metric, repetition=repetition, logger=logger
+        )
+        self.threshold = threshold
+
+    def _last_satisfied(self, last, second2last):
+        return last > self.threshold
+
+
+class ProgressBarCallBack(ActionCallback):
+    def __call__(self, solver):
+        a = solver.local_epoch
+        b = solver._max_local_epoch
+
+        progress = int(a / b * 100)
+        print('#' * progress + '.' * (100 - progress), end='\r', flush=True)

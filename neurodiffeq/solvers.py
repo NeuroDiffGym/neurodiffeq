@@ -6,17 +6,19 @@ from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
-from torch.optim import Adam, SGD
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
-from neurodiffeq.networks import FCNN, Resnet
-from neurodiffeq._version_utils import deprecated_alias
-from neurodiffeq.generators import GeneratorSpherical
-from neurodiffeq.generators import SamplerGenerator
-from neurodiffeq.generators import Generator1D
-from neurodiffeq.generators import Generator2D
-from neurodiffeq.function_basis import RealSphericalHarmonics
-from tqdm import tqdm_notebook as tqdm
-
+from torch.optim import Adam
+from .solvers_utils import PretrainedSolver
+from .networks import FCNN
+from ._version_utils import deprecated_alias
+from .generators import GeneratorSpherical
+from .generators import SamplerGenerator
+from .generators import Generator1D
+from .generators import Generator2D
+from .generators import GeneratorND
+from .function_basis import RealSphericalHarmonics
+from .conditions import BaseCondition
+from .neurodiffeq import safe_diff as diff
+from .losses import _losses
 
 class Sine(nn.Module):
     def __init__(self, w0: float = 1.0):
@@ -48,7 +50,7 @@ def _requires_closure(optimizer):
     return inspect.signature(optimizer.step).parameters.get('closure').default == inspect._empty
 
 
-class BaseSolver(ABC):
+class BaseSolver(ABC, PretrainedSolver):
     r"""A class for solving ODE/PDE systems.
 
     :param diff_eqs:
@@ -73,7 +75,7 @@ class BaseSolver(ABC):
     :param analytic_solutions:
         **[DEPRECATED]** Pass ``metrics`` instead.
         The analytical solutions to be compared with neural net solutions.
-        It maps a tuple of three coordinates to a tuple of function values.
+        It maps a tuple of coordinates to a tuple of function values.
         The output shape should match that of networks.
     :type analytic_solutions: callable, optional
     :param optimizer:
@@ -184,13 +186,7 @@ class BaseSolver(ABC):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
-
-        if criterion is None:
-            self.criterion = lambda r: (r ** 2).mean()
-        elif isinstance(criterion, nn.modules.loss._Loss):
-            self.criterion = lambda r: criterion(r, torch.zeros_like(r))
-        else:
-            self.criterion = criterion
+        self._set_criterion(criterion)
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -205,7 +201,7 @@ class BaseSolver(ABC):
         # number of batches for training / validation;
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
         # current batch of samples, kept for additional_loss term to use
-        self._batch_examples = make_pair_dict()
+        self._batch = make_pair_dict()
         # current network with lowest loss
         self.best_nets = None
         # current lowest loss
@@ -220,6 +216,18 @@ class BaseSolver(ABC):
         # the _phase variable is registered for callback functions to access
         self._phase = None
 
+    def _set_criterion(self, criterion):
+        if criterion is None:
+            self.criterion = lambda r, f, x: (r ** 2).mean()
+        elif isinstance(criterion, nn.modules.loss._Loss):
+            self.criterion = lambda r, f, x: criterion(r, torch.zeros_like(r))
+        elif isinstance(criterion, str):
+            self.criterion = _losses[criterion.lower()]
+        elif callable(criterion):
+            self.criterion = criterion
+        else:
+            raise TypeError(f"Unknown type of criterion {type(criterion)}")
+
     @property
     def global_epoch(self):
         r"""Global epoch count, always equal to the length of train loss history.
@@ -228,6 +236,18 @@ class BaseSolver(ABC):
         :rtype: int
         """
         return len(self.metrics_history['train_loss'])
+
+    @property
+    def batch(self):
+        return self._batch
+
+    @property
+    def _batch_examples(self):
+        warnings.warn(
+            '`._batch_examples` has been deprecated in favor of `._batch` and will be removed in a future version',
+            FutureWarning,
+        )
+        return self._batch
 
     def compute_func_val(self, net, cond, *coordinates):
         r"""Compute the function value evaluated on the points specified by ``coordinates``.
@@ -270,11 +290,11 @@ class BaseSolver(ABC):
         self._update_history(value, metric_type, key='valid')
 
     def _generate_batch(self, key):
-        r"""Generate the next batch, register in self._batch_examples and return the batch.
+        r"""Generate the next batch, register in self._batch and return the batch.
 
         :param key:
             {'train', 'valid'};
-            Dict key in ``self._examples``, ``self._batch_examples``, or ``self._batch_start``
+            Dict key in ``self._examples``, ``self._batch``, or ``self._batch_start``
         :type key: str
         :return: The generated batch of points.
         :type: List[`torch.Tensor`]
@@ -282,15 +302,15 @@ class BaseSolver(ABC):
         # the following side effects are helpful for future extension,
         # especially for additional loss term that depends on the coordinates
         self._phase = key
-        self._batch_examples[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
-        return self._batch_examples[key]
+        self._batch[key] = [v.reshape(-1, 1) for v in self.generator[key].get_examples()]
+        return self._batch[key]
 
     def _generate_train_batch(self):
-        r"""Generate the next training batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next training batch, register in ``self._batch`` and return."""
         return self._generate_batch('train')
 
     def _generate_valid_batch(self):
-        r"""Generate the next validation batch, register in ``self._batch_examples`` and return."""
+        r"""Generate the next validation batch, register in ``self._batch`` and return."""
         return self._generate_batch('valid')
 
     def _do_optimizer_step(self, closure=None):
@@ -347,7 +367,14 @@ class BaseSolver(ABC):
                     metric_values[name] += value
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
-                loss = self.criterion(residuals) + self.additional_loss(funcs, key)
+                try:
+                    loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
+                except TypeError as e:
+                    warnings.warn(
+                        "You might need to update your code. "
+                        "Since v0.4.0; both `criterion` and `additional_loss` requires three inputs: "
+                        "`residual`, `funcs`, and `coords`. See documentation for more.", FutureWarning)
+                    raise e
 
                 # accumulate gradients before the current graph is collected as garbage
                 if key == 'train':
@@ -441,9 +468,9 @@ class BaseSolver(ABC):
                           "use a MonitorCallback and pass a list of callbacks instead")
             callbacks = [monitor.to_callback()] + list(callbacks)
         if kwargs:
-            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
-        
-        for local_epoch in tqdm(range(max_epochs), leave = False):
+            raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')  # pragma: no cover
+
+        for local_epoch in range(max_epochs):
             # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
@@ -543,14 +570,20 @@ class BaseSolver(ABC):
         else:
             raise ValueError(f"unrecognized return_type = {return_type}")
 
-    def additional_loss(self, funcs, key):
+    def additional_loss(self, residual, funcs, coords):
         r"""Additional loss terms for training. This method is to be overridden by subclasses.
-        This method can use any of the internal variables: the current batch, the nets, the conditions, etc.
+        This method can use any of the internal variables: self.nets, self.conditions, self.global_epoch, etc.
 
-        :param funcs: Outputs of the networks after parameterization.
-        :type funcs: list[torch.Tensor]
-        :param key: {'train', 'valid'}; Phase of the epoch, used to access the sample batch, etc.
-        :type key: str
+        :param residual: Residual tensor of differential equation. It has shape (N_SAMPLES, N_EQUATIONS)
+        :type residual: torch.Tensor
+        :param funcs:
+            Outputs of the networks after parameterization.
+            There are ``len(nets)`` entries in total. Each entry is a tensor of shape (N_SAMPLES, N_OUTPUT_UNITS).
+        :type funcs: List[torch.Tensor]
+        :param coords:
+            Inputs to the networks; a.k.a. the spatio-temporal coordinates of the system.
+            There are ``N_COORDS`` entries in total. Each entry is a tensor of shape (N_SAMPLES, 1).
+        :type coords: List[torch.Tensor]
         :return: Additional loss. Must be a ``torch.Tensor`` of empty shape (scalar).
         :rtype: torch.Tensor
         """
@@ -606,7 +639,7 @@ class BaseSolution(ABC):
             # Why did we allow `tf` as an option >_<
             # We should phase this out as soon as possible
             if to_numpy == 'tf' or to_numpy == 'torch':
-                to_numpy = True
+                to_numpy = False
             elif to_numpy == 'np':
                 to_numpy = True
             else:
@@ -620,6 +653,44 @@ class BaseSolution(ABC):
             us = [u.detach().cpu().numpy() for u in us]
 
         return us if len(self.nets) > 1 else us[0]
+
+
+class GenericSolution(BaseSolution):
+    def _compute_u(self, net, condition, *coords):
+        return condition.enforce(net, *coords)
+
+
+class GenericSolver(BaseSolver):
+    def get_solution(self, copy=True, best=True):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return:
+            A solution object which can be called.
+            To evaluate the solution on certain points,
+            you should pass the coordinates vector(s) to the returned solution.
+        :rtype: BaseSolution
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        return GenericSolution(nets, conditions)
 
 
 class SolverSpherical(BaseSolver):
@@ -674,6 +745,14 @@ class SolverSpherical(BaseSolver):
         Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
         Defaults to 4.
     :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``diff_eq``.
+
+    :type metrics: dict, optional
     :param enforcer:
         A function of signature
         ``enforcer(net: nn.Module, cond: neurodiffeq.conditions.BaseCondition,
@@ -698,7 +777,7 @@ class SolverSpherical(BaseSolver):
 
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, enforcer=None,
+                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
                  shuffle=None, batch_size=None):
@@ -729,6 +808,7 @@ class SolverSpherical(BaseSolver):
             criterion=criterion,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
+            metrics=metrics,
             n_input_units=3,
             n_output_units=n_output_units,
             shuffle=shuffle,
@@ -751,7 +831,11 @@ class SolverSpherical(BaseSolver):
         if self.enforcer:
             return self.enforcer(net, cond, coordinates)
 
-        n_params = len(signature(cond.enforce).parameters)
+        # Base .enforce takes a variable length *arg; n_params should be deduced from .parameterize
+        if cond.__class__.enforce == BaseCondition.enforce:
+            n_params = len(signature(cond.parameterize).parameters)
+        else:
+            n_params = len(signature(cond.enforce).parameters)
         coordinates = coordinates[:n_params - 1]
         return cond.enforce(net, *coordinates)
 
@@ -838,7 +922,10 @@ class SolutionSphericalHarmonics(SolutionSpherical):
             raise ValueError("harmonics_fn should be specified")
 
         if max_degree is not None:
-            warnings.warn("`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence")
+            warnings.warn(
+                "`max_degree` is DEPRECATED; pass `harmonics_fn` instead, which takes precedence",
+                FutureWarning,
+            )
             self.harmonics_fn = RealSphericalHarmonics(max_degree=max_degree)
 
         if harmonics_fn is not None:
@@ -930,7 +1017,7 @@ class Solver1D(BaseSolver):
     :type shuffle: bool
     """
 
-    def __init__(self, ode_system, conditions, t_min, t_max,
+    def __init__(self, ode_system, conditions, t_min=None, t_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=1, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
@@ -1003,6 +1090,216 @@ class Solver1D(BaseSolver):
         available_variables.update({
             't_min': self.t_min,
             't_max': self.t_max,
+        })
+        return available_variables
+
+
+class BundleSolution1D(BaseSolution):
+    def _compute_u(self, net, condition, *ts):
+        return condition.enforce(net, *ts)
+
+
+class BundleSolver1D(BaseSolver):
+    r"""A solver class for solving ODEs (single-input differential equations)
+    , or a bundle of ODEs for different values of its parameters and/or conditions
+
+    :param ode_system:
+        The ODE system to solve, which maps a torch.Tensor or a tuple of torch.Tensors, to a tuple of ODE residuals,
+        both the input and output must have shape (n_samples, 1).
+    :type ode_system: callable
+    :param conditions:
+        List of conditions for each target function.
+    :type conditions: list[`neurodiffeq.conditions.BaseCondition`]
+    :param t_min:
+        Lower bound of input (start time).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type t_min: float, optional
+    :param t_max:
+        Upper bound of input (start time).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type t_max: float, optional
+    :param theta_min:
+        Lower bound of input (parameters and/or conditions). If conditions are included in the bundle,
+        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        in the ``neurodiffeq.conditions.BundleIVP``.
+        Defaults to None.
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type theta_min: float or tuple, optional
+    :param theta_max:
+        Upper bound of input (parameters and/or conditions). If conditions are included in the bundle,
+        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        in the ``neurodiffeq.conditions.BundleIVP``.
+        Defaults to None.
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+    :type theta_max: float or tuple, optional
+    :param nets:
+        List of neural networks for parameterized solution.
+        If provided, length of ``nets`` must equal that of ``conditions``
+    :type nets: list[torch.nn.Module], optional
+    :param train_generator:
+        Generator for sampling training points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``train_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        Generator for sampling validation points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``valid_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param analytic_solutions:
+        Analytical solutions to be compared with neural net solutions.
+        It maps a torch.Tensor to a tuple of function values.
+        Output shape should match that of ``nets``.
+    :type analytic_solutions: callable, optional
+    :param optimizer:
+        Optimizer to be used for training.
+        Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+    :type optimizer: ``torch.nn.optim.Optimizer``, optional
+    :param criterion:
+        Function that maps a ODE residual tensor (of shape (-1, 1)) to a scalar loss.
+    :type criterion: callable, optional
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the differential equation ``ode_system``.
+
+    :type metrics: dict[str, callable], optional
+    :param n_output_units:
+        Number of output units for each neural network.
+        Ignored if ``nets`` is specified.
+        Defaults to 1.
+    :type n_output_units: int, optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+    """
+
+    def __init__(self, ode_system, conditions, t_min, t_max,
+                 theta_min=None, theta_max=None,
+                 nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
+                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 # deprecated arguments are listed below
+                 batch_size=None, shuffle=None):
+
+        if train_generator is None or valid_generator is None:
+            if t_min is None or t_max is None:
+                raise ValueError(f"Either generator is not provided, t_min and t_max should be both provided: \n"
+                                 f"got t_min={t_min}, t_max={t_max}, "
+                                 f"train_generator={train_generator}, valid_generator={valid_generator}")
+
+        if isinstance(theta_min, (float, int)):
+            theta_min = (theta_min,)
+
+        if isinstance(theta_max, (float, int)):
+            theta_max = (theta_max,)
+
+        if theta_min is None and theta_max is None:
+            r_min = (t_min,)
+            r_max = (t_max,)
+        else:
+            r_min = (t_min,) + theta_min
+            r_max = (t_max,) + theta_max
+
+        n_input_units = len(r_min)
+
+        if train_generator is None:
+            train_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced-noisy')
+            for i in range(n_input_units - 1):
+                train_generator ^= Generator1D(32, t_min=r_min[i + 1], t_max=r_max[i + 1],
+                                               method='equally-spaced-noisy')
+        if valid_generator is None:
+            valid_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced')
+            for i in range(n_input_units - 1):
+                valid_generator ^= Generator1D(32, t_min=r_min[i + 1], t_max=r_max[i + 1], method='equally-spaced')
+
+        non_var = []
+        for c in conditions:
+            try:
+                bc = tuple(c.bundle_conditions.values())
+            except Exception:
+                bc = ()
+            for index in bc:
+                non_var.append(index)
+        non_var = list(set(non_var))
+
+        def non_var_filter(*variables):
+            variables = list(variables)
+            for i, n in enumerate(non_var):
+                del variables[len(conditions) + 1 + n - i]
+            return ode_system(*variables)
+
+        self.r_min, self.r_max = r_min, r_max
+
+        super(BundleSolver1D, self).__init__(
+            diff_eqs=non_var_filter,
+            conditions=conditions,
+            nets=nets,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
+            analytic_solutions=analytic_solutions,
+            optimizer=optimizer,
+            criterion=criterion,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            metrics=metrics,
+            n_input_units=n_input_units,
+            n_output_units=n_output_units,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
+
+    def get_solution(self, copy=True, best=True):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return:
+            A solution object which can be called.
+            To evaluate the solution on certain points,
+            you should pass the coordinates vector(s) to the returned solution.
+        :rtype: BaseSolution
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        return BundleSolution1D(nets, conditions)
+
+    def _get_internal_variables(self):
+        available_variables = super(BundleSolver1D, self)._get_internal_variables()
+        available_variables.update({
+            'r_min': self.r_min,
+            'r_max': self.r_max,
         })
         return available_variables
 
@@ -1093,7 +1390,7 @@ class Solver2D(BaseSolver):
     :type shuffle: bool
     """
 
-    def __init__(self, pde_system, conditions, xy_min, xy_max,
+    def __init__(self, pde_system, conditions, xy_min=None, xy_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below

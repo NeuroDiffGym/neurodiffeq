@@ -306,8 +306,8 @@ def solve2D_system(
 
     if additional_loss_term:
         class CustomSolver2D(Solver2D):
-            def additional_loss(self, funcs, key):
-                return additional_loss_term(*funcs, *self._batch_examples[key])
+            def additional_loss(self, residual, funcs, coords):
+                return additional_loss_term(*funcs, *coords)
     else:
         class CustomSolver2D(Solver2D):
             pass

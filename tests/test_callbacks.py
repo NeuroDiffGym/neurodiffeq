@@ -4,6 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 import dill
 import shutil
 from pathlib import Path
+import numpy as np
 import os
 import pytest
 from neurodiffeq import diff
@@ -17,7 +18,9 @@ from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, Peri
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
-from neurodiffeq.callbacks import EveCallback, StopCallback
+from neurodiffeq.callbacks import SetCriterion, SetOptimizer
+from neurodiffeq.callbacks import EveCallback, StopCallback, ProgressBarCallBack
+from neurodiffeq.hypersolver import Hypersolver, Euler
 
 
 @pytest.fixture
@@ -35,6 +38,7 @@ def solver():
         conditions=[NoCondition()],
         t_min=0.0,
         t_max=1.0,
+        criterion='l2',
     )
 
 
@@ -342,3 +346,102 @@ def test_tensorboard_callback(solver, tmp_dir):
     default_path = Path('.') / 'runs'
     assert os.path.isdir(default_path)
     shutil.rmtree(default_path, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    argnames='criterion',
+    argvalues=['l1', torch.nn.modules.loss.L1Loss(), lambda r, f, x: torch.abs(r).mean()]
+)
+def test_set_criterion_callback_polymorphism(solver, criterion):
+    coords = torch.rand(10, 1, requires_grad=True)
+    funcs = torch.exp(coords * 1.01)
+    residuals = diff(funcs, coords) - funcs
+
+    callback = SetCriterion(criterion=criterion)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+
+def test_set_criterion_callback_reset(solver):
+    coords = torch.rand(10, 1, requires_grad=True)
+    funcs = torch.exp(coords * 1.01)
+    residuals = diff(funcs, coords) - funcs
+
+    # w/o resetting
+    callback = SetCriterion(criterion='l1', reset=False)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+    solver._set_criterion('l2')
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), (residuals ** 2).mean())
+
+    # w/ resetting
+    callback = SetCriterion(criterion='l1', reset=True)
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+    solver._set_criterion('l2')
+    callback(solver)
+    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+
+
+def test_set_optimizer_polymorphism(solver):
+    # passing an instance
+    params = [p for net in solver.nets for p in net.parameters()]
+    optimizer = torch.optim.ASGD(params, lr=0.123)
+    callback = SetOptimizer(optimizer)
+    callback(solver)
+    assert solver.optimizer is optimizer
+
+    # passing a class constructor w/ args and kwargs
+    optimizer = torch.optim.ASGD
+    lr, alpha = 0.1234, 0.5678
+    optimizer_args = (lr,)
+    optimizer_kwargs = dict(alpha=alpha)
+    callback = SetOptimizer(optimizer, optimizer_args, optimizer_kwargs)
+    callback(solver)
+    for p1, p2 in zip(solver.optimizer.param_groups[0]['params'], params):
+        assert p1 is p2
+    assert solver.optimizer.param_groups[0]['lr'] == lr
+    assert solver.optimizer.param_groups[0]['alpha'] == alpha
+
+
+def test_set_optimizer_reset(solver):
+    params = [p for net in solver.nets for p in net.parameters()]
+    optimizer = torch.optim.ASGD(params, lr=0.123)
+
+    # w/o resetting
+    callback = SetOptimizer(optimizer, reset=False)
+    callback(solver)
+    assert solver.optimizer is optimizer
+    solver.optimizer = None
+    callback(solver)
+    assert solver.optimizer is None
+
+    # w/ resetting
+    callback = SetOptimizer(optimizer, reset=True)
+    callback(solver)
+    assert solver.optimizer is optimizer
+    solver.optimizer = None
+    callback(solver)
+    assert solver.optimizer is optimizer
+
+
+def test_progress_bar(solver):
+    solver.fit(max_epochs=500, callbacks=[ProgressBarCallBack()])
+
+
+def test_progress_bar_hypersolver():
+    solver = Hypersolver(
+        func=lambda u, v, t: [v, -u],
+        u0=[1, 1],
+        t0=0,
+        tn=np.pi,
+        n_steps=314,
+        sol=lambda t: [torch.sin(t) + torch.cos(t), torch.cos(t) - torch.sin(t)],
+        numerical_solver=Euler(),
+    )
+    solver.fit(max_epochs=10000)
+    callback = ProgressBarCallBack()
+    callback(solver)

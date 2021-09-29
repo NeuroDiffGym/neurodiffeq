@@ -1,7 +1,27 @@
 # neurodiffeq
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/eada52ca726e4919923e213b81ee6420)](https://app.codacy.com/gh/odegym/neurodiffeq?utm_source=github.com&utm_medium=referral&utm_content=odegym/neurodiffeq&utm_campaign=Badge_Grade_Settings)
-![PyPI](https://img.shields.io/pypi/v/neurodiffeq?color=blueviolet&label=PyPI&logoColor=blueviolet) ![GitHub issues](https://img.shields.io/github/issues/NeuroDiffGym/neurodiffeq?color=green) [![Build Status](https://travis-ci.org/NeuroDiffGym/neurodiffeq.svg?branch=master)](https://travis-ci.org/NeuroDiffGym/neurodiffeq) [![codecov](https://codecov.io/gh/NeuroDiffGym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/NeuroDiffGym/neurodiffeq) [![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest) [![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
+![PyPI](https://img.shields.io/pypi/v/neurodiffeq?color=blueviolet&label=PyPI&logoColor=blueviolet) ![GitHub issues](https://img.shields.io/github/issues/NeuroDiffGym/neurodiffeq?color=green) [![Build Status](https://app.travis-ci.com/NeuroDiffGym/neurodiffeq.svg?branch=master)](https://app.travis-ci.com/NeuroDiffGym/neurodiffeq) [![codecov](https://codecov.io/gh/NeuroDiffGym/neurodiffeq/branch/master/graph/badge.svg)](https://codecov.io/gh/NeuroDiffGym/neurodiffeq) [![Documentation Status](https://readthedocs.org/projects/neurodiffeq/badge/?version=latest)](https://neurodiffeq.readthedocs.io/en/latest/?badge=latest) [![DOI](https://joss.theoj.org/papers/10.21105/joss.01931/status.svg)](https://doi.org/10.21105/joss.01931)
+
+# Citation
+
+```
+@article{chen2020neurodiffeq,
+  title={NeuroDiffEq: A Python package for solving differential equations with neural networks},
+  author={Chen, Feiyu and Sondak, David and Protopapas, Pavlos and Mattheakis, Marios and Liu, Shuheng and Agarwal, Devansh and Di Giovanni, Marco},
+  journal={Journal of Open Source Software},
+  volume={5},
+  number={46},
+  pages={1931},
+  year={2020}
+}
+```
+
+------
+
+:mortar_board: **Already familiar with neurodiffeq?** :point_down: **[Jump to FAQs](#faq).**
+
+------
 
 # Introduction
 
@@ -231,11 +251,27 @@ Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3)
 
 #### Q: How to use GPU for training?
 
-Simple. When importing neurodiffeq, the library automatically detects if CUDA is available on your machine. Since the library is based on PyTorch, it will set default tensor type to `torch.cuda.DoubleTensor` for GPU acceleration.
+Simple. When importing neurodiffeq, the library automatically detects if CUDA is available on your machine. Since the library is based on PyTorch, it will set default tensor type to `torch.cuda.DoubleTensor` for if a compatible GPU device is found.
 
 #### Q: How to use pretrained nets?
 
 Refer to Sections [Custom Networks](#custom-networks) and [Transfer Learning](#transfer-learning).
+
+#### Q: How to change the learning rate?
+
+The standard PyTorch way. 
+
+1. Build your networks as explained in [Custom Networks](#custom-networks): `nets = [FCNN(), FCN(), ...]`
+
+2. Instantiate a custom optimizer and pass all parameters of these networks to it
+
+   ```python
+   parameters = [p for net in nets for p in net.parameters()]  # list of paramters of all networks
+   MY_LEARNING_RATE = 5e-3
+   optimizer = torch.optim.Adam(parameters, lr=MY_LEARNING_RATE, ...)
+   ```
+
+3. Pass BOTH your `nets ` and your `optimizer` to the solver: `solver = Solver1D(..., nets=nets, optimizer=optimizer)`
 
 #### Q: I got a bad solution.
 
@@ -263,3 +299,4 @@ When contributing to this repository, we consider the following process:
 2. Go through [Contribution Guidelines](CONTRIBUTING.md).
 3. Make the change on a forked repository and update the README.md if changes are made to the interface.
 4. Open a pull request. 
+
