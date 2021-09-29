@@ -80,6 +80,7 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
+        - If set to 'chebyshev', the points will be chebyshev nodes of the first kind over [t_min, t_max].
 
         defaults to 'uniform'.
     :type method: str, optional
@@ -116,6 +117,11 @@ class Generator1D(BaseGenerator):
         elif method == 'log-spaced-noisy':
             self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
+        elif method == 'chebyshev':
+            examples = torch.cos((torch.arange(size) / float(size) + 0.5) * np.pi)
+            self.examples = ((t_max + t_min) + (t_max - t_min) * examples) / 2
+            self.examples.requires_grad_(True)
+            self.getter = lambda: self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -427,7 +433,7 @@ class GeneratorND(BaseGenerator):
                 r_min_exp = base[i] ** r_min[i]
                 r_max_exp = base[i] ** r_max[i]
                 x = torch.linspace(r_min_exp, r_max_exp, grid[i], requires_grad=True)
-                x = (torch.log(x)/np.log(base[i])).clone().detach().requires_grad_(True)
+                x = (torch.log(x) / np.log(base[i])).clone().detach().requires_grad_(True)
                 noise_rstd_tensor = (noise_rstd * x).clone().detach()
 
             else:
@@ -444,7 +450,7 @@ class GeneratorND(BaseGenerator):
         self.grid_std = [grid_std[j].flatten() for j in range(N)]
         if noisy:
             if abs_value:
-                self.getter = lambda: tuple(torch.abs(torch.normal(self.grid_r[n], self.grid_std[n]))for n in range(N))
+                self.getter = lambda: tuple(torch.abs(torch.normal(self.grid_r[n], self.grid_std[n])) for n in range(N))
             else:
                 self.getter = lambda: tuple(torch.normal(self.grid_r[n], self.grid_std[n]) for n in range(N))
         else:
