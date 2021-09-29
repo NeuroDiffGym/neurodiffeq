@@ -15,8 +15,7 @@ def pde_system(u, v, w, x, y):
 
 
 def get_rfx(n_input, n_output, n_equation):
-    coords = [torch.rand((N, 1), requires_grad=True) for _ in range(n_input)
-              ]
+    coords = [torch.rand((N, 1), requires_grad=True) for _ in range(n_input)]
     coords_tensor = torch.cat(coords, dim=1)
     funcs = [torch.sigmoid(torch.sum(coords_tensor, dim=1, keepdim=True)) for _ in range(n_output)]
     residual = [diff(funcs[0], coords[0]) + funcs[0] for _ in range(n_equation)]
