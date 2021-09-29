@@ -13,7 +13,7 @@ def _chebyshev_first(a, b, n):
 
 
 def _chebyshev_second(a, b, n):
-    nodes = torch.cos(torch.arange(n) / float(n-1) * np.pi)
+    nodes = torch.cos(torch.arange(n) / float(n - 1) * np.pi)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
@@ -178,6 +178,8 @@ class Generator2D(BaseGenerator):
 
             - If set to 'equally-spaced', the points will be fixed to the grid specified.
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+            - If set to 'chebyshev' or 'chebyshev1', the points will be 2-D chebyshev points of the first kind.
+            - If set to 'chebyshev2', the points will be 2-D chebyshev points of the second kind.
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -208,19 +210,14 @@ class Generator2D(BaseGenerator):
         if method == 'equally-spaced':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            # noinspection PyTypeChecker
             grid_x, grid_y = torch.meshgrid(x, y)
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
             self.getter = lambda: (self.grid_x, self.grid_y)
-
         elif method == 'equally-spaced-noisy':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            # noinspection PyTypeChecker
             grid_x, grid_y = torch.meshgrid(x, y)
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
             if xy_noise_std:
                 self.noise_xstd, self.noise_ystd = xy_noise_std
             else:
@@ -230,6 +227,18 @@ class Generator2D(BaseGenerator):
                 torch.normal(mean=self.grid_x, std=self.noise_xstd),
                 torch.normal(mean=self.grid_y, std=self.noise_ystd)
             )
+        elif method in ['chebyshev1', 'chebyshev']:
+            x = _chebyshev_first(xy_min[0], xy_max[0], grid[0])
+            y = _chebyshev_first(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+            self.getter = lambda: (self.grid_x, self.grid_y)
+        elif method == 'chebyshev2':
+            x = _chebyshev_second(xy_min[0], xy_max[0], grid[0])
+            y = _chebyshev_second(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+            self.getter = lambda: (self.grid_x, self.grid_y)
         else:
             raise ValueError(f'Unknown method: {method}')
 
