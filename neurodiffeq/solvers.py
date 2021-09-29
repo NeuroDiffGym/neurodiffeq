@@ -592,7 +592,9 @@ class BaseSolution(ABC):
             If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
             Defaults to False.
         :type to_numpy: bool
-        :return: Dependent variables evaluated at given points.
+        :return:
+            Dependent variables evaluated at given points.
+            The shape of output will be that of the first input coordinate.
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
         coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]
