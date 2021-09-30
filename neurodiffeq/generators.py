@@ -282,6 +282,8 @@ class Generator3D(BaseGenerator):
 
             - If set to 'equally-spaced', the points will be fixed to the grid specified.
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+            - If set to 'chebyshev' or 'chebyshev1', the points will be 3-D chebyshev points of the first kind.
+            - If set to 'chebyshev2', the points will be 3-D chebyshev points of the second kind.
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -384,6 +386,10 @@ class GeneratorND(BaseGenerator):
               the points will be fixed to a set of log-spaced points that go from r_min[i] to r_max[i].
             - If set to 'exp-spaced',
               the points will be fixed to a set of exp-spaced points that go from r_min[i] to r_max[i].
+            - If set to 'chebyshev' or 'chebyshev1',
+              the points will be chebyshev points of the first kind that go from r_min[i] to r_max[i].
+            - If set to 'chebyshev2',
+              the points will be chebyshev points of the second kind that go from r_min[i] to r_max[i].
 
             Defaults to ['equally-spaced', 'equally-spaced'].
         :type methods: list[str, str, ... , str], or it can be str if N=1, optional
@@ -409,33 +415,24 @@ class GeneratorND(BaseGenerator):
 
         if isinstance(methods, str):
             methods = [methods]
-
         if isinstance(grid, int):
             grid = (grid,)
-
         if isinstance(r_min, float) or isinstance(r_min, int):
             r_min = (r_min,)
-
         if isinstance(r_max, float) or isinstance(r_max, int):
             r_max = (r_max,)
-
         if isinstance(r_noise_std, float) or isinstance(r_noise_std, int):
             r_noise_std = (r_noise_std,)
 
         N = len(grid)
-
         cut = kwargs.pop('cut', tuple((None, None) for i in range(N)))
-
         base = kwargs.pop('base', tuple(10 for i in range(N)))
-
         abs_value = kwargs.pop('abs_value', False)
 
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
-
         if isinstance(base, float) or isinstance(base, int):
             base = (base,)
-
         if isinstance(cut[0], float) or isinstance(cut[0], int) or cut[0] is None:
             cut = (cut,)
 
@@ -453,25 +450,27 @@ class GeneratorND(BaseGenerator):
             if method == 'equally-spaced':
                 x = torch.linspace(r_min[i], r_max[i], grid[i], requires_grad=True)
                 noise_rstd_tensor = noise_rstd * torch.ones(x.size())
-
             elif method == 'uniform':
                 x = torch.zeros(grid[i], requires_grad=True)
                 x = x + torch.rand(grid[i]) * (r_max[i] - r_min[i]) + r_min[i]
                 noise_rstd_tensor = torch.zeros(x.size())
-
             elif method == 'log-spaced':
                 r_min_log = np.log10(r_min[i])
                 r_max_log = np.log10(r_max[i])
                 x = torch.logspace(r_min_log, r_max_log, grid[i], requires_grad=True)
                 noise_rstd_tensor = (noise_rstd * torch.logspace(r_min_log, r_max_log, grid[i]))
-
             elif method == 'exp-spaced':
                 r_min_exp = base[i] ** r_min[i]
                 r_max_exp = base[i] ** r_max[i]
                 x = torch.linspace(r_min_exp, r_max_exp, grid[i], requires_grad=True)
                 x = (torch.log(x) / np.log(base[i])).clone().detach().requires_grad_(True)
                 noise_rstd_tensor = (noise_rstd * x).clone().detach()
-
+            elif method in ['chebyshev', 'chebyshev1']:
+                x = _chebyshev_first(r_min[i], r_max[i], grid[i])
+                noise_rstd_tensor = noise_rstd * torch.ones(x.size())
+            elif method == 'chebyshev2':
+                x = _chebyshev_second(r_min[i], r_max[i], grid[i])
+                noise_rstd_tensor = noise_rstd * torch.ones(x.size())
             else:
                 raise ValueError(f'Unknown method: {method}')
 
