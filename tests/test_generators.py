@@ -20,6 +20,7 @@ from neurodiffeq.generators import ResampleGenerator
 from neurodiffeq.generators import BatchGenerator
 from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import MeshGenerator
+from neurodiffeq.generators import _chebyshev_first, _chebyshev_second
 
 
 @pytest.fixture(autouse=True)
@@ -31,21 +32,6 @@ def magic():
 
 
 def _check_shape_and_grad(generator, target_size, *xs):
-    if target_size is not None:
-        if target_size != generator.size:
-            print(f"size mismatch {target_size} != {generator.size}", file=sys.stderr)
-            return False
-    for x in xs:
-        if x.shape != (generator.size,):
-            print(f"Bad shape: {x.shape} != {generator.size}", file=sys.stderr)
-            return False
-        if not x.requires_grad:
-            print(f"Doesn't require grad: {x}", file=sys.stderr)
-            return False
-    return True
-
-
-def _check_shape_and_grad_for_N(generator, target_size, xs):
     if target_size is not None:
         if target_size != generator.size:
             print(f"size mismatch {target_size} != {generator.size}", file=sys.stderr)
@@ -79,6 +65,21 @@ def _check_iterable_equal(x, y, eps=1e-5):
     return True
 
 
+def test_chebyshev_first():
+    x = _chebyshev_first(-1, 1, 1000).detach().cpu().numpy()
+    assert -1 < x.min() < -0.99 and 0.99 < x.max() < 1
+    delta = x[:-1] - x[1:]
+    assert (delta > 0).all()
+
+
+def test_chebyshev_second():
+    x = _chebyshev_second(-1, 1, 1000).detach().cpu().numpy()
+    assert x.min() == x[-1] and x.max() == x[0]
+    assert np.isclose(x[-1], -1) and np.isclose(x[0], 1)
+    delta = x[:-1] - x[1:]
+    assert (delta > 0).all()
+
+
 def test_generator1d():
     size = 32
     generator = Generator1D(size=size, t_min=0.0, t_max=2.0, method='uniform')
@@ -103,6 +104,18 @@ def test_generator1d():
 
     generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy',
                             noise_std=0.01)
+    x = generator.getter()
+    assert _check_shape_and_grad(generator, size, x)
+
+    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev')
+    x = generator.getter()
+    assert _check_shape_and_grad(generator, size, x)
+
+    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev1')
+    x = generator.getter()
+    assert _check_shape_and_grad(generator, size, x)
+
+    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev2')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
@@ -134,6 +147,24 @@ def test_generator2d():
     assert _check_shape_and_grad(generator, size, x, y)
     assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
 
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev1')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
+    generator = Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='chebyshev2')
+    x, y = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y)
+    assert _check_boundary((x, y), (x_min, y_min), (x_max, y_max))
+
+    with raises(ValueError):
+        Generator2D(grid=grid, xy_min=(x_min, y_min), xy_max=(x_max, y_max), method='magic')
+
     str(generator)
     repr(generator)
 
@@ -156,11 +187,32 @@ def test_generator3d():
     assert _check_shape_and_grad(generator, size, x, y, z)
     assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
 
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev1')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
+    generator = Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max),
+                            method='chebyshev2')
+    x, y, z = generator.getter()
+    assert _check_shape_and_grad(generator, size, x, y, z)
+    assert _check_boundary((x, y, z), (x_min, y_min, z_min), (x_max, y_max, z_max))
+
+    with raises(ValueError):
+        Generator3D(grid=grid, xyz_min=(x_min, y_min, z_min), xyz_max=(x_max, y_max, z_max), method='magic')
+
     str(generator)
     repr(generator)
 
 
-def test_generatorNd():
+def test_generator_nd():
     grid = (5,)
     r_min = (0.1,)
     r_max = (1.0,)
@@ -171,59 +223,60 @@ def test_generatorNd():
         size = np.prod(grid)
 
         methods = ['uniform' for m in range(len(grid))]
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=False)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
         assert _check_boundary(generator.getter(), r_min, r_max)
 
         methods = ['equally-spaced' for m in range(len(grid))]
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=True)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=True, r_noise_std=r_noise_std)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=False)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True,
+                                r_noise_std=r_noise_std)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
         assert _check_boundary(generator.getter(), r_min, r_max)
 
         methods = ['log-spaced' for m in range(len(grid))]
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=True)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=False)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
         assert _check_boundary(generator.getter(), r_min, r_max)
 
         methods = ['exp-spaced' for m in range(len(grid))]
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=True)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
-
-        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                methods=methods, noisy=False)
-        assert _check_shape_and_grad_for_N(generator, size, generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
         # No check_boundary because doing 10 ** x and then log10() does not always return exactly x
+
+        methods = ['chebyshev' for m in range(len(grid))]
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        assert _check_boundary(generator.getter(), r_min, r_max)
+
+        methods = ['chebyshev1' for m in range(len(grid))]
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        assert _check_boundary(generator.getter(), r_min, r_max)
+
+        methods = ['chebyshev2' for m in range(len(grid))]
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
+        generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+        assert _check_shape_and_grad(generator, size, *generator.getter())
 
         if len(grid) == 3:
             methods = ['uniform', 'equally-spaced', 'log-spaced']
-
-            generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                    methods=methods, noisy=True)
-            assert _check_shape_and_grad_for_N(generator, size, generator.getter())
-
-            generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max,
-                                    methods=methods, noisy=False)
-            assert _check_shape_and_grad_for_N(generator, size, generator.getter())
+            generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=True)
+            assert _check_shape_and_grad(generator, size, *generator.getter())
+            generator = GeneratorND(grid=grid, r_min=r_min, r_max=r_max, methods=methods, noisy=False)
+            assert _check_shape_and_grad(generator, size, *generator.getter())
             assert _check_boundary(generator.getter(), r_min, r_max)
 
         grid += (grid[-1] + 1,)
