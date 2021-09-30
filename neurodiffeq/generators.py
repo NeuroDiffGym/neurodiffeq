@@ -6,7 +6,7 @@ from typing import List
 
 
 def _chebyshev_first(a, b, n):
-    nodes = torch.cos((torch.arange(n) / float(n) + 0.5) * np.pi)
+    nodes = torch.cos(((torch.arange(n) + 0.5) / n) * np.pi)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes

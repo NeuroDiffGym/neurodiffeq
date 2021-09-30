@@ -20,6 +20,7 @@ from neurodiffeq.generators import ResampleGenerator
 from neurodiffeq.generators import BatchGenerator
 from neurodiffeq.generators import SamplerGenerator
 from neurodiffeq.generators import MeshGenerator
+from neurodiffeq.generators import _chebyshev_first, _chebyshev_second
 
 
 @pytest.fixture(autouse=True)
@@ -77,6 +78,21 @@ def _check_iterable_equal(x, y, eps=1e-5):
             print(f"Different values: {a} != {b}", file=sys.stderr)
             return False
     return True
+
+
+def test_chebyshev_first():
+    x = _chebyshev_first(-1, 1, 1000).detach().cpu().numpy()
+    assert -1 < x.min() < -0.99 and 0.99 < x.max() < 1
+    delta = x[:-1] - x[1:]
+    assert (delta > 0).all()
+
+
+def test_chebyshev_second():
+    x = _chebyshev_second(-1, 1, 1000).detach().cpu().numpy()
+    assert x.min() == x[-1] and x.max() == x[0]
+    assert np.isclose(x[-1], -1) and np.isclose(x[0], 1)
+    delta = x[:-1] - x[1:]
+    assert (delta > 0).all()
 
 
 def test_generator1d():
