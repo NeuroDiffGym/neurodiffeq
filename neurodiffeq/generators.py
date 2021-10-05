@@ -1,8 +1,14 @@
 """This module contains atomic generator classes and useful tools to construct complex generators out of atomic ones
 """
 import torch
+import torch.nn as nn
 import numpy as np
 from typing import List
+from neurodiffeq.networks import FCNN, Resnet
+import time
+from scipy.spatial import KDTree
+from scipy.special import gamma, digamma
+import numpy as np
 
 
 class BaseGenerator:
@@ -11,6 +17,7 @@ class BaseGenerator:
 
     def __init__(self):
         self.size = None
+        self._requires_training = False
 
     def get_examples(self) -> List[torch.Tensor]:
         pass  # pragma: no cover
@@ -947,12 +954,17 @@ class SamplerGenerator(BaseGenerator):
         super(SamplerGenerator, self).__init__()
         self.generator = generator
         self.size = generator.size
+        self._requires_training = generator._requires_training
+        self.examples_history = []
+        if self._requires_training:
+          self.C1 = generator.C1
 
     def get_examples(self) -> List[torch.Tensor]:
         samples = self.generator.get_examples()
         if isinstance(samples, torch.Tensor):
             samples = [samples]
         samples = [u.reshape(-1, 1) for u in samples]
+        self.examples_history.append([sample.detach().numpy() for sample in samples])
         return samples
 
     def _internal_vars(self) -> dict:
@@ -961,3 +973,201 @@ class SamplerGenerator(BaseGenerator):
             generator=self.generator,
         ))
         return d
+
+    def generator_loss(self):
+        if self._requires_training == True:
+          return self.generator.generator_loss
+        else:
+          return 0.0
+
+    def get_entropy(self):
+      return get_entropy_from_generator(self.generator)
+  
+
+
+class GaussianHistogram(nn.Module):
+    def __init__(self, bins, min, max, sigma):
+        super(GaussianHistogram, self).__init__()
+        self.bins = bins
+        self.min = min
+        self.max = max
+        self.sigma = sigma
+        self.delta = float(max - min) / float(bins)
+        self.centers = float(min) + self.delta * (torch.arange(bins).float() + 0.5)
+
+    def forward(self, x):
+        x = torch.unsqueeze(x, 0) - torch.unsqueeze(self.centers, 1)
+        x = torch.exp(-0.5*(x/self.sigma)**2) / (self.sigma * np.sqrt(np.pi*2)) * self.delta
+        x = x.sum(dim=1)
+        return x
+
+def get_entropy_from_generator(generator):
+  size = generator.size
+  t_min = generator.t_min
+  t_max = generator.t_max
+  if generator.method == 'log-spaced':
+    t_min = 10**t_min
+    t_max = 10**t_max
+ 
+  more_examples = torch.Tensor(0)
+  num_examples = max(100, size)
+  for i in range(num_examples//size):
+    more_examples = torch.cat((more_examples, generator.get_examples()))
+  gaussian_h = GaussianHistogram(bins=2*size, min = t_min, max = t_max, sigma = (t_max-t_min)/(2*size))
+  hist_tensor = gaussian_h(more_examples)
+  prob_fn = hist_tensor/hist_tensor.sum()
+  generator.prob_fn = prob_fn.detach().numpy()
+  generator.centers = gaussian_h.centers.detach().numpy()
+  entropy = ((prob_fn*prob_fn.log())).sum()
+  return -entropy.item()
+    
+def get_h(points, k):
+  points_np = points.detach().numpy()
+  n, d = points_np.shape
+  p = 10
+  log_c_d = (d/2.) * np.log(np.pi) - np.log(gamma(d/2. +1))
+  kdtree = KDTree(points_np)
+  npdist, indices = kdtree.query(points_np, k= k+1)
+  kth_indices = indices[:,-1]
+  distances = (((points.view(n, 1, d) - points[indices,:][:,1:,:]).abs()).max(axis = 2)[0]).mean(axis=1)
+  sum_log_dist = torch.sum(torch.log(2*distances))
+  h = -digamma(k) + digamma(n) + log_c_d + (d / float(n)) * sum_log_dist
+  return h
+
+class NNGenerator1D(BaseGenerator):
+  def __init__(self, size, t_min=0.0, t_max=1.0, C1 = 0.1, method = 'equally-spaced', 
+        loss = 'entropy++',z_size = 8, hidden_units = (16,16), output_std = 0):
+    super().__init__()
+    self.t_min = t_min
+    self.t_max = t_max
+    self.C1 = C1
+    self.method = method
+    self.adversarial = True
+    self.output_std = output_std
+    self.generator = Generator1D(size, 0, 1, method = method)
+    self.size = self.generator.size
+    self.z_size = z_size
+    self.loss = loss
+    self.net = FCNN(n_input_units=z_size, n_output_units=size, hidden_units=hidden_units, actv= nn.LeakyReLU, last_actv = nn.Tanh)
+    self.metrics_history = {'generator_loss':[]}
+    self._requires_training = True
+    self.generator_loss = 0.0
+  
+  def sample_from_generator(self): 
+    z_noise = torch.randn(size = (self.z_size,))
+    raw_examples = self.net(z_noise)    
+    examples = ((raw_examples+1)/2)*(self.t_max-self.t_min) + self.t_min     
+    return examples
+
+  def calculate_loss(self, examples):
+    eps = 1e-5
+    if self.loss == 'variance':
+      self.generator_loss = self.C1*(1)/(torch.var(examples)+eps)
+    elif self.loss == 'l2-sorted' or self.loss == 'l1-sorted':
+      sorted_examples, _ = torch.sort(examples)
+      uniform_samples = torch.linspace(self.t_min, self.t_max, self.size)
+      if self.loss == 'l2-sorted':
+        self.generator_loss = self.C1*torch.linalg.norm((sorted_examples - uniform_samples),ord=2)
+      elif self.loss == 'l1-sorted':
+        self.generator_loss = self.C1*torch.linalg.norm((sorted_examples - uniform_samples),ord=1)
+    elif self.loss == 'entropy':
+      more_examples = examples #torch.Tensor(0)
+      num_examples = max(100, self.size)
+      for i in range(num_examples//self.size):
+        more_examples = torch.cat((more_examples, self.sample_from_generator()))
+      self.me = more_examples
+      gaussian_h = GaussianHistogram(bins=self.size, min = self.t_min, max = self.t_max, sigma = (self.t_max-self.t_min)/(2*self.size))
+      hist_tensor = gaussian_h(more_examples)
+      hist_tensor = hist_tensor + 1e-5
+      prob_fn = hist_tensor/hist_tensor.sum()
+      self.prob_fn = prob_fn
+      entropy = ((prob_fn*prob_fn.log())).sum()
+      self.generator_loss = self.C1*entropy #+ (self.C1/50)*((examples-self.t_min)**2).mean()
+      self.metrics_history['generator_loss'].append(self.generator_loss.detach().item())
+    elif self.loss == "entropy++":
+      entropy = -get_h(examples.view(-1,1), k = 3)
+      self.generator_loss = self.C1*entropy
+      self.metrics_history['generator_loss'].append(self.generator_loss.detach().item())
+
+  def get_examples(self):
+    examples = self.sample_from_generator()
+    self.calculate_loss(examples)
+    if self.output_std > 0:
+      examples = examples + torch.normal(mean = 0, std = self.output_std, size = (self.size,))
+    return examples
+  
+  def _internal_vars(self) -> dict:
+    d = super(NNGenerator1D, self)._internal_vars()
+    d.update(dict(
+        generator=self.generator,
+        C1 = self.C1,
+        net = self.net,
+        requires_training = self._requires_training
+    ))
+    return d
+
+class NNGenerator2D(BaseGenerator):
+  def __init__(self, size, xy_min = (0.0, 0.0) , xy_max = (1.0, 1.0), C1 = 0.1, method = 'equally-spaced', 
+                loss = 'entropy++', z_size = 16, hidden_units = (32,32), output_std = 0):
+    super().__init__()
+    self.xy_min = xy_min
+    self.xy_max = xy_max
+    self.C1 = C1
+    self.method = method
+    self.adversarial = True
+    self.output_std = output_std
+    self.size = size
+    self.z_size = z_size
+    self.loss = loss
+    self.net = FCNN(n_input_units=z_size, n_output_units=2*size, hidden_units=hidden_units, actv= nn.LeakyReLU, last_actv = nn.Tanh)
+    self.metrics_history = {'generator_loss':[]}
+    self._requires_training = True
+    self.generator_loss = 0.0
+  
+  def sample_from_generator(self): 
+    examples_batches = []
+    z_noise = torch.randn(size = (self.z_size,))
+    raw_examples = self.net(z_noise).view(self.size, 2)
+    examples = ((raw_examples+1)/2)*(torch.tensor(self.xy_max).reshape(1,2) \
+                        - torch.tensor(self.xy_min).reshape(1,2)) \
+                        + torch.tensor(self.xy_min).reshape(1,2)  
+    return [examples[:,0],examples[:,1]]
+
+  def calculate_loss(self, examples):
+    eps = 1e-5
+    if self.loss == 'entropy':
+      more_examples = examples #torch.Tensor(0)
+      num_examples = max(200, 5*self.size)
+      for i in range(num_examples//self.size):
+        more_examples = torch.cat((more_examples, self.sample_from_generator()))
+      self.me = more_examples
+      gaussian_h = GaussianHistogram(bins=self.size, min = self.t_min, max = self.t_max, sigma = (self.t_max-self.t_min)/(2*self.size))
+      hist_tensor = gaussian_h(more_examples)
+      hist_tensor = hist_tensor + 1e-5
+      prob_fn = hist_tensor/hist_tensor.sum()
+      self.prob_fn = prob_fn
+      entropy = ((prob_fn*prob_fn.log())).sum()
+      self.generator_loss = self.C1*entropy
+      self.metrics_history['generator_loss'].append(self.generator_loss.detach().item())
+    elif self.loss == "entropy++":
+      entropy = -get_h(torch.stack(examples, axis = 1), k = 3)
+      self.generator_loss = self.C1*entropy
+      self.metrics_history['generator_loss'].append(self.generator_loss.detach().item())
+
+  def get_examples(self):
+    examples = self.sample_from_generator()
+    self.calculate_loss(examples)
+    if self.output_std > 0:
+      examples = examples + torch.normal(mean = 0, std = self.output_std, size = (self.size,))
+    return examples
+  
+  
+  def _internal_vars(self) -> dict:
+    d = super(NNGenerator2D, self)._internal_vars()
+    d.update(dict(
+        generator=self.generator,
+        C1 = self.C1,
+        net = self.net,
+        requires_training = self._requires_training
+    ))
+    return d

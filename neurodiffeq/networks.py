@@ -24,10 +24,10 @@ class FCNN(nn.Module):
     """
 
     def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=None, n_hidden_layers=None,
-                 actv=nn.Tanh, hidden_units=None):
+                 actv=nn.Tanh, hidden_units=None, BN = False, last_actv = None):
         r"""Initializer method.
         """
-        super(FCNN, self).__init__()
+        super().__init__()
 
         # FORWARD COMPATIBILITY
         # If only one of {n_hidden_unit, n_hidden_layers} is specified, fill-in the other one
@@ -60,9 +60,13 @@ class FCNN(nn.Module):
         layers = []
         for i in range(len(units) - 1):
             layers.append(nn.Linear(units[i], units[i + 1]))
+            if BN:
+              layers.append(nn.BatchNorm1d(num_features=units[i+1]))
             layers.append(actv())
         # There's not activation in after the last layer
         layers.append(nn.Linear(units[-1], n_output_units))
+        if last_actv:
+          layers.append(last_actv())
         self.NN = torch.nn.Sequential(*layers)
 
     def forward(self, t):
