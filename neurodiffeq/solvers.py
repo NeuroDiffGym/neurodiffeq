@@ -409,7 +409,7 @@ class BaseSolver(ABC, PretrainedSolver):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
 
         If ``callbacks`` is passed, callbacks are run, one at a time,
-        after training and validating and updating best model but before monitor checking
+        after training, validating and updating best model.
 
         :param max_epochs: Number of epochs to run.
         :type max_epochs: int
@@ -420,7 +420,7 @@ class BaseSolver(ABC, PretrainedSolver):
 
         .. note::
             1. This method does not return solution, which is done in the ``.get_solution()`` method.
-            2. A callback function `cb(solver)` can set ``solver._stop_training`` to True to perform early stopping.
+            2. A callback ``cb(solver)`` can set ``solver._stop_training`` to True to perform early stopping.
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
