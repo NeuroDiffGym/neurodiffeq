@@ -8,8 +8,8 @@ class FCNN(nn.Module):
 
     :param n_input_units: Number of units in the input layer, defaults to 1.
     :type n_input_units: int
-    :param n_input_units: Number of units in the output layer, defaults to 1.
-    :type n_input_units: int
+    :param n_output_units: Number of units in the output layer, defaults to 1.
+    :type n_output_units: int
     :param n_hidden_units: [DEPRECATED] Number of hidden units in each layer
     :type n_hidden_units: int
     :param n_hidden_layers: [DEPRECATED] Number of hidden mappsings (1 larger than the actual number of hidden layers)
@@ -17,7 +17,7 @@ class FCNN(nn.Module):
     :param actv: The activation layer constructor after each hidden layer, defaults to `torch.nn.Tanh`.
     :type actv: class
     :param hidden_units: Number of hidden units in each hidden layer. Defaults to (32, 32).
-    :param hidden_units: Tuple[int]
+    :type hidden_units: Tuple[int]
 
     .. note::
         The arguments "n_hidden_units" and "n_hidden_layers" are deprecated in favor of "hidden_units".
