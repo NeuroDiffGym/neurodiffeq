@@ -19,6 +19,20 @@ def _chebyshev_second(a, b, n):
     return nodes
 
 
+def _compute_log_negative(t_min, t_max, whence):
+    if t_min <= 0 or t_max <= 0:
+        suggested_t_min = 10 ** t_min
+        suggested_t_max = 10 ** t_max
+        raise ValueError(
+            f"In this version of neurodiffeq, "
+            f"the interval [{t_min}, {t_max}] cannot be used for log-sampling in {whence} "
+            f"If you meant to sample from the interval [10 ^ {t_min}, 10 ^ {t_max}], "
+            f"please pass in {suggested_t_min} and {suggested_t_max}"
+        )
+
+    return np.log10(t_min), np.log10(t_max)
+
+
 class BaseGenerator:
     """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field.
     """
@@ -127,10 +141,12 @@ class Generator1D(BaseGenerator):
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         elif method == 'log-spaced':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            start, end = _compute_log_negative(t_min, t_max, self.__class__)
+            self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: self.examples
         elif method == 'log-spaced-noisy':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            start, end = _compute_log_negative(t_min, t_max, self.__class__)
+            self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         elif method in ['chebyshev', 'chebyshev1']:
             self.examples = _chebyshev_first(t_min, t_max, size)

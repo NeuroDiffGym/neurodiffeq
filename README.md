@@ -237,7 +237,7 @@ You can use `Generator2D`, `Generator3D`, etc. for sampling points in higher dim
 
 ```python
 g1 = Generator1D(1024, 2.0, 3.0, method='uniform')
-g2 = Generator1D(1024, -1.0, 0.0, method='log-spaced-noisy', noise_std=0.001)
+g2 = Generator1D(1024, 0.1, 1.0, method='log-spaced-noisy', noise_std=0.001)
 g = g1 * g2
 ```
 

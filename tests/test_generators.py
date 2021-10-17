@@ -80,6 +80,19 @@ def test_chebyshev_second():
     assert (delta > 0).all()
 
 
+@pytest.mark.parametrize(argnames='method', argvalues=['log-spaced', 'log-spaced-noisy'])
+def test_generator1d_log_spaced_input(method):
+    size = 32
+    with pytest.raises(ValueError):
+        Generator1D(size=size, t_min=0.0, t_max=1.0, method=method)
+    with pytest.raises(ValueError):
+        Generator1D(size=size, t_min=1.0, t_max=0.0, method=method)
+    with pytest.raises(ValueError):
+        Generator1D(size=size, t_min=-1.0, t_max=1.0, method=method)
+    with pytest.raises(ValueError):
+        Generator1D(size=size, t_min=1.0, t_max=-1.0, method=method)
+
+
 def test_generator1d():
     size = 32
     generator = Generator1D(size=size, t_min=0.0, t_max=2.0, method='uniform')
@@ -94,28 +107,28 @@ def test_generator1d():
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced')
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='log-spaced')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy')
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='log-spaced-noisy')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='log-spaced-noisy',
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='log-spaced-noisy',
                             noise_std=0.01)
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev')
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='chebyshev')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev1')
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='chebyshev1')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
-    generator = Generator1D(size=size, t_min=np.log10(0.1), t_max=np.log10(2.0), method='chebyshev2')
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='chebyshev2')
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
