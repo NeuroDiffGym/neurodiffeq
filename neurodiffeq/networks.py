@@ -18,13 +18,17 @@ class FCNN(nn.Module):
     :type actv: class
     :param hidden_units: Number of hidden units in each hidden layer. Defaults to (32, 32).
     :param hidden_units: Tuple[int]
+    :param batch_normalize: Whether do batch normalization, defaults to False.
+    :param batch_normalize: bool
+    :param last_actv: The activation layer constructor for last layer.
+    :param last_actv: class
 
     .. note::
         The arguments "n_hidden_units" and "n_hidden_layers" are deprecated in favor of "hidden_units".
     """
 
     def __init__(self, n_input_units=1, n_output_units=1, n_hidden_units=None, n_hidden_layers=None,
-                 actv=nn.Tanh, hidden_units=None, BN = False, last_actv = None):
+                 actv=nn.Tanh, hidden_units=None, batch_normalize=False, last_actv=None):
         r"""Initializer method.
         """
         super().__init__()
@@ -60,13 +64,13 @@ class FCNN(nn.Module):
         layers = []
         for i in range(len(units) - 1):
             layers.append(nn.Linear(units[i], units[i + 1]))
-            if BN:
-              layers.append(nn.BatchNorm1d(num_features=units[i+1]))
+            if batch_normalize:
+                layers.append(nn.BatchNorm1d(num_features=units[i + 1]))
             layers.append(actv())
         # There's not activation in after the last layer
         layers.append(nn.Linear(units[-1], n_output_units))
         if last_actv:
-          layers.append(last_actv())
+            layers.append(last_actv())
         self.NN = torch.nn.Sequential(*layers)
 
     def forward(self, t):
