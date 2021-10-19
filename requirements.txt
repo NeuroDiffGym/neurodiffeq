@@ -9,4 +9,5 @@ pandas
 seaborn
 dill
 tensorboard
+tqdm
 requests
