@@ -1,12 +1,16 @@
-import torch
+import sys
 import warnings
-import torch.nn as nn
 import inspect
 from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
+
+import torch
+import torch.nn as nn
 from torch.optim import Adam
+from tqdm import tqdm
+
 from .solvers_utils import PretrainedSolver
 from .networks import FCNN
 from ._version_utils import deprecated_alias
@@ -405,11 +409,11 @@ class BaseSolver(ABC, PretrainedSolver):
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, callbacks=(), **kwargs):
+    def fit(self, max_epochs, callbacks=(), tqdm_file=sys.stderr, **kwargs):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
 
         If ``callbacks`` is passed, callbacks are run, one at a time,
-        after training and validating and updating best model but before monitor checking
+        after training, validating and updating best model.
 
         :param max_epochs: Number of epochs to run.
         :type max_epochs: int
@@ -417,10 +421,14 @@ class BaseSolver(ABC, PretrainedSolver):
             A list of callback functions.
             Each function should accept the ``solver`` instance itself as its **only** argument.
         :rtype callbacks: list[callable]
+        :param tqdm_file:
+            File to write tqdm progress bar. If set to None, tqdm is not used at all.
+            Defaults to ``sys.stderr``.
+        :type tqdm_file: io.StringIO or _io.TextIOWrapper
 
         .. note::
             1. This method does not return solution, which is done in the ``.get_solution()`` method.
-            2. A callback function `cb(solver)` can set ``solver._stop_training`` to True to perform early stopping.
+            2. A callback ``cb(solver)`` can set ``solver._stop_training`` to True to perform early stopping.
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
@@ -433,7 +441,18 @@ class BaseSolver(ABC, PretrainedSolver):
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')  # pragma: no cover
 
-        for local_epoch in range(max_epochs):
+        if tqdm_file is None:
+            loop = range(max_epochs)
+        else:
+            loop = tqdm(
+                range(max_epochs),
+                desc='Training Progress',
+                colour='blue',
+                file=tqdm_file,
+                dynamic_ncols=True,
+            )
+
+        for local_epoch in loop:
             # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
@@ -592,7 +611,9 @@ class BaseSolution(ABC):
             If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
             Defaults to False.
         :type to_numpy: bool
-        :return: Dependent variables evaluated at given points.
+        :return:
+            Dependent variables evaluated at given points.
+            The shape of output will be that of the first input coordinate.
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
         coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]

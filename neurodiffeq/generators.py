@@ -5,6 +5,34 @@ import numpy as np
 from typing import List
 
 
+def _chebyshev_first(a, b, n):
+    nodes = torch.cos(((torch.arange(n) + 0.5) / n) * np.pi)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
+
+def _chebyshev_second(a, b, n):
+    nodes = torch.cos(torch.arange(n) / float(n - 1) * np.pi)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
+
+def _compute_log_negative(t_min, t_max, whence):
+    if t_min <= 0 or t_max <= 0:
+        suggested_t_min = 10 ** t_min
+        suggested_t_max = 10 ** t_max
+        raise ValueError(
+            f"In this version of neurodiffeq, "
+            f"the interval [{t_min}, {t_max}] cannot be used for log-sampling in {whence} "
+            f"If you meant to sample from the interval [10 ^ {t_min}, 10 ^ {t_max}], "
+            f"please pass in {suggested_t_min} and {suggested_t_max}"
+        )
+
+    return np.log10(t_min), np.log10(t_max)
+
+
 class BaseGenerator:
     """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field.
     """
@@ -80,6 +108,8 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
+        - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
+        - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
 
         defaults to 'uniform'.
     :type method: str, optional
@@ -111,11 +141,19 @@ class Generator1D(BaseGenerator):
             self.examples = torch.linspace(self.t_min, self.t_max, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
         elif method == 'log-spaced':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            start, end = _compute_log_negative(t_min, t_max, self.__class__)
+            self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: self.examples
         elif method == 'log-spaced-noisy':
-            self.examples = torch.logspace(self.t_min, self.t_max, self.size, requires_grad=True)
+            start, end = _compute_log_negative(t_min, t_max, self.__class__)
+            self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
+        elif method in ['chebyshev', 'chebyshev1']:
+            self.examples = _chebyshev_first(t_min, t_max, size)
+            self.getter = lambda: self.examples
+        elif method == 'chebyshev2':
+            self.examples = _chebyshev_second(t_min, t_max, size)
+            self.getter = lambda: self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -156,6 +194,8 @@ class Generator2D(BaseGenerator):
 
             - If set to 'equally-spaced', the points will be fixed to the grid specified.
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+            - If set to 'chebyshev' or 'chebyshev1', the points will be 2-D chebyshev points of the first kind.
+            - If set to 'chebyshev2', the points will be 2-D chebyshev points of the second kind.
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -186,19 +226,14 @@ class Generator2D(BaseGenerator):
         if method == 'equally-spaced':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            # noinspection PyTypeChecker
             grid_x, grid_y = torch.meshgrid(x, y)
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
             self.getter = lambda: (self.grid_x, self.grid_y)
-
         elif method == 'equally-spaced-noisy':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            # noinspection PyTypeChecker
             grid_x, grid_y = torch.meshgrid(x, y)
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
-
             if xy_noise_std:
                 self.noise_xstd, self.noise_ystd = xy_noise_std
             else:
@@ -208,6 +243,18 @@ class Generator2D(BaseGenerator):
                 torch.normal(mean=self.grid_x, std=self.noise_xstd),
                 torch.normal(mean=self.grid_y, std=self.noise_ystd)
             )
+        elif method in ['chebyshev1', 'chebyshev']:
+            x = _chebyshev_first(xy_min[0], xy_max[0], grid[0])
+            y = _chebyshev_first(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+            self.getter = lambda: (self.grid_x, self.grid_y)
+        elif method == 'chebyshev2':
+            x = _chebyshev_second(xy_min[0], xy_max[0], grid[0])
+            y = _chebyshev_second(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y)
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+            self.getter = lambda: (self.grid_x, self.grid_y)
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -251,6 +298,8 @@ class Generator3D(BaseGenerator):
 
             - If set to 'equally-spaced', the points will be fixed to the grid specified.
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
+            - If set to 'chebyshev' or 'chebyshev1', the points will be 3-D chebyshev points of the first kind.
+            - If set to 'chebyshev2', the points will be 3-D chebyshev points of the second kind.
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -272,14 +321,25 @@ class Generator3D(BaseGenerator):
         self.xyz_max = xyz_max
         self.method = method
 
-        x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
-        y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
-        z = torch.linspace(xyz_min[2], xyz_max[2], grid[2], requires_grad=True)
-        # noinspection PyTypeChecker
+        if method in ['equally-spaced', 'equally-spaced-noisy']:
+            x = torch.linspace(xyz_min[0], xyz_max[0], grid[0], requires_grad=True)
+            y = torch.linspace(xyz_min[1], xyz_max[1], grid[1], requires_grad=True)
+            z = torch.linspace(xyz_min[2], xyz_max[2], grid[2], requires_grad=True)
+        elif method in ['chebyshev', 'chebyshev1']:
+            x = _chebyshev_first(xyz_min[0], xyz_max[0], grid[0])
+            y = _chebyshev_first(xyz_min[1], xyz_max[1], grid[1])
+            z = _chebyshev_first(xyz_min[2], xyz_max[2], grid[2])
+        elif method == 'chebyshev2':
+            x = _chebyshev_second(xyz_min[0], xyz_max[0], grid[0])
+            y = _chebyshev_second(xyz_min[1], xyz_max[1], grid[1])
+            z = _chebyshev_second(xyz_min[2], xyz_max[2], grid[2])
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
-        if method == 'equally-spaced':
+        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2']:
             self.getter = lambda: (self.grid_x, self.grid_y, self.grid_z)
         elif method == 'equally-spaced-noisy':
             self.noise_xmean = torch.zeros(self.size)
@@ -342,6 +402,10 @@ class GeneratorND(BaseGenerator):
               the points will be fixed to a set of log-spaced points that go from r_min[i] to r_max[i].
             - If set to 'exp-spaced',
               the points will be fixed to a set of exp-spaced points that go from r_min[i] to r_max[i].
+            - If set to 'chebyshev' or 'chebyshev1',
+              the points will be chebyshev points of the first kind that go from r_min[i] to r_max[i].
+            - If set to 'chebyshev2',
+              the points will be chebyshev points of the second kind that go from r_min[i] to r_max[i].
 
             Defaults to ['equally-spaced', 'equally-spaced'].
         :type methods: list[str, str, ... , str], or it can be str if N=1, optional
@@ -367,33 +431,24 @@ class GeneratorND(BaseGenerator):
 
         if isinstance(methods, str):
             methods = [methods]
-
         if isinstance(grid, int):
             grid = (grid,)
-
         if isinstance(r_min, float) or isinstance(r_min, int):
             r_min = (r_min,)
-
         if isinstance(r_max, float) or isinstance(r_max, int):
             r_max = (r_max,)
-
         if isinstance(r_noise_std, float) or isinstance(r_noise_std, int):
             r_noise_std = (r_noise_std,)
 
         N = len(grid)
-
         cut = kwargs.pop('cut', tuple((None, None) for i in range(N)))
-
         base = kwargs.pop('base', tuple(10 for i in range(N)))
-
         abs_value = kwargs.pop('abs_value', False)
 
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
-
         if isinstance(base, float) or isinstance(base, int):
             base = (base,)
-
         if isinstance(cut[0], float) or isinstance(cut[0], int) or cut[0] is None:
             cut = (cut,)
 
@@ -411,25 +466,27 @@ class GeneratorND(BaseGenerator):
             if method == 'equally-spaced':
                 x = torch.linspace(r_min[i], r_max[i], grid[i], requires_grad=True)
                 noise_rstd_tensor = noise_rstd * torch.ones(x.size())
-
             elif method == 'uniform':
                 x = torch.zeros(grid[i], requires_grad=True)
                 x = x + torch.rand(grid[i]) * (r_max[i] - r_min[i]) + r_min[i]
                 noise_rstd_tensor = torch.zeros(x.size())
-
             elif method == 'log-spaced':
                 r_min_log = np.log10(r_min[i])
                 r_max_log = np.log10(r_max[i])
                 x = torch.logspace(r_min_log, r_max_log, grid[i], requires_grad=True)
                 noise_rstd_tensor = (noise_rstd * torch.logspace(r_min_log, r_max_log, grid[i]))
-
             elif method == 'exp-spaced':
                 r_min_exp = base[i] ** r_min[i]
                 r_max_exp = base[i] ** r_max[i]
                 x = torch.linspace(r_min_exp, r_max_exp, grid[i], requires_grad=True)
-                x = (torch.log(x)/np.log(base[i])).clone().detach().requires_grad_(True)
+                x = (torch.log(x) / np.log(base[i])).clone().detach().requires_grad_(True)
                 noise_rstd_tensor = (noise_rstd * x).clone().detach()
-
+            elif method in ['chebyshev', 'chebyshev1']:
+                x = _chebyshev_first(r_min[i], r_max[i], grid[i])
+                noise_rstd_tensor = noise_rstd * torch.ones(x.size())
+            elif method == 'chebyshev2':
+                x = _chebyshev_second(r_min[i], r_max[i], grid[i])
+                noise_rstd_tensor = noise_rstd * torch.ones(x.size())
             else:
                 raise ValueError(f'Unknown method: {method}')
 
@@ -444,7 +501,7 @@ class GeneratorND(BaseGenerator):
         self.grid_std = [grid_std[j].flatten() for j in range(N)]
         if noisy:
             if abs_value:
-                self.getter = lambda: tuple(torch.abs(torch.normal(self.grid_r[n], self.grid_std[n]))for n in range(N))
+                self.getter = lambda: tuple(torch.abs(torch.normal(self.grid_r[n], self.grid_std[n])) for n in range(N))
             else:
                 self.getter = lambda: tuple(torch.normal(self.grid_r[n], self.grid_std[n]) for n in range(N))
         else:

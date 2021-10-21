@@ -1,3 +1,4 @@
+import sys
 import pytest
 import random
 import torch
@@ -160,6 +161,24 @@ def test_early_stopping(solver):
 def test_invalid_get_internals(solver):
     with pytest.raises(ValueError):
         solver.get_internals(['generator'], return_type='bad type')
+
+
+def test_tqdm(solver, capfd):
+    solver.fit(max_epochs=20, tqdm_file=sys.stdout)
+    tqdm_desc = 'Training Progress'
+    stdout, stderr = capfd.readouterr()
+    assert tqdm_desc in stdout
+    assert tqdm_desc not in stderr
+
+    solver.fit(max_epochs=20, tqdm_file=sys.stderr)
+    stdout, stderr = capfd.readouterr()
+    assert tqdm_desc not in stdout
+    assert tqdm_desc in stderr
+
+    solver.fit(max_epochs=20, tqdm_file=None)
+    stdout, stderr = capfd.readouterr()
+    assert tqdm_desc not in stdout
+    assert tqdm_desc not in stderr
 
 
 def test_generic_solver(solver):
