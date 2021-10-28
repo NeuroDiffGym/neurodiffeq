@@ -161,6 +161,7 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
+        self._is_hybrid_loss = None  # EC addition
         self._set_criterion(criterion)
 
         def make_pair_dict(train=None, valid=None):
@@ -194,6 +195,10 @@ class BaseSolver(ABC, PretrainedSolver):
         elif isinstance(criterion, nn.modules.loss._Loss):
             self.criterion = lambda r, f, x: criterion(r, torch.zeros_like(r))
         elif isinstance(criterion, str):
+            if criterion.lower() == 'hybrid':  # EC addition
+                self._is_hybrid_loss = True
+                criterion = 'h1 semi' # initialize as h1 semi norm
+#                 self.metrics_history.update({'max_residual': lambda...}) # TODO
             self.criterion = _losses[criterion.lower()]
         elif callable(criterion):
             self.criterion = criterion
@@ -337,6 +342,11 @@ class BaseSolver(ABC, PretrainedSolver):
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
                 try:
+                    # EC addition
+                    switch_loss = _losses['infinity'](residuals, funcs, batch) > metric_values['train__max_residual'][-1]
+                    if self._is_hybrid_loss and switch_loss:
+                        self._set_criterion('l2')
+                        
                     loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
                 except TypeError as e:
                     warnings.warn(
