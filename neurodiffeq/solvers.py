@@ -20,31 +20,6 @@ from .conditions import BaseCondition
 from .neurodiffeq import safe_diff as diff
 from .losses import _losses
 
-class Sine(nn.Module):
-    def __init__(self, w0: float = 1.0):
-        """Sine activation function with w0 scaling support.
-        Example:
-            >>> w = torch.tensor([3.14, 1.57])
-            >>> Sine(w0=1)(w)
-            torch.Tensor([0, 1])
-        :param w0: w0 in the activation step `act(x; w0) = sin(w0 * x)`.
-            defaults to 1.0
-        :type w0: float, optional
-        """
-        super().__init__()
-        #self.w0 = nn.Parameter(torch.tensor(w0))
-        self.w0 = w0
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        self._check_input(x)
-        return torch.sin(self.w0 * x)
-
-    @staticmethod
-    def _check_input(x):
-        if not isinstance(x, torch.Tensor):
-            raise TypeError(
-                'input to forward() must be torch.xTensor')
-
 
 def _requires_closure(optimizer):
     return inspect.signature(optimizer.step).parameters.get('closure').default == inspect._empty
@@ -196,7 +171,8 @@ class BaseSolver(ABC, PretrainedSolver):
             valid=SamplerGenerator(valid_generator),
         )
         if self.generator['train']._requires_training:
-          self.generator_optimizer = Adam(chain.from_iterable([self.generator['train'].generator.net.parameters()]),lr=0.05)
+            self.generator_optimizer = Adam(chain.from_iterable([self.generator['train'].generator.net.parameters()]),
+                                            lr=0.05)
 
         # number of batches for training / validation;
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
@@ -378,25 +354,25 @@ class BaseSolver(ABC, PretrainedSolver):
 
                 # accumulate gradients before the current graph is collected as garbage
                 if key == 'train':
-                    loss.backward(retain_graph=True, inputs = list(chain.from_iterable(n.parameters() for n in self.nets)))
+                    loss.backward(retain_graph=True,
+                                  inputs=list(chain.from_iterable(n.parameters() for n in self.nets)))
                     batch_loss = loss.item()
-                    
+
                     if key == 'train' and not _requires_closure(self.optimizer):
                         self._do_optimizer_step()
-                    
-                
-                if key == 'train' and self.generator['train']._requires_training:
-                  self.generator_optimizer.zero_grad()
-                  funcs2 = [
-                      self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
-                  ]
 
-                  residuals2 = self.diff_eqs(*funcs2, *batch)
-                  residuals2 = torch.cat(residuals2, dim=1)
-                  loss2 = self.criterion(residuals2)
-                  generator_loss = self.generator['train'].generator_loss() + (-torch.log(loss2))
-                  generator_loss.backward(inputs = list(self.generator['train'].generator.net.parameters()))
-                  self._do_generator_optimizer_step()
+                if key == 'train' and self.generator['train']._requires_training:
+                    self.generator_optimizer.zero_grad()
+                    funcs2 = [
+                        self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
+                    ]
+
+                    residuals_ = self.diff_eqs(*funcs2, *batch)
+                    residuals_ = torch.cat(residuals_, dim=1)
+                    loss_ = self.criterion(residuals_)
+                    generator_loss = self.generator['train'].generator_loss() + (-torch.log(loss_))
+                    generator_loss.backward(inputs=list(self.generator['train'].generator.net.parameters()))
+                    self._do_generator_optimizer_step()
                 return loss
 
             if key == 'train':
@@ -415,8 +391,6 @@ class BaseSolver(ABC, PretrainedSolver):
         self._update_history(epoch_loss / self.n_batches[key], 'loss', key)
 
         # perform the optimizer step after all batches are run (if optimizer.step doesn't require `closure`)
-        # if key == 'train' and not _requires_closure(self.optimizer):
-        #     self._do_optimizer_step()
         if key == 'valid':
             self._update_best()
 
