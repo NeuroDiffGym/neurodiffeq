@@ -29,9 +29,8 @@ def _h1_semi_norm(residual, funcs, coords):
 def _hybrid(residuals, funcs, coords):
     l2_loss = _l2_norm(residuals, funcs, coords)
     h1_semi_loss = _h1_semi_norm(residuals, funcs, coords)
-    mu = 1/(1+torch.exp(-50*(l2_loss-0.1)))
+    mu = torch.tanh(100*l2_loss)
     return (1-mu)*l2_loss + mu*h1_semi_loss
-
 
 _losses = {
     'l1': _l1_norm,

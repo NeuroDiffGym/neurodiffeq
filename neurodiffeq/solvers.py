@@ -342,11 +342,16 @@ class BaseSolver(ABC, PretrainedSolver):
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
                 try:
-                    # EC addition
-                    switch_loss = _losses['infinity'](residuals, funcs, batch) > metric_values['train__max_residual'][-1]
-                    if self._is_hybrid_loss and switch_loss:
-                        self._set_criterion('l2')
-                        
+                    # EC addition: for hybrid loss, switch to L2 if threshold exceeded
+                    if self._is_hybrid_loss:
+                        try:
+                            switch_loss = _losses['infinity'](residuals, funcs, batch) < 0.1 #self.metrics_history['train__max_residual'][-1]
+                            if switch_loss:
+                                self._set_criterion('l2')
+                                print('switched to L2 loss')
+                        except IndexError as e:
+                            print(e)
+                    
                     loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
                 except TypeError as e:
                     warnings.warn(
