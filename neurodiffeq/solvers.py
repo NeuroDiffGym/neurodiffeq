@@ -572,7 +572,30 @@ class BaseSolver(ABC, PretrainedSolver):
         return 0.0
 
     def get_residuals(self, *coords, to_numpy=False, best=True):
-        # TODO add docstring
+        r"""Get the residuals of the differential equation (or system of differential equations)
+        evaluated at given points.
+
+        :param coords:
+            The coordinate values where the residual(s) shall be evaluated.
+            If numpy arrays are passed, the method implicitly creates torch tensors with corresponding values.
+        :type coords: tuple[torch.Tensor] or tuple[np.ndarray]
+        :param to_numpy: Whether to return numpy arrays. Defaults to False.
+        :type to_numpy: bool
+        :param best:
+            If set to False, the network from the most recent epoch will be used to evaluate the residuals.
+            If set to True, the network from the epoch with the lowest validation loss will be used to evaluate the
+            residuals. Defaults to True.
+        :type best: bool
+        :return:
+            The residuals evaluated at given points.
+            If there is only one equation in the differential equation system,
+            a single torch tensor (or numpy array) will be returned.
+            If there are multiple equations, a list of torch tensors (or numpy arrays) will be returned.
+            The returned shape will be the same as the first input coordinate.
+            Note that the return value will always be torch tensors (even if ``coords`` are numpy arrays)
+            unless `to_numpy` is explicitly set to True.
+        :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
+        """
         coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]
         original_shape = coords[0].shape
         coords = [c.reshape(-1, 1).requires_grad_() for c in coords]
