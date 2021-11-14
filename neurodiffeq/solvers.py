@@ -9,7 +9,7 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from .solvers_utils import PretrainedSolver
 from .networks import FCNN
