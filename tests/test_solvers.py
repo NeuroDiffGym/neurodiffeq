@@ -1,6 +1,7 @@
 import sys
 import pytest
 import random
+import numpy as np
 import torch
 from neurodiffeq import diff
 from neurodiffeq.networks import FCNN
@@ -179,6 +180,22 @@ def test_tqdm(solver, capfd):
     stdout, stderr = capfd.readouterr()
     assert tqdm_desc not in stdout
     assert tqdm_desc not in stderr
+
+
+@pytest.mark.parametrize(argnames='best', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='ts', argvalues=[np.linspace(0, 1, 50), torch.linspace(0, 1, 50)])
+@pytest.mark.parametrize(argnames='to_numpy', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='first_shape', argvalues=[(-1,), (-1, 1)])
+# TODO more scenarios (and best is not tested yet)
+def test_get_residual(solver, best, ts, to_numpy, first_shape):
+    solver.best_nets = [FCNN(1, 1)]
+    ts = ts.reshape(*first_shape)
+    rs = solver.get_residuals(ts, to_numpy=to_numpy, best=best)
+    if to_numpy:
+        assert isinstance(rs, np.ndarray)
+    else:
+        assert isinstance(rs, torch.Tensor)
+    assert rs.shape == rs.reshape(first_shape).shape
 
 
 def test_generic_solver(solver):
