@@ -571,6 +571,22 @@ class BaseSolver(ABC, PretrainedSolver):
         """
         return 0.0
 
+    def get_residuals(self, *coords, to_numpy=False, best=True):
+        # TODO add docstring
+        coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]
+        original_shape = coords[0].shape
+        coords = [c.reshape(-1, 1).requires_grad_() for c in coords]
+        solution = self.get_solution(copy=False, best=best)
+        funcs = solution(*coords, to_numpy=False)
+        if isinstance(funcs, torch.Tensor):
+            funcs = [funcs]
+        residuals = self.diff_eqs(*funcs, *coords)
+        if to_numpy:
+            ret = [r.reshape(*original_shape).detach().cpu().numpy() for r in residuals]
+        else:
+            ret = [r.reshape(*original_shape) for r in residuals]
+        return ret if len(ret) > 1 else ret[0]
+
 
 class BaseSolution(ABC):
     r"""A solution to a PDE/ODE (system).
