@@ -602,15 +602,15 @@ class BaseSolver(ABC, PretrainedSolver):
         original_shape = coords[0].shape
         coords = [c.reshape(-1, 1).requires_grad_() for c in coords]
         solution = self.get_solution(copy=False, best=best)
-        funcs = solution(*coords, to_numpy=False)
+        funcs = solution(*coords, to_numpy=False, no_reshape=no_reshape)
         if isinstance(funcs, torch.Tensor):
             funcs = [funcs]
         residuals = self.diff_eqs(*funcs, *coords)
         if not no_reshape:
-            ret = [r.reshape(*original_shape) for r in residuals]
+            residuals = [r.reshape(*original_shape) for r in residuals]
         if to_numpy:
-            ret = [r.detach().cpu().numpy() for r in ret]
-        return ret if len(ret) > 1 else ret[0]
+            residuals = [r.detach().cpu().numpy() for r in residuals]
+        return residuals if len(residuals) > 1 else residuals[0]
 
 
 class BaseSolution(ABC):
