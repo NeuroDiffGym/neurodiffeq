@@ -571,7 +571,7 @@ class BaseSolver(ABC, PretrainedSolver):
         """
         return 0.0
 
-    def get_residuals(self, *coords, to_numpy=False, best=True):
+    def get_residuals(self, *coords, to_numpy=False, best=True, no_reshape=False):
         r"""Get the residuals of the differential equation (or system of differential equations)
         evaluated at given points.
 
@@ -586,12 +586,14 @@ class BaseSolver(ABC, PretrainedSolver):
             If set to True, the network from the epoch with the lowest validation loss will be used to evaluate the
             residuals. Defaults to True.
         :type best: bool
+        :param no_reshape: If set to True, no reshaping will be performed on output. Defaults to False.
+        :type no_reshape: bool
         :return:
             The residuals evaluated at given points.
             If there is only one equation in the differential equation system,
             a single torch tensor (or numpy array) will be returned.
             If there are multiple equations, a list of torch tensors (or numpy arrays) will be returned.
-            The returned shape will be the same as the first input coordinate.
+            The returned shape will be the same as the first input coordinate, unless `no_reshape` is set to True.
             Note that the return value will always be torch tensors (even if ``coords`` are numpy arrays)
             unless `to_numpy` is explicitly set to True.
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
@@ -604,10 +606,10 @@ class BaseSolver(ABC, PretrainedSolver):
         if isinstance(funcs, torch.Tensor):
             funcs = [funcs]
         residuals = self.diff_eqs(*funcs, *coords)
-        if to_numpy:
-            ret = [r.reshape(*original_shape).detach().cpu().numpy() for r in residuals]
-        else:
+        if not no_reshape:
             ret = [r.reshape(*original_shape) for r in residuals]
+        if to_numpy:
+            ret = [r.detach().cpu().numpy() for r in ret]
         return ret if len(ret) > 1 else ret[0]
 
 
@@ -641,7 +643,7 @@ class BaseSolution(ABC):
         pass  # pragma: no cover
 
     @deprecated_alias(as_type='to_numpy')
-    def __call__(self, *coords, to_numpy=False):
+    def __call__(self, *coords, to_numpy=False, no_reshape=False):
         r"""Evaluate the solution at certain points.
 
         :param coords: tuple of coordinate tensors, each of shape (n_samples, 1)
@@ -650,9 +652,11 @@ class BaseSolution(ABC):
             If set to True, the call returns a ``numpy.ndarray`` instead of ``torch.Tensor``.
             Defaults to False.
         :type to_numpy: bool
+        :param no_reshape: If set to True, no reshaping will be performed on output. Defaults to False.
+        :type no_reshape: bool
         :return:
             Dependent variables evaluated at given points.
-            The shape of output will be that of the first input coordinate.
+            The shape of output will be that of the first input coordinate, unless `no_reshape` is set to True.
         :rtype: list[`torch.Tensor` or `numpy.array`] or `torch.Tensor` or `numpy.array`
         """
         coords = [c if isinstance(c, torch.Tensor) else torch.tensor(c) for c in coords]
@@ -669,9 +673,11 @@ class BaseSolution(ABC):
                 raise ValueError(f"Unrecognized `as_type` option: '{to_numpy}'")
 
         us = [
-            self._compute_u(net, con, *coords).reshape(original_shape)
+            self._compute_u(net, con, *coords)
             for con, net in zip(self.conditions, self.nets)
         ]
+        if not no_reshape:
+            us = [u.reshape(*original_shape) for u in us]
         if to_numpy:
             us = [u.detach().cpu().numpy() for u in us]
 
