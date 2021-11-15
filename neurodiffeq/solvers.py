@@ -630,6 +630,9 @@ class BaseSolution(ABC):
     """
 
     def __init__(self, nets, conditions):
+        if nets is None:
+            raise RuntimeError("The nets cannot be None, check if you disabled validation "
+                               "and used `best`=True with `get_solution` / `get_residual`")
         if isinstance(nets, nn.Module):
             # This is for backward compatibility with the `single_net` option
             # The same torch.nn.Module instance is repeated to form a list of the same length as `conditions`
