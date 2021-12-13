@@ -175,7 +175,7 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'train__' + name: [] for name in self.metrics_fn})
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
-        self.optimizer = optimizer if optimizer else Adam(chain.from_iterable(n.parameters() for n in self.nets))
+        self.optimizer = optimizer if optimizer else Adam(set(chain.from_iterable(n.parameters() for n in self.nets)))
         self._set_criterion(criterion)
 
         def make_pair_dict(train=None, valid=None):
