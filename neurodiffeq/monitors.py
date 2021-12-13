@@ -826,10 +826,11 @@ class StreamPlotMonitor2D(BaseMonitor):
         self.fig = plt.figure(figsize=(n_col * ax_width, n_row * ax_height))
         self.axes = self.fig.subplots(n_row, n_col).reshape(-1)
         self.cbs = [None] * len(pairs)  # colorbars
-        _xs_ann, _ys_ann = torch.meshgrid([
+        _xs_ann, _ys_ann = torch.meshgrid(
             torch.linspace(xy_min[0], xy_max[0], nx, requires_grad=True),
             torch.linspace(xy_min[1], xy_max[1], ny, requires_grad=True),
-        ])
+            indexing='ij'
+        )
         self.xs_ann, self.ys_ann = _xs_ann.reshape(-1, 1), _ys_ann.reshape(-1, 1)
         self.xs_plot = _xs_ann.detach().cpu().numpy()
         self.ys_plot = _ys_ann.detach().cpu().numpy()
