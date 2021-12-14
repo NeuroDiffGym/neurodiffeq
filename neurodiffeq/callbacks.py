@@ -293,6 +293,7 @@ class SetCriterion(ActionCallback):
     def __call__(self, solver):
         if self.reset or (not self.called):
             self.called = True
+            print('Changing criterion to {}'.format(self.criterion)) # EC changed
             # noinspection PyProtectedMember
             solver._set_criterion(self.criterion)
 
