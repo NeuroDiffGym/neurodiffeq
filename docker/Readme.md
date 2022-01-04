@@ -1,7 +1,8 @@
 # Docker
 
 ## Run neurodiffeq inside a docker container
-`sh ./docker/docker-shell.sh`
+- From `neurodiffeq` folder cd into `docker`
+- Start docker shell `sh ./docker-shell.sh`
 
 ## For Windows user
 
