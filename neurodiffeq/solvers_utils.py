@@ -11,6 +11,10 @@ from itertools import chain
 import inspect
 import ast
 import types
+import random
+
+# from neurodiffeq import conditions
+from neurodiffeq.conditions import BundleIVP
 
 # Is Dev mode
 try:
@@ -176,8 +180,7 @@ def get_sample_solution1D(solver):
             sample_solution = [sample_solution]
 
         for i in range(len(sample_solution)):
-            sample_solution[i] = sample_solution[i].cpu(
-            ).detach().numpy().tolist()
+            sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
 
         sample_solution_curve = [t.tolist(), sample_solution]
     except:
@@ -197,6 +200,26 @@ def get_sample_solution2D(solver):
             inputs[i] = inputs[i].view(-1).cpu().detach().numpy().tolist()
         sample_solution_curve = [inputs, sample_solution.reshape(
             solver.generator["train"].__dict__['generator'].__dict__['grid']).tolist()]
+    except:
+        pass
+    return sample_solution_curve
+
+def get_sample_solutionBundle1D(solver):
+    sample_solution_curve = []
+    try:
+        t = np.linspace(solver.r_min[0], solver.r_max[0], 10 *
+                        (int(solver.r_max[0]-solver.r_min[0])))
+        
+        values = [(random.random()*(solver.r_max[i]-solver.r_min[i]) + solver.r_min[i])*np.ones(len(t)) for i in range(1, len(solver.r_min))]
+        sample_solution = solver.get_solution()(t, *values)
+
+        if not isinstance(sample_solution, list):
+            sample_solution = [sample_solution]
+
+        for i in range(len(sample_solution)):
+            sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
+
+        sample_solution_curve = [t.tolist(), sample_solution]
     except:
         pass
     return sample_solution_curve
@@ -278,6 +301,8 @@ class PretrainedSolver():
             sample_solution = get_sample_solution1D(self)
         elif self.__class__.__name__ == "Solver2D":
             sample_solution = get_sample_solution2D(self)
+        elif self.__class__.__name__ == "BundleSolver1D":
+            sample_solution = get_sample_solutionBundle1D(self)
 
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
@@ -484,6 +509,23 @@ class PretrainedSolver():
                          optimizer=optimizer,
                          criterion=load_dict['criterion'],
                          metrics=load_dict['metrics'])
+        
+        elif load_dict["type_name"] == "BundleSolver1D":
+            t_min = load_dict['solver'].r_min[0]
+            t_max = load_dict['solver'].r_max[0]
+
+            solver = cls(ode_system=de_system,
+                         conditions=cond,
+                         criterion=load_dict['criterion'],
+                         metrics=load_dict['metrics'],
+                         nets=nets,
+                         optimizer=optimizer,
+                         train_generator=train_generator,
+                         valid_generator=valid_generator,
+                         t_min=t_min,
+                         t_max=t_max,
+                         theta_min=tuple(load_dict['solver'].r_min[1:]),
+                         theta_max=tuple(load_dict['solver'].r_max[1:]))
 
         solver.metrics_history['train_loss'] = train_loss
         solver.metrics_history['valid_loss'] = valid_loss
