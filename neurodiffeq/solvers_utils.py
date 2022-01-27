@@ -533,7 +533,10 @@ class PretrainedSolver():
         solver.metrics_history['valid_loss'] = valid_loss
 
         # Set the best nets
-        solver.best_nets = deepcopy(solver.nets)
+        if load_dict.get("best_nets") is not None:
+            solver.best_nets = load_dict["best_nets"]
+        else:
+            solver.best_nets = deepcopy(solver.nets)
 
         try:
             solver.diff_eqs_source = load_dict["diff_equation_details"]["equation"]
