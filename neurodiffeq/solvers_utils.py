@@ -12,6 +12,7 @@ import inspect
 import ast
 import types
 import random
+from copy import deepcopy
 
 # from neurodiffeq import conditions
 from neurodiffeq.conditions import BundleIVP
@@ -325,6 +326,7 @@ class PretrainedSolver():
             "conditions": self.conditions,
             "global_epoch": self.global_epoch,  # loss_history
             "nets": self.nets,
+            "best_nets": self.best_nets,
             "optimizer": self.optimizer,
             "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
@@ -529,6 +531,9 @@ class PretrainedSolver():
 
         solver.metrics_history['train_loss'] = train_loss
         solver.metrics_history['valid_loss'] = valid_loss
+
+        # Set the best nets
+        solver.best_nets = deepcopy(solver.nets)
 
         try:
             solver.diff_eqs_source = load_dict["diff_equation_details"]["equation"]
