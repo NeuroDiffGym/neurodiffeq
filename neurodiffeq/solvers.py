@@ -1541,3 +1541,47 @@ class Solver2D(BaseSolver):
             'xy_max': self.xy_max,
         })
         return available_variables
+
+
+class UniversalSolver1D(Solver1D):
+    class Net14(nn.Module):
+        def __init__(self, n_input, n_hidden, n_output):
+            super(Net14, self).__init__()
+            self.linear_1 = nn.Linear(n_input, n_hidden)
+            self.linear_2 = nn.Linear(n_hidden, n_hidden)
+            self.linear_3 = nn.Linear(n_hidden, n_output)
+
+        def forward(self, x):
+            x = self.linear_1(x)
+            x = torch.sin(x)
+            x = self.linear_2(x)
+            x = torch.sin(x)
+            x = self.linear_3(x)
+            x = torch.sin(x)
+            return x
+        
+    class Net45(nn.Module):
+        def __init__(self, u_0, net14, n_input, l1):
+            super(Net45, self).__init__()
+            self.u_0 = u_0
+            self.l1 = l1
+            self.common_layers = net14
+            self.second_last_layer = nn.Linear(n_input, n_input)
+            self.last_layer = nn.Linear(n_input, 1)
+
+        def forward(self, x):
+            x = self.common_layers(x)
+            x = self.second_last_layer(x)
+            x = torch.sin(x)
+            x = self.last_layer(x)
+            return x
+    
+    def additional_loss(self, residuals, funcs, coords):
+      out_1 = self.nets[0](torch.zeros((1,1)))
+      out_2 = self.nets[1](torch.zeros((1,1)))
+      return ((self.nets[0].u_0 - out_1[0])**2).mean() + ((self.nets[1].u_0 - out_2[0])**2).mean() \
+              + self.nets[0].l1*torch.norm(torch.cat([x.view(-1) for x in self.nets[0].last_layer.parameters()]), 1) \
+              + self.nets[1].l1*torch.norm(torch.cat([x.view(-1) for x in self.nets[1].last_layer.parameters()]), 1)
+
+class UniversalSolution1D(BaseSolution):
+    ...
