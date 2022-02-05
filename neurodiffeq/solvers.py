@@ -20,7 +20,7 @@ from .generators import Generator1D
 from .generators import Generator2D
 from .generators import GeneratorND
 from .function_basis import RealSphericalHarmonics
-from .conditions import BaseCondition
+from .conditions import BaseCondition, NoCondition
 from .neurodiffeq import safe_diff as diff
 from .losses import _losses
 
@@ -1543,45 +1543,113 @@ class Solver2D(BaseSolver):
         return available_variables
 
 
-class UniversalSolver1D(Solver1D):
+
+
+
+
+class _SingleSolver1D(Solver1D):
+    
     class Net14(nn.Module):
         def __init__(self, n_input, n_hidden, n_output):
-            super(Net14, self).__init__()
+            super().__init__()
             self.linear_1 = nn.Linear(n_input, n_hidden)
             self.linear_2 = nn.Linear(n_hidden, n_hidden)
             self.linear_3 = nn.Linear(n_hidden, n_output)
 
         def forward(self, x):
             x = self.linear_1(x)
-            x = torch.sin(x)
+            x = torch.tanh(x)
             x = self.linear_2(x)
-            x = torch.sin(x)
+            x = torch.tanh(x)
             x = self.linear_3(x)
-            x = torch.sin(x)
+            x = torch.tanh(x)
             return x
         
     class Net45(nn.Module):
-        def __init__(self, u_0, net14, n_input, l1):
-            super(Net45, self).__init__()
+        def __init__(self, u_0, net14, n_last_layer):
+            super().__init__()
             self.u_0 = u_0
-            self.l1 = l1
             self.common_layers = net14
-            self.second_last_layer = nn.Linear(n_input, n_input)
-            self.last_layer = nn.Linear(n_input, 1)
+            self.last_layer = nn.Linear(n_last_layer, 1)
 
         def forward(self, x):
             x = self.common_layers(x)
-            x = self.second_last_layer(x)
-            x = torch.sin(x)
             x = self.last_layer(x)
             return x
-    
+ 
+    def __init__(self, net14s, initial_conditions, n_output, ode_system, t_min, t_max):
+        
+        self.num = len(initial_conditions)
+        self.net14s = net14s
+        self.net45s = [self.Net45(initial_conditions[i], self.net14s[i], n_output) for i in range(self.num)]
+        
+        super().__init__(
+            ode_system = ode_system,
+            conditions = [NoCondition()]*self.num,
+            t_min = t_min,
+            t_max = t_max,
+            nets = self.net45s
+        )
+        
     def additional_loss(self, residuals, funcs, coords):
-      out_1 = self.nets[0](torch.zeros((1,1)))
-      out_2 = self.nets[1](torch.zeros((1,1)))
-      return ((self.nets[0].u_0 - out_1[0])**2).mean() + ((self.nets[1].u_0 - out_2[0])**2).mean() \
-              + self.nets[0].l1*torch.norm(torch.cat([x.view(-1) for x in self.nets[0].last_layer.parameters()]), 1) \
-              + self.nets[1].l1*torch.norm(torch.cat([x.view(-1) for x in self.nets[1].last_layer.parameters()]), 1)
+        outs = [self.nets[i](torch.zeros((1,1))) for i in range(self.num)] 
+        return sum([((self.nets[i].u_0 - outs[i][0])**2).mean() for i in range(self.num)])
+    
 
-class UniversalSolution1D(BaseSolution):
-    ...
+class UniversalSolver1D():
+    
+    def __init__(self, n_hidden, n_output, ode_system, t_min, t_max, u_0s=None):
+        
+        if u_0s is not None:
+            self.net14s = [_SingleSolver1D.Net14(1, n_hidden, n_output) for _ in range(len(u_0s[0]))]
+            self.solvers = [_SingleSolver1D(
+                                net14s=self.net14s,
+                                initial_conditions=u_0s[i],
+                                n_output=n_output,
+                                ode_system=ode_system,
+                                t_min=t_min,
+                                t_max=t_max
+                        ) for i in range(len(u_0s))]
+                
+        self.n_output = n_output
+        self.ode_system = ode_system
+        self.t_min = t_min
+        self.t_max = t_max
+        
+    def fit(self, epochs=10, u_0s=None, train_base=False):
+        
+        if train_base:
+            for i in range(len(self.solvers)):
+                self.solvers[i].fit(max_epochs=epochs)
+                
+        else:
+            for net in self.net14s:
+                for param in net.parameters():
+                    param.requires_grad = False
+            
+            self.solvers_head = [_SingleSolver1D(
+                                net14s=self.net14s,
+                                initial_conditions=u_0s[i],
+                                n_output=self.n_output,
+                                ode_system=self.ode_system,
+                                t_min=self.t_min,
+                                t_max=self.t_max
+                        ) for i in range(len(u_0s))]
+            
+            for i in range(len(self.solvers_head)):
+                self.solvers_head[i].fit(max_epochs=epochs)
+            
+    
+    def get_solution(self, base=False):
+        
+        if base:
+            return [self.solvers[i].get_solution() for i in range(len(self.solvers))]
+        else:
+            return [self.solvers_head[i].get_solution() for i in range(len(self.solvers_head))]
+        
+    
+    
+        
+
+
+    
