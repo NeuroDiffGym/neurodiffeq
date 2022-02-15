@@ -111,6 +111,7 @@ class BaseSolver(ABC, PretrainedSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
                  metrics=None, n_input_units=None, n_output_units=None,
+                 system_parameters=None,
                  # deprecated arguments are listed below
                  shuffle=None, batch_size=None):
         # deprecate argument `shuffle`
@@ -127,6 +128,9 @@ class BaseSolver(ABC, PretrainedSolver):
             )
 
         self.diff_eqs = diff_eqs
+        self.system_parameters = {}
+        if system_parameters is not None:
+            self.system_parameters = system_parameters
         self.conditions = conditions
         self.n_funcs = len(conditions)
         if nets is None:
@@ -349,7 +353,7 @@ class BaseSolver(ABC, PretrainedSolver):
                 for name in self.metrics_fn:
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
-                residuals = self.diff_eqs(*funcs, *batch)
+                residuals = self.diff_eqs(*funcs, *batch,**self.system_parameters)
                 residuals = torch.cat(residuals, dim=1)
                 try:
                     loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
@@ -1074,6 +1078,7 @@ class Solver1D(BaseSolver):
     def __init__(self, ode_system, conditions, t_min=None, t_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 system_parameters=None,
                  # deprecated arguments are listed below
                  batch_size=None, shuffle=None):
 
@@ -1104,6 +1109,7 @@ class Solver1D(BaseSolver):
             metrics=metrics,
             n_input_units=1,
             n_output_units=n_output_units,
+            system_parameters=system_parameters,
             shuffle=shuffle,
             batch_size=batch_size,
         )
