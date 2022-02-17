@@ -353,7 +353,6 @@ class BaseSolver(ABC, PretrainedSolver):
                 for name in self.metrics_fn:
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
-                print(self.system_parameters)
                 residuals = self.diff_eqs(*funcs, *batch,**self.system_parameters)
                 residuals = torch.cat(residuals, dim=1)
                 try:
