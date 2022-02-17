@@ -353,6 +353,7 @@ class BaseSolver(ABC, PretrainedSolver):
                 for name in self.metrics_fn:
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
+                print(self.system_parameters)
                 residuals = self.diff_eqs(*funcs, *batch,**self.system_parameters)
                 residuals = torch.cat(residuals, dim=1)
                 try:
@@ -1572,18 +1573,18 @@ class _SingleSolver1D(Solver1D):
             return x
         
     class Net45(nn.Module):
-        def __init__(self, u_0, net14, n_last_layer):
+        def __init__(self, u_0, net14, n_input):
             super().__init__()
             self.u_0 = u_0
             self.common_layers = net14
-            self.last_layer = nn.Linear(n_last_layer, 1)
+            self.last_layer = nn.Linear(n_input, 1)
 
         def forward(self, x):
             x = self.common_layers(x)
             x = self.last_layer(x)
             return x
  
-    def __init__(self, net14s, initial_conditions, n_output, ode_system, t_min, t_max):
+    def __init__(self, net14s, initial_conditions, n_output, ode_system, t_min, t_max,system_parameters=[{}]):
         
         self.num = len(initial_conditions)
         self.net14s = net14s
@@ -1594,33 +1595,38 @@ class _SingleSolver1D(Solver1D):
             conditions = [NoCondition()]*self.num,
             t_min = t_min,
             t_max = t_max,
-            nets = self.net45s
+            nets = self.net45s,
+            system_parameters=system_parameters
         )
         
     def additional_loss(self, residuals, funcs, coords):
-        outs = [self.nets[i](torch.zeros((1,1))) for i in range(self.num)] 
-        return sum([((self.nets[i].u_0 - outs[i][0])**2).mean() for i in range(self.num)])
+        out = self.nets[0](torch.zeros((1,1)))
+        return ((self.nets[0].u_0 - out)**2).mean()
     
 
 class UniversalSolver1D():
     
-    def __init__(self, n_hidden, n_output, ode_system, t_min, t_max, u_0s=None):
+    def __init__(self, n_hidden, n_output, ode_system, t_min, t_max, u_0s=None,system_parameters = [{}]):
         
+        #random.shuffle(system_parameters)
+
         if u_0s is not None:
-            self.net14s = [_SingleSolver1D.Net14(1, n_hidden, n_output) for _ in range(len(u_0s[0]))]
+            self.net14s = [_SingleSolver1D.Net14(1, n_hidden, n_output) for _ in range(len(u_0s[0])) for p in range(len(system_parameters))]
             self.solvers = [_SingleSolver1D(
                                 net14s=self.net14s,
                                 initial_conditions=u_0s[i],
                                 n_output=n_output,
                                 ode_system=ode_system,
                                 t_min=t_min,
-                                t_max=t_max
-                        ) for i in range(len(u_0s))]
+                                t_max=t_max,
+                                system_parameters=system_parameters[p]
+                        ) for i in range(len(u_0s)) for p in range(len(system_parameters))]
                 
         self.n_output = n_output
         self.ode_system = ode_system
         self.t_min = t_min
         self.t_max = t_max
+        self.system_parameters = system_parameters
         
     def fit(self, epochs=10, u_0s=None, train_base=False):
         
@@ -1639,8 +1645,9 @@ class UniversalSolver1D():
                                 n_output=self.n_output,
                                 ode_system=self.ode_system,
                                 t_min=self.t_min,
-                                t_max=self.t_max
-                        ) for i in range(len(u_0s))]
+                                t_max=self.t_max,
+                                system_parameters=self.system_parameters[p]
+                        ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
             
             for i in range(len(self.solvers_head)):
                 self.solvers_head[i].fit(max_epochs=epochs)
