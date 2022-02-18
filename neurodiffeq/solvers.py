@@ -1605,13 +1605,29 @@ class _SingleSolver1D(Solver1D):
     
 
 class UniversalSolver1D():
+
+    class Net14(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear_1 = nn.Linear(1, 10)
+            self.linear_2 = nn.Linear(10, 10)
+            self.linear_3 = nn.Linear(10, 10)
+
+        def forward(self, x):
+            x = self.linear_1(x)
+            x = torch.tanh(x)
+            x = self.linear_2(x)
+            x = torch.tanh(x)
+            x = self.linear_3(x)
+            x = torch.tanh(x)
+            return x
     
-    def __init__(self, BaseClass, n_last_layer_head, ode_system, t_min, t_max, u_0s=None, system_parameters=[{}]):
+    def __init__(self, ode_system, t_min, t_max, BaseClass=Net14, n_last_layer_head=10, u_0s=None, system_parameters=[{}]):
         
         # Only for training
         if u_0s is not None:
             self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
-            self.solvers = [_SingleSolver1D(
+            self.solvers_base = [_SingleSolver1D(
                                 bases=self.bases,
                                 initial_conditions=u_0s[i],
                                 n_last_layer_head=n_last_layer_head,
@@ -1630,8 +1646,8 @@ class UniversalSolver1D():
     def fit(self, epochs=10, u_0s=None, system_parameters=[{}], train_base=False):
         
         if train_base:
-            for i in range(len(self.solvers)):
-                self.solvers[i].fit(max_epochs=epochs)
+            for i in range(len(self.solvers_base)):
+                self.solvers_base[i].fit(max_epochs=epochs)
                 
         else:
             # Finetuning on new conditions/parameters
@@ -1653,10 +1669,10 @@ class UniversalSolver1D():
                 self.solvers_head[i].fit(max_epochs=epochs)
             
     
-    def get_solution(self, base_train=False):
+    def get_solution(self, base=False):
         
-        if base_train:
-            return [self.solvers[i].get_solution() for i in range(len(self.solvers))]
+        if base:
+            return [self.solvers_base[i].get_solution() for i in range(len(self.solvers_base))]
         else:
             return [self.solvers_head[i].get_solution() for i in range(len(self.solvers_head))]
         
