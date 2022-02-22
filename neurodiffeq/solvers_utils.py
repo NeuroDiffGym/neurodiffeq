@@ -257,6 +257,58 @@ def get_loss(loss):
         pass
     return loss_sample
 
+def save_solver(path, name, save_to_hub, save_dict):
+    # Save remote if needed
+    if save_to_hub:
+        cache_dir = create_cache_dir()
+        solution_file_path = os.path.join(cache_dir, "solution_to_upload")
+        # Save solution in temp file
+        # with tempfile.NamedTemporaryFile() as tmp_file:
+        with open(solution_file_path, 'wb') as tmp_file:
+            dill.dump(save_dict, tmp_file)
+            # tmp_file.flush()
+
+            # Save remote
+            print("Saving solution to:", NEURODIFF_API_URL)
+            project = None
+            if "/" in name:
+                project = name.split('/')[0]
+            if project is None:
+                print("Default project will be used to save solution")
+            else:
+                # Check if user has access to project
+                url = NEURODIFF_API_URL + \
+                    "/projects/check_access/{project}"
+                response = requests.get(
+                    url.format(project=project),
+                    headers=_make_api_headers()
+                )
+                if not response.ok:
+                    # response.raise_for_status()
+                    print("You do not have access to the project:", project)
+
+            # Upload the solution
+            url = NEURODIFF_API_URL + "/solutions/upload"
+            solution = {
+                "name": name,
+                "description": name,
+                "diff_equation_details": save_dict["diff_equation_details"],
+                "type_name": save_dict["type_name"]
+            }
+            response = requests.post(
+                url,
+                data=solution,
+                files={"file": open(tmp_file.name, "rb"), "solution": (
+                    "solution.json", json.dumps(solution))},
+                headers=_make_api_headers()
+            )
+            if not response.ok:
+                print("Could not upload solution")
+
+    else:
+        # Save solution locally
+        with open(path, 'wb') as file:
+            dill.dump(save_dict, file)
 
 class SolverConfig():
     conditions = None
@@ -340,61 +392,11 @@ class PretrainedSolver():
             "solver": self
         }
 
-        # Save remote if needed
-        if save_to_hub:
-            cache_dir = create_cache_dir()
-            solution_file_path = os.path.join(cache_dir, "solution_to_upload")
-            # Save solution in temp file
-            # with tempfile.NamedTemporaryFile() as tmp_file:
-            with open(solution_file_path, 'wb') as tmp_file:
-                dill.dump(save_dict, tmp_file)
-                # tmp_file.flush()
+        save_solver(path, name, save_to_hub, save_dict)
 
-                # Save remote
-                print("Saving solution to:", NEURODIFF_API_URL)
-                project = None
-                if "/" in name:
-                    project = name.split('/')[0]
-                if project is None:
-                    print("Default project will be used to save solution")
-                else:
-                    # Check if user has access to project
-                    url = NEURODIFF_API_URL + \
-                        "/projects/check_access/{project}"
-                    response = requests.get(
-                        url.format(project=project),
-                        headers=_make_api_headers()
-                    )
-                    if not response.ok:
-                        # response.raise_for_status()
-                        print("You do not have access to the project:", project)
+        # Loading saved attributes into new solver object
 
-                # Upload the solution
-                url = NEURODIFF_API_URL + "/solutions/upload"
-                solution = {
-                    "name": name,
-                    "description": name,
-                    "diff_equation_details": save_dict["diff_equation_details"],
-                    "type_name": save_dict["type_name"]
-                }
-                response = requests.post(
-                    url,
-                    data=solution,
-                    files={"file": open(tmp_file.name, "rb"), "solution": (
-                        "solution.json", json.dumps(solution))},
-                    headers=_make_api_headers()
-                )
-                if not response.ok:
-                    print("Could not upload solution")
-
-        else:
-            # Save solution locally
-            with open(path, 'wb') as file:
-                dill.dump(save_dict, file)
-
-    # Loading saved attributes into new solver object
-
-    # Have to add check and warning/error
+        # Have to add check and warning/error
 
     @classmethod
     def load(cls,
@@ -426,7 +428,7 @@ class PretrainedSolver():
             train_generator = config.train_generator
             valid_generator = config.valid_generator
 
-        # Loading user defined ode_system or system from load file
+        # Loading user defined de_system or system from load file
         if (config.ode_system == None) and (config.pde_system == None):
             de_system = load_dict['diff_eqs']
         elif config.ode_system is not None:
@@ -542,4 +544,94 @@ class PretrainedSolver():
             solver.diff_eqs_source = load_dict["diff_equation_details"]["equation"]
         except:
             pass
+        return solver
+
+class UniversalPretrainedSolver():
+
+    def save(self,
+             path: str = None,
+             name: str = None,
+             save_to_hub=False):
+
+        # Check params
+        if path is None and save_to_hub == False:
+            raise Exception("path cannot be empty when save_to_hub=False")
+        if name is None and save_to_hub == True:
+            raise Exception("name cannot be empty when save_to_hub=True")
+        
+        # Get Diff equations details
+        diff_equation_details = {
+            "equation": get_source(self.ode_system),
+            "parameters": get_parameters(self.ode_system),
+            # "conditions": get_conditions(self.conditions),
+            # "generator": get_generator(self.generator),
+            # "sample_solution": {},
+            # "sample_loss": self.metrics_history['valid_loss'],
+            # "criterion": get_source(self.criterion),
+            # "networks": get_networks(self),
+            # "optimizer": {
+            #     "name": self.optimizer.__class__.__name__,
+            #     "params": self.optimizer.state_dict()['param_groups']
+            # },
+        }
+
+        save_dict = {
+            # "metrics": self.metrics_fn,
+            # "criterion": self.criterion,
+            # "conditions": self.conditions,
+            # "global_epoch": self.global_epoch,  # loss_history
+            # "nets": self.nets,
+            # "best_nets": self.best_nets,
+            # "optimizer": self.optimizer,
+            # "optimizer_state": self.optimizer.state_dict(),
+            # "optimizer_class": optimizer_class,
+            "diff_eqs": self.ode_system,
+            "diff_equation_details": diff_equation_details,
+            # "generator": self.generator,
+            # "train_loss_history": self.metrics_history['train_loss'],
+            # "valid_loss_history": self.metrics_history['valid_loss'],
+            # "type": self.__class__,
+            # "type_name": self.__class__.__name__,
+            "solver": self
+        }
+
+        save_solver(path, name, save_to_hub, save_dict)
+    
+    @classmethod
+    def load(cls,
+             path: str = None,
+             name: str = None,
+             config=SolverConfig()):
+
+        # Check params
+        if path is None and name is None:
+            raise Exception("Either path or name is required to load solver")
+
+        # Load from remote
+        if path is None:
+            print("Loading solution from:", NEURODIFF_API_URL, name)
+            url = NEURODIFF_API_URL + "/solutions/download"
+            solution_file_path = get_file(url, name)
+        else:
+            print("Loading solution from:", path)
+            solution_file_path = path
+        # Load the solution
+        with open(solution_file_path, 'rb') as file:
+            load_dict = dill.load(file)
+
+        # Loading user defined de_system from load file
+        de_system = load_dict['diff_eqs']
+        t_min = load_dict['solver'].t_min
+        t_max = load_dict['solver'].t_max
+        
+        # Initialize Solver
+        solver = cls(
+            ode_system=de_system,
+            t_min=t_min,
+            t_max=t_max
+        )
+        # Load Weights
+        solver.bases = load_dict['solver'].bases
+        solver.solvers_base = load_dict['solver'].solvers_base
+
         return solver

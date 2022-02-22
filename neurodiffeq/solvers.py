@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from tqdm.auto import tqdm
 
-from .solvers_utils import PretrainedSolver
+from .solvers_utils import PretrainedSolver, UniversalPretrainedSolver
 from .networks import FCNN
 from ._version_utils import deprecated_alias
 from .generators import GeneratorSpherical
@@ -1604,7 +1604,7 @@ class _SingleSolver1D(Solver1D):
         return loss
     
 
-class UniversalSolver1D():
+class UniversalSolver1D(ABC, UniversalPretrainedSolver):
 
     class Net14(nn.Module):
         def __init__(self):
