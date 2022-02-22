@@ -1622,48 +1622,55 @@ class UniversalSolver1D():
             x = torch.tanh(x)
             return x
     
-    def __init__(self, ode_system, t_min, t_max, BaseClass=Net14, n_last_layer_head=10, u_0s=None, system_parameters=[{}]):
+    def __init__(self, ode_system, t_min, t_max):
         
-        # Only for training
-        if u_0s is not None:
-            self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
-            self.solvers_base = [_SingleSolver1D(
-                                bases=self.bases,
-                                initial_conditions=u_0s[i],
-                                n_last_layer_head=n_last_layer_head,
-                                ode_system=ode_system,
-                                t_min=t_min,
-                                t_max=t_max,
-                                system_parameters=system_parameters[p]
-                        ) for i in range(len(u_0s)) for p in range(len(system_parameters))]
-                
-        self.n_last_layer_head = n_last_layer_head
         self.ode_system = ode_system
         self.t_min = t_min
         self.t_max = t_max
+        
+    
+    def build(self,u_0s=None, system_parameters=[{}],BaseClass=Net14, n_last_layer_head=10, build_source=False):
+        self.u_0s = u_0s
         self.system_parameters = system_parameters
+        self.n_last_layer_head = n_last_layer_head
+
+        if self.u_0s is None:
+            raise ValueError("u_0s must be specified") 
+
+        # Build the source solver
+        if build_source:
+            self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
+            self.solvers_base = [_SingleSolver1D(
+                                bases=self.bases,
+                                initial_conditions=self.u_0s[i],
+                                n_last_layer_head=n_last_layer_head,
+                                ode_system=self.ode_system,
+                                t_min=self.t_min,
+                                t_max=self.t_max,
+                                system_parameters=self.system_parameters[p]
+                        ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
+        else:
+            self.solvers_head = [_SingleSolver1D(
+                                bases=self.bases,
+                                initial_conditions=self.u_0s[i],
+                                n_last_layer_head=self.n_last_layer_head,
+                                ode_system=self.ode_system,
+                                t_min=self.t_min,
+                                t_max=self.t_max,
+                                system_parameters=self.system_parameters[p]
+                        ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
+
+
+    def fit(self, epochs=10, train_source=False):
         
-    def fit(self, epochs=10, u_0s=None, system_parameters=[{}], train_base=False):
-        
-        if train_base:
+        if train_source:
             for i in range(len(self.solvers_base)):
                 self.solvers_base[i].fit(max_epochs=epochs)
-                
         else:
             # Finetuning on new conditions/parameters
             for net in self.bases:
                 for param in net.parameters():
                     param.requires_grad = False
-            
-            self.solvers_head = [_SingleSolver1D(
-                                bases=self.bases,
-                                initial_conditions=u_0s[i],
-                                n_last_layer_head=self.n_last_layer_head,
-                                ode_system=self.ode_system,
-                                t_min=self.t_min,
-                                t_max=self.t_max,
-                                system_parameters=system_parameters[p]
-                        ) for i in range(len(u_0s)) for p in range(len(system_parameters))]
             
             for i in range(len(self.solvers_head)):
                 self.solvers_head[i].fit(max_epochs=epochs)
