@@ -561,8 +561,8 @@ class UniversalPretrainedSolver():
         
         # Get Diff equations details
         diff_equation_details = {
-            "equation": get_source(self.ode_system),
-            "parameters": get_parameters(self.ode_system),
+            "equation": get_source(self.diff_eqs),
+            "parameters": get_parameters(self.diff_eqs),
             # "conditions": get_conditions(self.conditions),
             # "generator": get_generator(self.generator),
             # "sample_solution": {},
@@ -585,7 +585,7 @@ class UniversalPretrainedSolver():
             # "optimizer": self.optimizer,
             # "optimizer_state": self.optimizer.state_dict(),
             # "optimizer_class": optimizer_class,
-            "diff_eqs": self.ode_system,
+            "diff_eqs": self.diff_eqs,
             "diff_equation_details": diff_equation_details,
             # "generator": self.generator,
             # "train_loss_history": self.metrics_history['train_loss'],

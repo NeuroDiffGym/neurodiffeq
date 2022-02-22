@@ -1624,7 +1624,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
     
     def __init__(self, ode_system, t_min, t_max):
         
-        self.ode_system = ode_system
+        self.diff_eqs = ode_system
         self.t_min = t_min
         self.t_max = t_max
         
@@ -1644,7 +1644,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 bases=self.bases,
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=n_last_layer_head,
-                                ode_system=self.ode_system,
+                                ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
                                 system_parameters=self.system_parameters[p]
@@ -1654,7 +1654,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 bases=self.bases,
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=self.n_last_layer_head,
-                                ode_system=self.ode_system,
+                                ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
                                 system_parameters=self.system_parameters[p]
