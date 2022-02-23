@@ -1661,9 +1661,9 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
-    def fit(self, epochs=10, train_source=False):
+    def fit(self, epochs=10, freeze_source=True):
         
-        if train_source:
+        if not freeze_source:
             for i in range(len(self.solvers_base)):
                 self.solvers_base[i].fit(max_epochs=epochs)
         else:
