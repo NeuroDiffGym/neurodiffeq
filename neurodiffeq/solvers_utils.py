@@ -287,23 +287,23 @@ def save_solver(path, name, save_to_hub, save_dict):
                     # response.raise_for_status()
                     print("You do not have access to the project:", project)
 
-            # Upload the solution
-            url = NEURODIFF_API_URL + "/solutions/upload"
-            solution = {
-                "name": name,
-                "description": name,
-                "diff_equation_details": save_dict["diff_equation_details"],
-                "type_name": save_dict["type_name"]
-            }
-            response = requests.post(
-                url,
-                data=solution,
-                files={"file": open(tmp_file.name, "rb"), "solution": (
-                    "solution.json", json.dumps(solution))},
-                headers=_make_api_headers()
-            )
-            if not response.ok:
-                print("Could not upload solution")
+        # Upload the solution
+        url = NEURODIFF_API_URL + "/solutions/upload"
+        solution = {
+            "name": name,
+            "description": name,
+            "diff_equation_details": save_dict["diff_equation_details"],
+            "type_name": save_dict["type_name"]
+        }
+        response = requests.post(
+            url,
+            data=solution,
+            files={"file": open(solution_file_path, "rb"), "solution": (
+                "solution.json", json.dumps(solution))},
+            headers=_make_api_headers()
+        )
+        if not response.ok:
+            print("Could not upload solution")
 
     else:
         # Save solution locally
