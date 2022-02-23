@@ -563,7 +563,7 @@ class UniversalPretrainedSolver():
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
             "parameters": get_parameters(self.diff_eqs),
-            # "conditions": get_conditions(self.conditions),
+            "conditions": [],
             # "generator": get_generator(self.generator),
             # "sample_solution": {},
             # "sample_loss": self.metrics_history['valid_loss'],
@@ -590,8 +590,8 @@ class UniversalPretrainedSolver():
             # "generator": self.generator,
             # "train_loss_history": self.metrics_history['train_loss'],
             # "valid_loss_history": self.metrics_history['valid_loss'],
-            # "type": self.__class__,
-            # "type_name": self.__class__.__name__,
+            "type": self.__class__,
+            "type_name": self.__class__.__name__,
             "solver": self
         }
 
