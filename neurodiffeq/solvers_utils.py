@@ -585,6 +585,8 @@ class UniversalPretrainedSolver():
             # "optimizer": self.optimizer,
             # "optimizer_state": self.optimizer.state_dict(),
             # "optimizer_class": optimizer_class,
+            "u_0s":self.u_0s,
+            "system_parameters":self.system_parameters,
             "diff_eqs": self.diff_eqs,
             "diff_equation_details": diff_equation_details,
             # "generator": self.generator,
@@ -630,6 +632,8 @@ class UniversalPretrainedSolver():
             t_min=t_min,
             t_max=t_max
         )
+        solver.u_0s = load_dict['solver'].u_0s
+        solver.system_parameters = load_dict['solver'].system_parameters
         # Load Weights
         solver.bases = load_dict['solver'].bases
         solver.solvers_base = load_dict['solver'].solvers_base
