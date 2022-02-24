@@ -1580,7 +1580,7 @@ class _SingleSolver1D(Solver1D):
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max,system_parameters=[{}]):
+    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam, lr=1e-3):
         
         self.num = len(initial_conditions)
         self.bases = bases
@@ -1592,7 +1592,8 @@ class _SingleSolver1D(Solver1D):
             t_min = t_min,
             t_max = t_max,
             nets = self.head,
-            system_parameters=system_parameters
+            system_parameters=system_parameters,
+            optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
         )
         
     def additional_loss(self, residuals, funcs, coords):
@@ -1629,7 +1630,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.t_max = t_max
         
     
-    def build(self,u_0s=None, system_parameters=[{}],BaseClass=Net14, n_last_layer_head=10, build_source=False):
+    def build(self,u_0s=None, system_parameters=[{}], BaseClass=Net14, n_last_layer_head=10, build_source=False, optimizer=torch.optim.Adam, lr=1e-3):
         self.u_0s = u_0s
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
@@ -1647,7 +1648,9 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
-                                system_parameters=self.system_parameters[p]
+                                system_parameters=self.system_parameters[p],
+                                optimizer=optimizer,
+                                lr=lr
                         ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
         else:
             self.solvers_head = [_SingleSolver1D(
@@ -1657,7 +1660,9 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
-                                system_parameters=self.system_parameters[p]
+                                system_parameters=self.system_parameters[p],
+                                optimizer=optimizer,
+                                lr=lr
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
