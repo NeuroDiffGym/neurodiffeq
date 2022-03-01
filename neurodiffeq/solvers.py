@@ -1580,7 +1580,7 @@ class _SingleSolver1D(Solver1D):
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam, lr=1e-3):
+    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam, lr=1e-3,train_generator=None,valid_generator=None):
         
         self.num = len(initial_conditions)
         self.bases = bases
@@ -1591,6 +1591,8 @@ class _SingleSolver1D(Solver1D):
             conditions = [NoCondition()]*self.num,
             t_min = t_min,
             t_max = t_max,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
             nets = self.head,
             system_parameters=system_parameters,
             optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
@@ -1623,17 +1625,36 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             x = torch.tanh(x)
             return x
     
-    def __init__(self, ode_system, t_min, t_max):
+    def __init__(self, ode_system):
         
         self.diff_eqs = ode_system
-        self.t_min = t_min
-        self.t_max = t_max
-        
+        self.t_min = None
+        self.t_max = None
+        self.train_generator = None
+        self.valid_generator = None
     
-    def build(self,u_0s=None, system_parameters=[{}], BaseClass=Net14, n_last_layer_head=10, build_source=False, optimizer=torch.optim.Adam, lr=1e-3):
+    def build(self,u_0s=None,
+        system_parameters=[{}], 
+        BaseClass=Net14, 
+        n_last_layer_head=10, 
+        build_source=False, 
+        optimizer=torch.optim.Adam, 
+        lr=1e-3, 
+        t_min=None, 
+        t_max=None,
+        train_generator=None, 
+        valid_generator=None):
         self.u_0s = u_0s
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
+        if t_min is not None:
+            self.t_min = t_min
+        if t_max is not None:
+            self.t_max = t_max
+        if train_generator is not None:
+            self.train_generator = train_generator
+        if valid_generator is not None:
+            self.valid_generator = valid_generator
 
         if self.u_0s is None:
             raise ValueError("u_0s must be specified") 
@@ -1648,6 +1669,8 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
+                                train_generator=self.train_generator,
+                                valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
                                 optimizer=optimizer,
                                 lr=lr
@@ -1660,6 +1683,8 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 ode_system=self.diff_eqs,
                                 t_min=self.t_min,
                                 t_max=self.t_max,
+                                train_generator=self.train_generator,
+                                valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
                                 optimizer=optimizer,
                                 lr=lr

@@ -627,13 +627,13 @@ class UniversalPretrainedSolver():
         t_max = load_dict['solver'].t_max
         
         # Initialize Solver
-        solver = cls(
-            ode_system=de_system,
-            t_min=t_min,
-            t_max=t_max
-        )
+        solver = cls(ode_system=de_system)
         solver.u_0s = load_dict['solver'].u_0s
         solver.system_parameters = load_dict['solver'].system_parameters
+        solver.t_min = load_dict['solver'].t_min
+        solver.t_max = load_dict['solver'].t_max
+        solver.train_generator = load_dict['solver'].train_generator
+        solver.valid_generator = load_dict['solver'].valid_generator
         # Load Weights
         solver.bases = load_dict['solver'].bases
         solver.solvers_base = load_dict['solver'].solvers_base
