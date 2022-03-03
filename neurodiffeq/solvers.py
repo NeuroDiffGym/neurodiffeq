@@ -1580,11 +1580,22 @@ class _SingleSolver1D(Solver1D):
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam, lr=1e-3,train_generator=None,valid_generator=None):
+    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam,optimizer_args=None, optimizer_kwargs={"lr":1e-3},train_generator=None,valid_generator=None):
         
         self.num = len(initial_conditions)
         self.bases = bases
         self.head = [self.Head(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+
+        self.optimizer_args = optimizer_args or ()
+        self.optimizer_kwargs = optimizer_kwargs or {}
+
+        if isinstance(optimizer, torch.optim.Optimizer):
+            self.optimizer = optimizer
+        elif issubclass(optimizer, torch.optim.Optimizer):
+            params = chain.from_iterable(n.parameters() for n in self.head)
+            self.optimizer = optimizer(params, *self.optimizer_args, **self.optimizer_kwargs)
+        else:
+            raise TypeError(f"Unknown optimizer instance/type {self.optimizer}")
         
         super().__init__(
             ode_system = ode_system,
@@ -1595,7 +1606,8 @@ class _SingleSolver1D(Solver1D):
             valid_generator=valid_generator,
             nets = self.head,
             system_parameters=system_parameters,
-            optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
+            #optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
+            optimizer=self.optimizer
         )
         
     def additional_loss(self, residuals, funcs, coords):
@@ -1639,7 +1651,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         n_last_layer_head=10, 
         build_source=False, 
         optimizer=torch.optim.Adam, 
-        lr=1e-3, 
+        optimizer_args=None, optimizer_kwargs={"lr":1e-3},
         t_min=None, 
         t_max=None,
         train_generator=None, 
@@ -1658,6 +1670,10 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
 
         if self.u_0s is None:
             raise ValueError("u_0s must be specified") 
+        
+        self.optimizer = optimizer
+        self.optimizer_args = optimizer_args or ()
+        self.optimizer_kwargs = optimizer_kwargs or {}
 
         # Build the source solver
         if build_source:
@@ -1672,8 +1688,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
-                                optimizer=optimizer,
-                                lr=lr
+                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs
                         ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
         else:
             self.solvers_head = [_SingleSolver1D(
@@ -1686,8 +1701,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
-                                optimizer=optimizer,
-                                lr=lr
+                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
