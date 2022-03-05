@@ -1580,7 +1580,11 @@ class _SingleSolver1D(Solver1D):
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, t_max, system_parameters=[{}], optimizer=torch.optim.Adam,optimizer_args=None, optimizer_kwargs={"lr":1e-3},train_generator=None,valid_generator=None):
+    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, 
+                 t_max, system_parameters=[{}], 
+                 optimizer=torch.optim.Adam, optimizer_args=None, optimizer_kwargs={"lr":1e-3}, 
+                 train_generator=None, valid_generator=None, n_batches_train=1, n_batches_valid=4,
+                 criterion=None, metrics=None):
         
         self.num = len(initial_conditions)
         self.bases = bases
@@ -1598,16 +1602,20 @@ class _SingleSolver1D(Solver1D):
             raise TypeError(f"Unknown optimizer instance/type {self.optimizer}")
         
         super().__init__(
-            ode_system = ode_system,
-            conditions = [NoCondition()]*self.num,
-            t_min = t_min,
-            t_max = t_max,
+            ode_system=ode_system,
+            conditions=[NoCondition()]*self.num,
+            t_min=t_min,
+            t_max=t_max,
             train_generator=train_generator,
             valid_generator=valid_generator,
-            nets = self.head,
+            nets=self.head,
             system_parameters=system_parameters,
             #optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
-            optimizer=self.optimizer
+            optimizer=self.optimizer,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            criterion=criterion,
+            metrics=metrics
         )
         
     def additional_loss(self, residuals, funcs, coords):
@@ -1655,7 +1663,11 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         t_min=None, 
         t_max=None,
         train_generator=None, 
-        valid_generator=None):
+        valid_generator=None,
+        n_batches_train=1,
+        n_batches_valid=4,
+        criterion=None,
+        metrics=None):
         self.u_0s = u_0s
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
@@ -1680,7 +1692,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.t_min, self.t_max = t_min, t_max
 
         if self.u_0s is None:
-            raise ValueError("u_0s must be specified") 
+            raise ValueError("ICs must be specified") 
         
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args or ()
@@ -1699,7 +1711,11 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
-                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs
+                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs,
+                                n_batches_train=n_batches_train,
+                                n_batches_valid=n_batches_valid,
+                                criterion=criterion,
+                                metrics=metrics
                         ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
         else:
             self.solvers_head = [_SingleSolver1D(
@@ -1712,7 +1728,11 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
-                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs
+                                optimizer=optimizer,optimizer_args=optimizer_args, optimizer_kwargs=optimizer_kwargs,
+                                n_batches_train=n_batches_train,
+                                n_batches_valid=n_batches_valid,
+                                criterion=criterion,
+                                metrics=metrics
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
