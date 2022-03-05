@@ -1655,9 +1655,20 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             self.train_generator = train_generator
         if valid_generator is not None:
             self.valid_generator = valid_generator
+        if train_generator is None or valid_generator is None:
+            if t_min is None or t_max is None:
+                raise ValueError(f"Either generator is not provided, t_min and t_max should be both provided: \n"
+                                 f"got t_min={t_min}, t_max={t_max}, "
+                                 f"train_generator={train_generator}, valid_generator={valid_generator}")
+        if train_generator is None:
+            train_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced-noisy')
+        if valid_generator is None:
+            valid_generator = Generator1D(32, t_min=t_min, t_max=t_max, method='equally-spaced')
+
+        self.t_min, self.t_max = t_min, t_max
 
         if self.u_0s is None:
-            raise ValueError("u_0s must be specified") 
+            raise ValueError("ICs must be specified") 
 
         # Build the source solver
         if build_source:
