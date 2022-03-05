@@ -1551,23 +1551,7 @@ class Solver2D(BaseSolver):
 
 
 class _SingleSolver1D(Solver1D):
-    
-    # class Net14(nn.Module):
-    #     def __init__(self, n_input, n_hidden, n_output):
-    #         super().__init__()
-    #         self.linear_1 = nn.Linear(n_input, n_hidden)
-    #         self.linear_2 = nn.Linear(n_hidden, n_hidden)
-    #         self.linear_3 = nn.Linear(n_hidden, n_output)
-
-    #     def forward(self, x):
-    #         x = self.linear_1(x)
-    #         x = torch.tanh(x)
-    #         x = self.linear_2(x)
-    #         x = torch.tanh(x)
-    #         x = self.linear_3(x)
-    #         x = torch.tanh(x)
-    #         return x
-        
+            
     class Head(nn.Module):
         def __init__(self, u_0, base, n_input):
             super().__init__()
@@ -1629,7 +1613,7 @@ class _SingleSolver1D(Solver1D):
 
 class UniversalSolver1D(ABC, UniversalPretrainedSolver):
 
-    class Net14(nn.Module):
+    class Base(nn.Module):
         def __init__(self):
             super().__init__()
             self.linear_1 = nn.Linear(1, 10)
@@ -1655,7 +1639,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
     
     def build(self,u_0s=None,
         system_parameters=[{}], 
-        BaseClass=Net14, 
+        BaseClass=Base, 
         n_last_layer_head=10, 
         build_source=False, 
         optimizer=torch.optim.Adam, 
@@ -1698,7 +1682,6 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.optimizer_args = optimizer_args or ()
         self.optimizer_kwargs = optimizer_kwargs or {}
 
-        # Build the source solver
         if build_source:
             self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
             self.solvers_base = [_SingleSolver1D(
@@ -1742,11 +1725,9 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             for i in range(len(self.solvers_base)):
                 self.solvers_base[i].fit(max_epochs=epochs)
         else:
-            # Finetuning on new conditions/parameters
             for net in self.bases:
                 for param in net.parameters():
                     param.requires_grad = False
-            
             for i in range(len(self.solvers_head)):
                 self.solvers_head[i].fit(max_epochs=epochs)
             
