@@ -1612,6 +1612,13 @@ class _SingleSolver1D(Solver1D):
     
 
 class UniversalSolver1D(ABC, UniversalPretrainedSolver):
+    r"""A solver class for solving a family of ODEs (for different initial conditions and parameters)
+
+    :param ode_system:
+        The ODE system to solve, which maps a torch.Tensor to a tuple of ODE residuals,
+        both the input and output must have shape (n_samples, 1).
+    :type ode_system: callable
+    """
 
     class Base(nn.Module):
         def __init__(self):
@@ -1652,6 +1659,74 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         n_batches_valid=4,
         criterion=None,
         metrics=None):
+        
+        r"""
+        :param system_parameters:
+            List of dictionaries of parameters for which the solver will be trained
+        :type  system_parameters: list[dict]
+        :param BaseClass:
+        Neural network class for base networks
+        :type nets: torch.nn.Module
+        :param n_last_layer_head:
+            Number of neurons in the last layer for each network
+        :type n_last_layer_head: int
+        :param build_source: 
+            Boolean value for training the base networks or freezing their weights
+        :type build_source: bool
+        :param optimizer:
+            Optimizer to be used for training.
+            Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+        :type optimizer: ``torch.nn.optim.Optimizer``, optional
+        :param t_min:
+        Lower bound of input (start time).
+        Ignored if ``train_generator`` and ``valid_generator`` are both set.
+        :type t_min: float, optional
+        :param t_max:
+            Upper bound of input (start time).
+            Ignored if ``train_generator`` and ``valid_generator`` are both set.
+        :type t_max: float, optional
+        :param train_generator:
+            Generator for sampling training points,
+            which must provide a ``.get_examples()`` method and a ``.size`` field.
+            ``train_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+        :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+        :param valid_generator:
+            Generator for sampling validation points,
+            which must provide a ``.get_examples()`` method and a ``.size`` field.
+            ``valid_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+        :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+        :param n_batches_train:
+            Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+            Defaults to 1.
+        :type n_batches_train: int, optional
+        :param n_batches_valid:
+            Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+            Defaults to 4.
+        :type n_batches_valid: int, optional
+        :param criterion:
+            The loss function used for training.
+
+            - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+            - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+            - If any other callable, it must map
+            A) a residual tensor (shape `(n_points, n_equations)`),
+            B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+            C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+            to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+            so that backpropagation can be performed.
+
+        :type criterion:
+            str or `torch.nn.moduesl.loss._Loss` or callable
+        :param metrics:
+            Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+            - Keys are metric names (e.g. 'analytic_mse');
+            - Values are functions (callables) that computes the metric value.
+            These functions must accept the same input as the differential equation ``ode_system``.
+
+        :type metrics: dict[str, callable], optional
+        """
+        
         self.u_0s = u_0s
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
@@ -1720,6 +1795,14 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
 
 
     def fit(self, epochs=10, freeze_source=True):
+        r"""
+        :param epochs:
+            Number of epochs for training
+        :type epochs: int
+        :param freeze_source:
+            Boolean value indicating whether to freeze the base networks or not
+        :type freeze_source: bool
+        """
         
         if not freeze_source:
             for i in range(len(self.solvers_base)):
@@ -1733,6 +1816,13 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             
     
     def get_solution(self, base=False):
+        r"""
+        :param base:
+            Boolean value indicating whether to get solutions for those conditions for which the base 
+            was trained or solutions for those conditions for which only the last layer was trained
+        :type base: bool
+        :rtype: list[BaseSolution]
+        """
         
         if base:
             return [self.solvers_base[i].get_solution() for i in range(len(self.solvers_base))]
