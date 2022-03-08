@@ -13,11 +13,11 @@ import ast
 import types
 import random
 from copy import deepcopy
-from .parser import lex
-from .parser.equation_latex import *
 
 # from neurodiffeq import conditions
 from .conditions import BundleIVP
+from .parser import lex
+from .parser.equation_latex import *
 
 # Is Dev mode
 try:
