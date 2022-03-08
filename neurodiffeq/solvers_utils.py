@@ -13,6 +13,8 @@ import ast
 import types
 import random
 from copy import deepcopy
+from neurodiffeq.parser import lex
+from neurodiffeq.parser.equation_latex import *
 
 # from neurodiffeq import conditions
 from neurodiffeq.conditions import BundleIVP
@@ -329,8 +331,20 @@ class PretrainedSolver():
         if lambda_text == "":
             lambda_text = self.diff_eqs_source
         print(lambda_text)
+        
+    def get_diff_eqs(self):
+        equation_source = get_source(self.diff_eqs)
+        print("Equation:", equation_source)
+        lexer = lex.lex()
+        test_case = preprocess(equation_source)
+        lexer.input(test_case)
+        token_list = list(lexer)
+        equations = split_equations(token_list)
+        equations_latex = [convert_to_latex(eq) for eq in equations]
 
-    # Saving selected attributes of model in dict
+        return {
+            "equation_tex":equations_latex,
+        }
 
     def save(self,
              path: str = None,
@@ -634,6 +648,7 @@ class UniversalPretrainedSolver():
         solver.t_max = load_dict['solver'].t_max
         solver.train_generator = load_dict['solver'].train_generator
         solver.valid_generator = load_dict['solver'].valid_generator
+        
         # Load Weights
         solver.bases = load_dict['solver'].bases
         solver.solvers_base = load_dict['solver'].solvers_base
