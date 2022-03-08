@@ -16,8 +16,7 @@ from copy import deepcopy
 
 # from neurodiffeq import conditions
 from .conditions import BundleIVP
-from .parser import lex
-from .parser.equation_latex import *
+from . import parser
 
 # Is Dev mode
 try:
@@ -335,12 +334,12 @@ class PretrainedSolver():
     def get_diff_eqs(self):
         equation_source = get_source(self.diff_eqs)
         print("Equation:", equation_source)
-        lexer = lex.lex()
-        test_case = preprocess(equation_source)
+        lexer = parser.lex()
+        test_case = parser.preprocess(equation_source)
         lexer.input(test_case)
         token_list = list(lexer)
-        equations = split_equations(token_list)
-        equations_latex = [convert_to_latex(eq) for eq in equations]
+        equations = parser.split_equations(token_list)
+        equations_latex = [parser.convert_to_latex(eq) for eq in equations]
 
         return {
             "equation_tex":equations_latex,
