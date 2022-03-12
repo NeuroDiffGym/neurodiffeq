@@ -18,6 +18,9 @@ from copy import deepcopy
 from .conditions import BundleIVP
 from . import parser2
 
+# Parser
+from parser2 import get_independent_variables, get_order, get_parameters, get_variables, parse_conditions, parse_string
+
 # Is Dev mode
 try:
     DEV = os.environ["DEV"]
@@ -338,8 +341,32 @@ class PretrainedSolver():
         # equation_tex = parser2.parse_eq(lambda_text)
         # condition_tex = parser2.parse(lambda_text)
 
+        # Get equation components
+        equation_source = get_source(self.diff_eqs)
+        #print("Equation:",equation_source)
+        if(self.system_parameters!={}):
+            parameters = self.system_parameters
+        else:
+            parameters = get_parameters(self.diff_eqs)
+        #print("Parameters:", parameters)
+        if self.conditions is not None:
+            conditions = get_conditions(self.conditions)
+            #print("Conditions:",conditions)
+        
+
+        order = get_order(equation_source)
+        variables = get_variables(equation_source)
+        independent_variables = get_independent_variables(variables, order)
+        dependent_variables = list(order.keys())
+
+        # Parse Equation
+        equation_tex = parse_string(equation_source)
+        conditions_tex = parse_conditions(conditions,independent_variables,dependent_variables)
+
         return {
-            "equation_tex":"",
+            "equation_tex":equation_tex,
+            "conditions_tex":conditions_tex,
+            "parameters": parameters
         }
 
     def save(self,
