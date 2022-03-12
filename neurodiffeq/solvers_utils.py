@@ -13,6 +13,7 @@ import ast
 import types
 import random
 from copy import deepcopy
+from IPython.display import display, Markdown, Latex
 
 # from neurodiffeq import conditions
 from .conditions import BundleIVP
