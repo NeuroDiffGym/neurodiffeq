@@ -16,10 +16,10 @@ from copy import deepcopy
 
 # from neurodiffeq import conditions
 from .conditions import BundleIVP
-from . import parser2
+
 
 # Parser
-from parser2 import get_independent_variables, get_order, get_parameters, get_variables, parse_conditions, parse_string
+from .parser2 import get_independent_variables, get_order, get_parameters, get_variables, parse_conditions, parse_string
 
 # Is Dev mode
 try:
