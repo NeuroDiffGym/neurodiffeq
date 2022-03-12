@@ -521,6 +521,7 @@ def get_parameters(lambda_function):
             co_names = lambda_function.__code__.co_names #Co names is a tuple which gives all global and built-in names being used by the function 
         
             for i, c in enumerate(co_names):
+                print(c)
                 if c != "diff" and c != "torch":
                     if c in gbs: # If c is not in globals dictionary, then means is not a parameter (example exp, cos, etc)
                       parameters[c] = gbs[c]
