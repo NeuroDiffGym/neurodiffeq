@@ -368,6 +368,7 @@ class PretrainedSolver():
         conditions_tex = parse_conditions(conditions,independent_variables,dependent_variables)
 
         if print:
+            from IPython.display import display, Markdown, Latex
             for eq in equation_tex:
                 display(Latex(eq))
             for eq in conditions_tex:
