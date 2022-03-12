@@ -334,12 +334,16 @@ class PretrainedSolver():
             lambda_text = self.diff_eqs_source
         print(lambda_text)
         
-    def get_diff_eqs(self):
+    def get_diff_eqs(self, print=False):
 
         # Add code here to build equation, conditions, parameters etc
         # lambda_text = get_source(self.diff_eqs)
         # equation_tex = parser2.parse_eq(lambda_text)
         # condition_tex = parser2.parse(lambda_text)
+
+        greek_letters = {"alpha", "beta", "gamma", "delta", "epsilon", "theta", "iota",
+                 "kappa", "lambda", "mu", "nu", "pi", "rho", "sigma", "phi", "psi", "omega",\
+                 "cos", "sin", "tan", "sec", "cosec", "cot"}
 
         # Get equation components
         equation_source = get_source(self.diff_eqs)
@@ -363,11 +367,24 @@ class PretrainedSolver():
         equation_tex = parse_string(equation_source)
         conditions_tex = parse_conditions(conditions,independent_variables,dependent_variables)
 
-        return {
-            "equation_tex":equation_tex,
-            "conditions_tex":conditions_tex,
-            "parameters": parameters
-        }
+        if print:
+            for eq in equation_tex:
+                display(Latex(eq))
+            for eq in conditions_tex:
+                display(Latex(eq))
+            if len(parameters) > 0:
+                for (p, v) in parameters.items():
+                    p = p.replace('_', '\_')
+                if p in greek_letters:
+                    p = "\\" + p
+                val = p + " = " + str(v)
+                display(Latex(val))
+        else:
+            return {
+                "equation_tex":equation_tex,
+                "conditions_tex":conditions_tex,
+                "parameters": parameters
+            }
 
     def save(self,
              path: str = None,
