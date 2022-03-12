@@ -16,7 +16,7 @@ from copy import deepcopy
 
 # from neurodiffeq import conditions
 from .conditions import BundleIVP
-from . import parser
+from . import parser2
 
 # Is Dev mode
 try:
@@ -332,17 +332,14 @@ class PretrainedSolver():
         print(lambda_text)
         
     def get_diff_eqs(self):
-        equation_source = get_source(self.diff_eqs)
-        print("Equation:", equation_source)
-        lexer = parser.lex()
-        test_case = parser.preprocess(equation_source)
-        lexer.input(test_case)
-        token_list = list(lexer)
-        equations = parser.split_equations(token_list)
-        equations_latex = [parser.convert_to_latex(eq) for eq in equations]
+
+        # Add code here to build equation, conditions, parameters etc
+        # lambda_text = get_source(self.diff_eqs)
+        # equation_tex = parser2.parse_eq(lambda_text)
+        # condition_tex = parser2.parse(lambda_text)
 
         return {
-            "equation_tex":equations_latex,
+            "equation_tex":"",
         }
 
     def save(self,
