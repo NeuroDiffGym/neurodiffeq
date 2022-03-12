@@ -376,10 +376,10 @@ class PretrainedSolver():
             if len(parameters) > 0:
                 for (p, v) in parameters.items():
                     p = p.replace('_', '\_')
-                if p in greek_letters:
-                    p = "\\" + p
-                val = p + " = " + str(v)
-                display(Latex(val))
+                    if p in greek_letters:
+                        p = "\\" + p
+                    val = p + " = " + str(v)
+                    display(Latex(val))
         else:
             return {
                 "equation_tex":equation_tex,
