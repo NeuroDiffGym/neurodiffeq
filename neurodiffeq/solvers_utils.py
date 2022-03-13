@@ -19,7 +19,7 @@ from .conditions import BundleIVP
 
 
 # Parser
-from .parser2 import get_independent_variables, get_order, get_parameters, get_variables, parse_conditions, parse_string
+from .parser2 import get_independent_variables, get_order, get_variables, parse_conditions, parse_string
 
 # Is Dev mode
 try:
@@ -112,14 +112,19 @@ def get_parameters(lambda_function):
             for i, c in enumerate(closures):
                 parameters[freevars[i]] = c.cell_contents
         else:
-            gbs = lambda_function.__globals__
-            co_names = lambda_function.__code__.co_names
+            gbs = lambda_function.__globals__ #Dictionary for all methods, etc -> Also has global variables and values for them
+            co_names = lambda_function.__code__.co_names #Co names is a tuple which gives all global and built-in names being used by the function 
+            #print(co_names)
+            #print("Global Dic:", gbs)
             for i, c in enumerate(co_names):
+                #print(c)
                 if c != "diff" and c != "torch":
-                    parameters[c] = gbs[c]
+                    if c in gbs: # If c is not in globals dictionary, then means is not a parameter (example exp, cos, etc)
+                      parameters[c] = gbs[c]
+                      
     except:
         pass
-
+    
     return parameters
 
 
@@ -334,7 +339,7 @@ class PretrainedSolver():
             lambda_text = self.diff_eqs_source
         print(lambda_text)
         
-    def get_diff_eqs(self, print=False):
+    def get_diff_eqs(self, show=False):
 
         # Add code here to build equation, conditions, parameters etc
         # lambda_text = get_source(self.diff_eqs)
@@ -352,7 +357,7 @@ class PretrainedSolver():
             parameters = self.system_parameters
         else:
             parameters = get_parameters(self.diff_eqs)
-        #print("Parameters:", parameters)
+            
         if self.conditions is not None:
             conditions = get_conditions(self.conditions)
             #print("Conditions:",conditions)
@@ -367,7 +372,7 @@ class PretrainedSolver():
         equation_tex = parse_string(equation_source)
         conditions_tex = parse_conditions(conditions,independent_variables,dependent_variables)
 
-        if print:
+        if show:
             from IPython.display import display, Markdown, Latex
             for eq in equation_tex:
                 display(Latex(eq))

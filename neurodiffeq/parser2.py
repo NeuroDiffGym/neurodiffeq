@@ -508,28 +508,6 @@ def parse_conditions(conditions, independent_variables, dependent_variables):
 
     return parsed_conditions
 
-def get_parameters(lambda_function):
-    parameters = {}
-    try:
-        closures = lambda_function.__closure__
-        if closures is not None:
-            freevars = lambda_function.__code__.co_freevars
-            for i, c in enumerate(closures):
-                parameters[freevars[i]] = c.cell_contents
-        else:
-            gbs = lambda_function.__globals__ #Dictionary for all methods, etc -> Also has global variables and values for them
-            co_names = lambda_function.__code__.co_names #Co names is a tuple which gives all global and built-in names being used by the function 
-        
-            for i, c in enumerate(co_names):
-                if c != "diff" and c != "torch":
-                    if c in gbs: # If c is not in globals dictionary, then means is not a parameter (example exp, cos, etc)
-                      parameters[c] = gbs[c]
-                      
-    except:
-        pass
-    
-    return parameters
-
 def get_variables(lambda_function):
     results = []
     try:
