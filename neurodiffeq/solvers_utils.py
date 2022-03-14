@@ -419,6 +419,8 @@ class PretrainedSolver():
 
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
+            "equation_tex": PretrainedSolver.get_diff_eqs(self)["equation_tex"],
+            "conditions_tex": PretrainedSolver.get_diff_eqs(self)["conditions_tex"],
             "parameters": get_parameters(self.diff_eqs),
             "conditions": get_conditions(self.conditions),
             "generator": get_generator(self.generator),
