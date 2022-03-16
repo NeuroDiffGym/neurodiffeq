@@ -1564,7 +1564,7 @@ class _SingleSolver1D(Solver1D):
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, initial_conditions, n_last_layer_head, ode_system, t_min, 
+    def __init__(self, bases, HeadClass, initial_conditions, n_last_layer_head, ode_system, t_min, 
                  t_max, system_parameters=[{}], 
                  optimizer=torch.optim.Adam, optimizer_args=None, optimizer_kwargs={"lr":1e-3}, 
                  train_generator=None, valid_generator=None, n_batches_train=1, n_batches_valid=4,
@@ -1572,8 +1572,11 @@ class _SingleSolver1D(Solver1D):
         
         self.num = len(initial_conditions)
         self.bases = bases
-        self.head = [self.Head(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
-
+        if HeadClass is None:
+            self.head = [self.Head(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+        else:
+            self.head = [HeadClass(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+        
         self.optimizer_args = optimizer_args or ()
         self.optimizer_kwargs = optimizer_kwargs or {}
 
@@ -1646,7 +1649,8 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
     
     def build(self,u_0s=None,
         system_parameters=[{}], 
-        BaseClass=Base, 
+        BaseClass=Base,
+        HeadClass=None,
         n_last_layer_head=10, 
         build_source=False, 
         optimizer=torch.optim.Adam, 
@@ -1730,6 +1734,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.u_0s = u_0s
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
+        
         if t_min is not None:
             self.t_min = t_min
         if t_max is not None:
@@ -1750,7 +1755,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
 
 
         if self.u_0s is None:
-            raise ValueError("ICs must be specified") 
+            raise ValueError("ICs must be specified")
         
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args or ()
@@ -1760,6 +1765,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
             self.solvers_base = [_SingleSolver1D(
                                 bases=self.bases,
+                                HeadClass=HeadClass,
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=n_last_layer_head,
                                 ode_system=self.diff_eqs,
@@ -1777,6 +1783,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         else:
             self.solvers_head = [_SingleSolver1D(
                                 bases=self.bases,
+                                HeadClass=HeadClass,
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=self.n_last_layer_head,
                                 ode_system=self.diff_eqs,
