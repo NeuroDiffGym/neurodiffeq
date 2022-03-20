@@ -610,6 +610,60 @@ class PretrainedSolver():
 
 class UniversalPretrainedSolver():
 
+    def get_diff_eqs(self, show=False):
+
+        # Add code here to build equation, conditions, parameters etc
+        # lambda_text = get_source(self.diff_eqs)
+        # equation_tex = parser2.parse_eq(lambda_text)
+        # condition_tex = parser2.parse(lambda_text)
+
+        greek_letters = {"alpha", "beta", "gamma", "delta", "epsilon", "theta", "iota",
+                 "kappa", "lambda", "mu", "nu", "pi", "rho", "sigma", "phi", "psi", "omega",\
+                 "cos", "sin", "tan", "sec", "cosec", "cot"}
+
+        # Get equation components
+        equation_source = get_source(self.diff_eqs)
+        #print("Equation:",equation_source)
+        if(self.system_parameters!=[]):
+            parameters = self.system_parameters
+        else:
+            parameters = get_parameters(self.diff_eqs) #Check if can declare in block
+            
+        # if self.conditions is not None:
+        #     conditions = get_conditions(self.conditions)
+        #     #print("Conditions:",conditions)
+        
+
+        # order = get_order(equation_source)
+        # variables = get_variables(equation_source)
+        # independent_variables = get_independent_variables(variables, order)
+        # dependent_variables = list(order.keys())
+
+        # Parse Equation
+        equation_tex = parse_string(equation_source)
+        # conditions_tex = parse_conditions(conditions,independent_variables,dependent_variables)
+
+        if show:
+            from IPython.display import display, Markdown, Latex
+            for eq in equation_tex:
+                display(Latex(eq))
+            # for eq in conditions_tex:
+            #     display(Latex(eq))
+            if len(parameters) > 0:
+                for param_dic in parameters:
+                    for (p, v) in param_dic.items():
+                        p = p.replace('_', '\_')
+                        if p in greek_letters:
+                            p = "\\" + p
+                        val = p + " = " + str(v)
+                        display(Latex(val))
+        else:
+            return {
+                "equation_tex":equation_tex,
+                #"conditions_tex":conditions_tex,
+                "parameters": parameters
+            }
+
     def save(self,
              path: str = None,
              name: str = None,
