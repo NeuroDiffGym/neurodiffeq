@@ -683,7 +683,7 @@ class BaseSolution(ABC):
             self._compute_u(net, con, *coords)
             for con, net in zip(self.conditions, self.nets)
         ]
-        if not no_reshape:
+        if not no_reshape and us[0].size()[1] == 1:
             us = [u.reshape(*original_shape) for u in us]
         if to_numpy:
             us = [u.detach().cpu().numpy() for u in us]
