@@ -610,6 +610,56 @@ class PretrainedSolver():
 
 class UniversalPretrainedSolver():
 
+    def get_diff_eqs(self, show=False):
+
+        greek_letters = {"alpha", "beta", "gamma", "delta", "epsilon", "theta", "iota",
+                 "kappa", "lambda", "mu", "nu", "pi", "rho", "sigma", "phi", "psi", "omega",\
+                 "cos", "sin", "tan", "sec", "cosec", "cot"}
+
+        # Get equation components
+        equation_source = get_source(self.diff_eqs)
+        if(self.system_parameters!=[]):
+            parameters = self.system_parameters
+        else:
+            parameters = get_parameters(self.diff_eqs) #Check if can declare in block
+            
+        
+        # Parse Equation
+        equation_tex = parse_string(equation_source)
+        
+        # u0_s and ts
+
+        u_tex_lower = self.u_0s[0][0]
+        u_tex_upper = self.u_0s[-1][-1]
+
+        u_tex = 'u: [\\ {}\\ -\\ {}\\ ]'.format(u_tex_lower, u_tex_upper)
+
+        t_tex = 't: [\\ {}\\ -\\ {}\\ ]'.format(self.t_min, self.t_max)
+
+        if show:
+            from IPython.display import display, Markdown, Latex
+            for eq in equation_tex:
+                display(Latex(eq))
+            
+            if len(parameters) > 0:
+                for param_dic in parameters:
+                    for (p, v) in param_dic.items():
+                        p = p.replace('_', '\_')
+                        if p in greek_letters:
+                            p = "\\" + p
+                        val = p + " = " + str(v)
+                        display(Latex(val))
+
+            display(Latex(t_tex))
+            display(Latex(u_tex))
+        else:
+            return {
+                "equation_tex": equation_tex,
+                "t_tex": t_tex,
+                "u_tex": u_tex,
+                "parameters": parameters
+            }
+
     def save(self,
              path: str = None,
              name: str = None,
