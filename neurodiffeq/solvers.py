@@ -1550,33 +1550,42 @@ class Solver2D(BaseSolver):
 
 
 
-class _SingleSolver1D(Solver1D):
+class _SingleSolver1D(GenericSolver):
             
     class Head(nn.Module):
-        def __init__(self, u_0, base, n_input):
+        def __init__(self, u_0, base, n_input, n_output=1):
             super().__init__()
             self.u_0 = u_0
             self.base = base
-            self.last_layer = nn.Linear(n_input, 1)
+            self.last_layer = nn.Linear(n_input, n_output)
 
         def forward(self, x):
             x = self.base(x)
             x = self.last_layer(x)
             return x
  
-    def __init__(self, bases, HeadClass, initial_conditions, n_last_layer_head, ode_system, t_min, 
-                 t_max, system_parameters=[{}], 
+    def __init__(self, bases, HeadClass, initial_conditions, n_last_layer_head, diff_eqs, 
+                 system_parameters=[{}], 
                  optimizer=torch.optim.Adam, optimizer_args=None, optimizer_kwargs={"lr":1e-3}, 
                  train_generator=None, valid_generator=None, n_batches_train=1, n_batches_valid=4,
-                 criterion=None, metrics=None):
+                 criterion=None, metrics=None, is_system=False):
+        
+        if train_generator is None or valid_generator is None:
+            raise Exception(f"Train and Valid Generator cannot be None")
         
         self.num = len(initial_conditions)
         self.bases = bases
         if HeadClass is None:
-            self.head = [self.Head(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+            if is_system:
+                self.head = [self.Head(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+            else:
+                self.head = [self.Head(torch.Tensor(initial_conditions).view(1, -1), self.bases, n_last_layer_head, len(initial_conditions))]
         else:
-            self.head = [HeadClass(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
-        
+            if is_system:
+                self.head = [HeadClass(initial_conditions[i], self.bases[i], n_last_layer_head) for i in range(self.num)]
+            else:
+                self.head = [HeadClass(torch.Tensor(initial_conditions).view(1, -1), self.bases, n_last_layer_head, len(initial_conditions))]
+            
         self.optimizer_args = optimizer_args or ()
         self.optimizer_kwargs = optimizer_kwargs or {}
 
@@ -1589,15 +1598,14 @@ class _SingleSolver1D(Solver1D):
             raise TypeError(f"Unknown optimizer instance/type {self.optimizer}")
         
         super().__init__(
-            ode_system=ode_system,
+            diff_eqs=diff_eqs,
             conditions=[NoCondition()]*self.num,
-            t_min=t_min,
-            t_max=t_max,
+            # t_min=t_min,
+            # t_max=t_max,
             train_generator=train_generator,
             valid_generator=valid_generator,
             nets=self.head,
             system_parameters=system_parameters,
-            #optimizer=optimizer(chain.from_iterable(n.parameters() for n in self.head), lr=lr)
             optimizer=self.optimizer,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
@@ -1639,13 +1647,14 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             x = torch.tanh(x)
             return x
     
-    def __init__(self, ode_system):
+    def __init__(self, diff_eqs):
         
-        self.diff_eqs = ode_system
+        self.diff_eqs = diff_eqs
         self.t_min = None
         self.t_max = None
         self.train_generator = None
         self.valid_generator = None
+        self.is_system = False
     
     def build(self,u_0s=None,
         system_parameters=[{}], 
@@ -1655,14 +1664,15 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         build_source=False, 
         optimizer=torch.optim.Adam, 
         optimizer_args=None, optimizer_kwargs={"lr":1e-3},
-        t_min=None, 
-        t_max=None,
+        # t_min=None, 
+        # t_max=None,
         train_generator=None, 
         valid_generator=None,
         n_batches_train=1,
         n_batches_valid=4,
         criterion=None,
-        metrics=None):
+        metrics=None,
+        is_system=False):
         
         r"""
         :param system_parameters:
@@ -1735,10 +1745,12 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
         
-        if t_min is not None:
-            self.t_min = t_min
-        if t_max is not None:
-            self.t_max = t_max
+        # if t_min is not None:
+        #     self.t_min = t_min
+        # if t_max is not None:
+        #     self.t_max = t_max
+        if train_generator is None or valid_generator is None:
+            raise Exception(f"Train and Valid Generator cannot be None")
         if train_generator is not None:
             self.train_generator = train_generator
         if valid_generator is not None:
@@ -1748,12 +1760,10 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                 raise ValueError(f"Either generator is not provided, t_min and t_max should be both provided: \n"
                                  f"got t_min={self.t_min}, t_max={self.t_max}, "
                                  f"train_generator={train_generator}, valid_generator={valid_generator}")
-        if train_generator is None:
-            train_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced-noisy')
-        if valid_generator is None:
-            valid_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced')
-
-
+        # if train_generator is None:
+        #     train_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced-noisy')
+        # if valid_generator is None:
+        #     valid_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced')
         if self.u_0s is None:
             raise ValueError("ICs must be specified")
         
@@ -1762,15 +1772,19 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.optimizer_kwargs = optimizer_kwargs or {}
 
         if build_source:
-            self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
+            if is_system:
+                self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
+            else:
+                self.bases = BaseClass()
+            
             self.solvers_base = [_SingleSolver1D(
                                 bases=self.bases,
                                 HeadClass=HeadClass,
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=n_last_layer_head,
-                                ode_system=self.diff_eqs,
-                                t_min=self.t_min,
-                                t_max=self.t_max,
+                                diff_eqs=self.diff_eqs,
+                                # t_min=self.t_min,
+                                # t_max=self.t_max,
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
@@ -1778,7 +1792,8 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 n_batches_train=n_batches_train,
                                 n_batches_valid=n_batches_valid,
                                 criterion=criterion,
-                                metrics=metrics
+                                metrics=metrics,
+                                is_system=is_system
                         ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
         else:
             self.solvers_head = [_SingleSolver1D(
@@ -1796,7 +1811,8 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 n_batches_train=n_batches_train,
                                 n_batches_valid=n_batches_valid,
                                 criterion=criterion,
-                                metrics=metrics
+                                metrics=metrics,
+                                is_system=is_system
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
