@@ -634,7 +634,7 @@ class UniversalPretrainedSolver():
 
         u_tex = 'u: [\\ {}\\ -\\ {}\\ ]'.format(u_tex_lower, u_tex_upper)
 
-        t_tex = 't: [\\ {}\\ -\\ {}\\ ]'.format(self.t_min, self.t_max)
+        t_tex = 't: [\\ {}\\ -\\ {}\\ ]'.format(self.train_generator.t_min, self.train_generator.t_max)
 
         if show:
             from IPython.display import display, Markdown, Latex
@@ -735,15 +735,15 @@ class UniversalPretrainedSolver():
 
         # Loading user defined de_system from load file
         de_system = load_dict['diff_eqs']
-        t_min = load_dict['solver'].t_min
-        t_max = load_dict['solver'].t_max
+        #t_min = load_dict['solver'].t_min
+        #t_max = load_dict['solver'].t_max
         
         # Initialize Solver
-        solver = cls(ode_system=de_system)
+        solver = cls(diff_eqs=de_system)
         solver.u_0s = load_dict['solver'].u_0s
         solver.system_parameters = load_dict['solver'].system_parameters
-        solver.t_min = load_dict['solver'].t_min
-        solver.t_max = load_dict['solver'].t_max
+        #solver.t_min = load_dict['solver'].t_min
+        #solver.t_max = load_dict['solver'].t_max
         solver.train_generator = load_dict['solver'].train_generator
         solver.valid_generator = load_dict['solver'].valid_generator
         
