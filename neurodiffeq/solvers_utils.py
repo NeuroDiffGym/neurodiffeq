@@ -416,6 +416,8 @@ class PretrainedSolver():
             sample_solution = get_sample_solution2D(self)
         elif self.__class__.__name__ == "BundleSolver1D":
             sample_solution = get_sample_solutionBundle1D(self)
+        else:
+            sample_solution = None #Temp Fix to avoid error, untill conditions made for all solvers
 
         diff_equation_details = {
             "equation": get_source(self.diff_eqs),
