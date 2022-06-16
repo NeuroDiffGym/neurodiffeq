@@ -23,6 +23,7 @@ from .function_basis import RealSphericalHarmonics
 from .conditions import BaseCondition, NoCondition
 from .neurodiffeq import safe_diff as diff
 from .losses import _losses
+import numpy as np
 
 
 def _requires_closure(optimizer):
@@ -1846,14 +1847,148 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         :rtype: list[BaseSolution]
         """
         
-        if base:
-            return [self.solvers_base[i].get_solution() for i in range(len(self.solvers_base))]
+        if len(self.u_0s[0]) == 1:
+            # int( np.floor( i / len(self.system_parameters))) just gives self.u_0s[0], self.u_0s[0]... repeatedly based on number of system parameters
+            # Example output when len(u_0s) = 5 and len(system_parameters) = 3: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9]
+            return [self.get_ana_output(i,256,self.u_0s[ int ( np.floor( i / len(self.system_parameters) ) )]) for i in range(len(self.solvers_base))]
+
+            # return [self.final_solver(i,256,self.u_0s[ int ( np.floor( i / len(self.system_parameters) ) )], self.system_parameters[i%3]['ls']) for i in range(len(self.solvers_base))]
         else:
-            return [self.solvers_head[i].get_solution() for i in range(len(self.solvers_head))]
+            if base:
+                return [self.solvers_base[i].get_solution() for i in range(len(self.solvers_base))]
+            else:
+                return [self.solvers_head[i].get_solution() for i in range(len(self.solvers_head))]
         
     
-    
+    def get_ana_output(self, s, timesteps, u0):
+       
+        t_size = timesteps
+        d = 10
+
+        activations = {}
+        def get_activation(name):
+            def hook(model, input, output):
+                activations[name] = output
+            return hook
+
+        handle = self.solvers_base[s].bases.linear_3.register_forward_hook(get_activation('common_layers'))
+
+        t = torch.linspace(0, 1, t_size).reshape(-1, 1)
+        t = torch.autograd.Variable(t, requires_grad=True)
+
+        DH = np.zeros((t_size, d))
+        y = self.solvers_base[s].bases(t)
+        # n = y.size()[1]
+        n = len(u0)
+
+        for i in range(d):
+            DH[:, i] = diff(activations['common_layers'][:, i].reshape(-1, 1), t).detach().cpu().numpy().reshape(t_size,)
         
+        H = activations['common_layers'].detach().cpu().numpy()
+        H = np.hstack((H, np.ones((timesteps, 1))))
+        DH = np.hstack((DH, np.zeros((timesteps, 1))))
+        d = d+1
+        
+        Q = np.zeros((len(t), n, n, d))
+        Qdot = np.zeros((len(t), n, n, d))
+
+        for z in range(len(t)):
+            for i in range(n):
+                for j in range(n):
+                    for k in range(d):
+                        if i == j:
+                            Q[z, i, j, k] = H[z, k]
+                            Qdot[z, i, j, k] = DH[z, k]
+        
+        A = np.zeros((n, n))
+        A[0, 0] = -1
+                        
+        X = np.zeros((len(t), d, n, n))
+        Xd = np.zeros((len(t), d, n, n))
+
+        for i in range(len(t)):
+            Xd[i] = Qdot[i].T + Q[i].T@A.T
+            X[i] = Qdot[i].T@A.T + Q[i].T@A.T@A
+            if i == 0:
+                X[i] += Q[0].T
+
+        v = np.zeros((n*d, d, n))
+        for l in range(1, n*d+1):
+            for j in range(1, d+1):
+                for k in range(1, n+1):
+                    if l == j + k*d - d:
+                        v[l-1, j-1, k-1] = 1
+        
+        M = np.zeros((len(t), n*d, n))
+        N = np.zeros((len(t), n*d, n))
+        for i in range(len(t)):
+            M[i] = np.tensordot(v, X[i], axes=2)
+            N[i] = np.tensordot(v, Xd[i], axes=2)
 
 
-    
+        Z = Q[0].T@np.array(u0).reshape(-1,1)
+        assert Z.shape == (d, n, 1)
+        z = np.tensordot(v, Z, axes=2)
+        
+        G = np.zeros((n*d, n*d))
+        for i in range(len(t)):
+            G += np.kron(H[i].reshape(-1, 1).T, M[i]) + np.kron(DH[i].reshape(-1, 1).T, N[i])
+
+        w = np.linalg.pinv(G)@z
+        W = np.tensordot(w[:, 0], v, axes=1)
+    #     return W, H, X, M, Z, z, G, v, t.detach().cpu().numpy()
+        return W, H, t.detach().cpu().numpy()
+
+    def final_solver(self, s, timesteps, u0, ls):
+        t_size = timesteps
+        d = 10
+
+        activations = {}
+        def get_activation(name):
+            def hook(model, input, output):
+                activations[name] = output
+            return hook
+
+        handle = self.solvers_base[s].bases.linear_3.register_forward_hook(get_activation('linear_3'))
+
+
+        t = torch.linspace(0, 1, t_size).reshape(-1, 1)
+        t = torch.autograd.Variable(t, requires_grad=True)
+
+        
+        
+        DH = np.zeros((t_size, d))
+        y = self.solvers_base[s].bases(t)
+        n = y.size()[1]
+
+        for i in range(d):
+            DH[:, i] = diff(activations['linear_3'][:, i].reshape(-1, 1), t).detach().cpu().numpy().reshape(t_size,)
+
+
+        H0 = activations['linear_3'][0, :].detach().cpu().numpy()
+        H = activations['linear_3'].detach().cpu().numpy()
+
+        dr = 0
+        system_param = ls
+        init_con = u0[0]
+
+        for i in range(t_size):
+            dh_dh = np.dot(DH[i],DH[i].T)
+            dh_h = np.dot(DH[i],H[i].T)
+            a_h_dh = system_param*np.dot(DH[i],H[i].T)
+            a_sq_h_dh = system_param*system_param*np.dot(H[i],H[i].T)
+            dr = dr + dh_dh + dh_h + a_h_dh + a_sq_h_dh
+
+        dr = dr + np.dot(H0,H0.T)
+        nr = np.zeros(10)
+
+        for i in range(t_size):
+            dh = -1*DH[i]
+            h = -1*system_param*H[i]
+            nr = nr + dh + h
+
+        nr = nr + init_con*H0
+        weights = nr/dr
+        solution = np.dot(weights,H.T)
+
+        return solution
