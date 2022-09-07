@@ -667,9 +667,6 @@ def test_sampler_geneartor():
 
 
 def test_legacy_module():
-    with warns(FutureWarning):
-        import neurodiffeq.generator
-
     from neurodiffeq.ode import ExampleGenerator
     from neurodiffeq.pde import ExampleGenerator2D, PredefinedExampleGenerator2D
     from neurodiffeq.pde_spherical import ExampleGenerator3D, ExampleGeneratorSpherical

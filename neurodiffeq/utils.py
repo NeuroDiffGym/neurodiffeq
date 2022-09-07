@@ -1,5 +1,6 @@
 import os
 import random
+import warnings
 from pathlib import Path
 import numpy as np
 import torch
@@ -67,6 +68,7 @@ def set_seed(seed_value, ignore_numpy=False, ignore_torch=False, ignore_random=F
 
 def get_residual_info(solution, data, diff_eqs, highest_order=0, detach=True):
     # XXX this function is not tested
+    warnings.warn("The neurodiffeq.get_residual_info() function is not tested")
     from .neurodiffeq import diff
 
     funcs = solution(data)

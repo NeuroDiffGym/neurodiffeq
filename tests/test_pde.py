@@ -335,7 +335,7 @@ def test_arbitrary_boundary():
         if as_tensor:
             x = torch.linspace(x_from, x_to, x_n_points)
             y = torch.linspace(y_from, y_to, y_n_points)
-            return torch.meshgrid(x, y)
+            return torch.meshgrid(x, y, indexing='ij')
         else:
             x = np.linspace(x_from, x_to, x_n_points)
             y = np.linspace(y_from, y_to, y_n_points)

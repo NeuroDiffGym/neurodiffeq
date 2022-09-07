@@ -226,13 +226,13 @@ class Generator2D(BaseGenerator):
         if method == 'equally-spaced':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            grid_x, grid_y = torch.meshgrid(x, y)
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
         elif method == 'equally-spaced-noisy':
             x = torch.linspace(xy_min[0], xy_max[0], grid[0], requires_grad=True)
             y = torch.linspace(xy_min[1], xy_max[1], grid[1], requires_grad=True)
-            grid_x, grid_y = torch.meshgrid(x, y)
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             if xy_noise_std:
                 self.noise_xstd, self.noise_ystd = xy_noise_std
@@ -246,13 +246,13 @@ class Generator2D(BaseGenerator):
         elif method in ['chebyshev1', 'chebyshev']:
             x = _chebyshev_first(xy_min[0], xy_max[0], grid[0])
             y = _chebyshev_first(xy_min[1], xy_max[1], grid[1])
-            grid_x, grid_y = torch.meshgrid(x, y)
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
         elif method == 'chebyshev2':
             x = _chebyshev_second(xy_min[0], xy_max[0], grid[0])
             y = _chebyshev_second(xy_min[1], xy_max[1], grid[1])
-            grid_x, grid_y = torch.meshgrid(x, y)
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
         else:
@@ -336,7 +336,7 @@ class Generator3D(BaseGenerator):
         else:
             raise ValueError(f"Unknown method: {method}")
 
-        grid_x, grid_y, grid_z = torch.meshgrid(x, y, z)
+        grid_x, grid_y, grid_z = torch.meshgrid(x, y, z, indexing='ij')
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
         if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2']:
@@ -495,8 +495,8 @@ class GeneratorND(BaseGenerator):
             r.append(x)
             r_noise_std_list.append(noise_rstd_tensor)
 
-        grid_r = torch.meshgrid(r)
-        grid_std = torch.meshgrid(r_noise_std_list)
+        grid_r = torch.meshgrid(r, indexing='ij')
+        grid_std = torch.meshgrid(r_noise_std_list, indexing='ij')
         self.grid_r = [grid_r[j].flatten() for j in range(N)]
         self.grid_std = [grid_std[j].flatten() for j in range(N)]
         if noisy:
@@ -843,7 +843,7 @@ class MeshGenerator(BaseGenerator):
         if len(ret) == 1:
             return ret[0]
         else:
-            ret = torch.meshgrid(ret)
+            ret = torch.meshgrid(ret, indexing='ij')
             ret_f = tuple()
             for r in ret:
                 ret_f += (r.flatten(),)
