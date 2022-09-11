@@ -1600,8 +1600,6 @@ class _SingleSolver1D(GenericSolver):
         super().__init__(
             diff_eqs=diff_eqs,
             conditions=[NoCondition()]*self.num,
-            # t_min=t_min,
-            # t_max=t_max,
             train_generator=train_generator,
             valid_generator=valid_generator,
             nets=self.head,
@@ -1647,14 +1645,15 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             x = torch.tanh(x)
             return x
     
-    def __init__(self, diff_eqs):
+    def __init__(self, diff_eqs, is_system):
         
         self.diff_eqs = diff_eqs
+        self.is_system = is_system
+        
         self.t_min = None
         self.t_max = None
         self.train_generator = None
         self.valid_generator = None
-        self.is_system = False
     
     def build(self,u_0s=None,
         system_parameters=[{}], 
@@ -1664,15 +1663,14 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         build_source=False, 
         optimizer=torch.optim.Adam, 
         optimizer_args=None, optimizer_kwargs={"lr":1e-3},
-        # t_min=None, 
-        # t_max=None,
+        t_min=None, 
+        t_max=None,
         train_generator=None, 
         valid_generator=None,
         n_batches_train=1,
         n_batches_valid=4,
         criterion=None,
-        metrics=None,
-        is_system=False):
+        metrics=None):
         
         r"""
         :param system_parameters:
@@ -1745,34 +1743,32 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
         self.system_parameters = system_parameters
         self.n_last_layer_head = n_last_layer_head
         
-        # if t_min is not None:
-        #     self.t_min = t_min
-        # if t_max is not None:
-        #     self.t_max = t_max
-        if train_generator is None or valid_generator is None:
-            raise Exception(f"Train and Valid Generator cannot be None")
+        if t_min is not None:
+            self.t_min = t_min
+        if t_max is not None:
+            self.t_max = t_max
+        
+        if self.t_min is not None and self.t_max is not None:
+            self.train_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced-noisy')
+            self.valid_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced-noisy')
+            
         if train_generator is not None:
             self.train_generator = train_generator
         if valid_generator is not None:
             self.valid_generator = valid_generator
-        if train_generator is None or valid_generator is None:
-            if self.t_min is None or self.t_max is None:
-                raise ValueError(f"Either generator is not provided, t_min and t_max should be both provided: \n"
-                                 f"got t_min={self.t_min}, t_max={self.t_max}, "
-                                 f"train_generator={train_generator}, valid_generator={valid_generator}")
-        # if train_generator is None:
-        #     train_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced-noisy')
-        # if valid_generator is None:
-        #     valid_generator = Generator1D(32, t_min=self.t_min, t_max=self.t_max, method='equally-spaced')
+        
         if self.u_0s is None:
             raise ValueError("ICs must be specified")
+        if self.train_generator is None or self.valid_generator is None:
+            raise Exception(f"Train and valid generators cannot be None. Either provide `t_min` and `t_max` \
+                              or provide the generators as arguments")
         
         self.optimizer = optimizer
         self.optimizer_args = optimizer_args or ()
         self.optimizer_kwargs = optimizer_kwargs or {}
 
         if build_source:
-            if is_system:
+            if self.is_system:
                 self.bases = [BaseClass() for _ in range(len(u_0s[0]))]
             else:
                 self.bases = BaseClass()
@@ -1783,8 +1779,6 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=n_last_layer_head,
                                 diff_eqs=self.diff_eqs,
-                                # t_min=self.t_min,
-                                # t_max=self.t_max,
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
@@ -1793,7 +1787,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 n_batches_valid=n_batches_valid,
                                 criterion=criterion,
                                 metrics=metrics,
-                                is_system=is_system
+                                is_system=self.is_system
                         ) for i in range(len(u_0s)) for p in range(len(self.system_parameters))]
         else:
             self.solvers_head = [_SingleSolver1D(
@@ -1802,8 +1796,6 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 initial_conditions=self.u_0s[i],
                                 n_last_layer_head=self.n_last_layer_head,
                                 diff_eqs=self.diff_eqs,
-                                #t_min=self.t_min,
-                                #t_max=self.t_max,
                                 train_generator=self.train_generator,
                                 valid_generator=self.valid_generator,
                                 system_parameters=self.system_parameters[p],
@@ -1812,7 +1804,7 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
                                 n_batches_valid=n_batches_valid,
                                 criterion=criterion,
                                 metrics=metrics,
-                                is_system=is_system
+                                is_system=self.is_system
                         ) for i in range(len(self.u_0s)) for p in range(len(self.system_parameters))]
 
 
@@ -1830,8 +1822,12 @@ class UniversalSolver1D(ABC, UniversalPretrainedSolver):
             for i in range(len(self.solvers_base)):
                 self.solvers_base[i].fit(max_epochs=epochs)
         else:
-            for net in self.bases:
-                for param in net.parameters():
+            if self.is_system:
+                for net in self.bases:
+                    for param in net.parameters():
+                        param.requires_grad = False
+            else:
+                for param in self.bases.parameters():
                     param.requires_grad = False
             for i in range(len(self.solvers_head)):
                 self.solvers_head[i].fit(max_epochs=epochs)
