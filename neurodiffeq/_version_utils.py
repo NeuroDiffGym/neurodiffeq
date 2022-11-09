@@ -9,6 +9,7 @@ def warn_deprecate_class(new_class):
     :return: a function that, when called, acts as if it is a class constructor
     :rtype: callable
     """
+
     @functools.wraps(new_class)
     def old_class_getter(*args, **kwargs):
         warnings.warn(f"This class name is deprecated, use {new_class} instead", FutureWarning)
@@ -26,12 +27,15 @@ def deprecated_alias(**aliases):
     :return: A decorated function that can receive either `old_name` or `new_name` as input
     :rtype: function
     """
+
     def deco(f):
         @functools.wraps(f)  # preserves signature and docstring
         def wrapper(*args, **kwargs):
             _rename_kwargs(f.__name__, kwargs, aliases)
             return f(*args, **kwargs)
+
         return wrapper
+
     return deco
 
 
@@ -40,5 +44,5 @@ def _rename_kwargs(func_name, kwargs, aliases):
         if alias in kwargs:
             if new in kwargs:
                 raise KeyError(f'{func_name} received both `{alias}` (deprecated) and `{new}` (recommended)')
-            warnings.warn(f'The argument `{alias}` is deprecated; use `{new}` instead for {func_name}.', FutureWarning)
+            warnings.warn(f'The argument `{alias}` is deprecated for {func_name}; use `{new}` instead.', FutureWarning)
             kwargs[new] = kwargs.pop(alias)
