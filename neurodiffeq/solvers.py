@@ -246,6 +246,15 @@ class BaseSolver(ABC, PretrainedSolver):
         )
         return self.loss_fn
 
+    @criterion.setter
+    def criterion(self, loss_fn):
+        warnings.warn(
+            f'`{self.__class__.__name__}`.criterion is a deprecated alias for `{self.__class__.__name__}.loss_fn`.'
+            f'The alias is only meant to be accessed by certain functions in `neurodiffeq.solver_utils` '
+            f'until proper fixes are made; by which time this alias will be removed.'
+        )
+        self.loss_fn = loss_fn
+
     def compute_func_val(self, net, cond, *coordinates):
         r"""Compute the function value evaluated on the points specified by ``coordinates``.
 
