@@ -60,7 +60,7 @@ class BaseSolver(ABC, PretrainedSolver):
     :param optimizer:
         The optimizer to be used for training.
     :type optimizer: `torch.nn.optim.Optimizer`, optional
-    :param criterion:
+    :param loss_fn:
         The loss function used for training.
 
         - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
@@ -72,7 +72,7 @@ class BaseSolver(ABC, PretrainedSolver):
           to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
           so that backpropagation can be performed.
 
-    :type criterion:
+    :type loss_fn:
         str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
@@ -107,9 +107,10 @@ class BaseSolver(ABC, PretrainedSolver):
     :type shuffle: bool
     """
 
+    @deprecated_alias(criterion='loss_fn')
     def __init__(self, diff_eqs, conditions,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4,
+                 optimizer=None, loss_fn=None, n_batches_train=1, n_batches_valid=4,
                  metrics=None, n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
                  shuffle=None, batch_size=None):
@@ -176,7 +177,7 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(set(chain.from_iterable(n.parameters() for n in self.nets)))
-        self._set_criterion(criterion)
+        self._set_loss_fn(loss_fn)
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -203,15 +204,15 @@ class BaseSolver(ABC, PretrainedSolver):
         # the _phase variable is registered for callback functions to access
         self._phase = None
 
-    def _set_criterion(self, criterion):
+    def _set_loss_fn(self, criterion):
         if criterion is None:
-            self.criterion = lambda r, f, x: (r ** 2).mean()
+            self.loss_fn = lambda r, f, x: (r ** 2).mean()
         elif isinstance(criterion, nn.modules.loss._Loss):
-            self.criterion = lambda r, f, x: criterion(r, torch.zeros_like(r))
+            self.loss_fn = lambda r, f, x: criterion(r, torch.zeros_like(r))
         elif isinstance(criterion, str):
-            self.criterion = _losses[criterion.lower()]
+            self.loss_fn = _losses[criterion.lower()]
         elif callable(criterion):
-            self.criterion = criterion
+            self.loss_fn = criterion
         else:
             raise TypeError(f"Unknown type of criterion {type(criterion)}")
 
@@ -235,6 +236,15 @@ class BaseSolver(ABC, PretrainedSolver):
             FutureWarning,
         )
         return self._batch
+
+    @property
+    def criterion(self):
+        warnings.warn(
+            f'`{self.__class__.__name__}`.criterion is a deprecated alias for `{self.__class__.__name__}.loss_fn`.'
+            f'The alias is only meant to be accessed by certain functions in `neurodiffeq.solver_utils` '
+            f'until proper fixes are made; by which time this alias will be removed.'
+        )
+        return self.loss_fn
 
     def compute_func_val(self, net, cond, *coordinates):
         r"""Compute the function value evaluated on the points specified by ``coordinates``.
@@ -352,7 +362,7 @@ class BaseSolver(ABC, PretrainedSolver):
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
                 try:
-                    loss = self.criterion(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
+                    loss = self.loss_fn(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
                 except TypeError as e:
                     warnings.warn(
                         "You might need to update your code. "
@@ -507,7 +517,8 @@ class BaseSolver(ABC, PretrainedSolver):
             "metrics": self.metrics_fn,
             "n_batches": self.n_batches,
             "best_nets": self.best_nets,
-            "criterion": self.criterion,
+            "criterion": self.loss_fn,
+            "loss_fn": self.loss_fn,
             "conditions": self.conditions,
             "global_epoch": self.global_epoch,
             "lowest_loss": self.lowest_loss,
@@ -766,7 +777,7 @@ class SolverSpherical(BaseSolver):
         Optimizer to be used for training.
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
-    :param criterion:
+    :param loss_fn:
         The loss function used for training.
 
         - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
@@ -778,7 +789,7 @@ class SolverSpherical(BaseSolver):
           to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
           so that backpropagation can be performed.
 
-    :type criterion:
+    :type loss_fn:
         str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
@@ -820,7 +831,7 @@ class SolverSpherical(BaseSolver):
 
     def __init__(self, pde_system, conditions, r_min=None, r_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
-                 optimizer=None, criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, enforcer=None,
+                 optimizer=None, loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
                  shuffle=None, batch_size=None):
@@ -848,7 +859,7 @@ class SolverSpherical(BaseSolver):
             valid_generator=valid_generator,
             analytic_solutions=analytic_solutions,
             optimizer=optimizer,
-            criterion=criterion,
+            loss_fn=loss_fn,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
             metrics=metrics,
@@ -1025,7 +1036,7 @@ class Solver1D(BaseSolver):
         Optimizer to be used for training.
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
-    :param criterion:
+    :param loss_fn:
         The loss function used for training.
 
         - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
@@ -1037,7 +1048,7 @@ class Solver1D(BaseSolver):
           to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
           so that backpropagation can be performed.
 
-    :type criterion:
+    :type loss_fn:
         str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
@@ -1073,7 +1084,7 @@ class Solver1D(BaseSolver):
 
     def __init__(self, ode_system, conditions, t_min=None, t_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
-                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
                  batch_size=None, shuffle=None):
 
@@ -1098,7 +1109,7 @@ class Solver1D(BaseSolver):
             valid_generator=valid_generator,
             analytic_solutions=analytic_solutions,
             optimizer=optimizer,
-            criterion=criterion,
+            loss_fn=loss_fn,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
             metrics=metrics,
@@ -1209,7 +1220,7 @@ class BundleSolver1D(BaseSolver):
         Optimizer to be used for training.
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
-    :param criterion:
+    :param loss_fn:
         The loss function used for training.
 
         - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
@@ -1221,7 +1232,7 @@ class BundleSolver1D(BaseSolver):
           to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
           so that backpropagation can be performed.
 
-    :type criterion:
+    :type loss_fn:
         str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
@@ -1258,7 +1269,7 @@ class BundleSolver1D(BaseSolver):
     def __init__(self, ode_system, conditions, t_min, t_max,
                  theta_min=None, theta_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
-                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
                  batch_size=None, shuffle=None):
 
@@ -1319,7 +1330,7 @@ class BundleSolver1D(BaseSolver):
             valid_generator=valid_generator,
             analytic_solutions=analytic_solutions,
             optimizer=optimizer,
-            criterion=criterion,
+            loss_fn=loss_fn,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
             metrics=metrics,
@@ -1420,7 +1431,7 @@ class Solver2D(BaseSolver):
         Optimizer to be used for training.
         Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
     :type optimizer: ``torch.nn.optim.Optimizer``, optional
-    :param criterion:
+    :param loss_fn:
         The loss function used for training.
 
         - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
@@ -1432,7 +1443,7 @@ class Solver2D(BaseSolver):
           to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
           so that backpropagation can be performed.
 
-    :type criterion:
+    :type loss_fn:
         str or `torch.nn.moduesl.loss._Loss` or callable
     :param n_batches_train:
         Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
@@ -1468,7 +1479,7 @@ class Solver2D(BaseSolver):
 
     def __init__(self, pde_system, conditions, xy_min=None, xy_max=None,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
-                 criterion=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
+                 loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
                  batch_size=None, shuffle=None):
 
@@ -1493,7 +1504,7 @@ class Solver2D(BaseSolver):
             valid_generator=valid_generator,
             analytic_solutions=analytic_solutions,
             optimizer=optimizer,
-            criterion=criterion,
+            loss_fn=loss_fn,
             n_batches_train=n_batches_train,
             n_batches_valid=n_batches_valid,
             metrics=metrics,

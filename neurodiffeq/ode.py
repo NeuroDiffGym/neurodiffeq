@@ -296,7 +296,7 @@ def solve_system(
         train_generator=train_generator,
         valid_generator=valid_generator,
         optimizer=optimizer,
-        criterion=criterion,
+        loss_fn=criterion,
         n_batches_train=n_batches_train,
         n_batches_valid=n_batches_valid,
         metrics=metrics,
