@@ -26,7 +26,9 @@ from .losses import _losses
 
 
 def _requires_closure(optimizer):
-    return inspect.signature(optimizer.step).parameters.get('closure').default == inspect._empty
+    # starting from torch v1.13, simple optimizers no longer have a `closure` argument
+    closure_param = inspect.signature(optimizer.step).parameters.get('closure')
+    return closure_param and closure_param.default == inspect._empty
 
 
 class BaseSolver(ABC, PretrainedSolver):
