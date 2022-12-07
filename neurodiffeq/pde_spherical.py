@@ -263,7 +263,7 @@ def solve_spherical_system(
         valid_generator=valid_generator,
         analytic_solutions=analytic_solutions,
         optimizer=optimizer,
-        criterion=criterion,
+        loss_fn=criterion,
         n_batches_train=1,
         n_batches_valid=1,
         enforcer=enforcer,

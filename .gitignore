@@ -122,3 +122,6 @@ docs/_build/
 _test/
 
 .DS_Store
+
+# Tensorboard
+runs/

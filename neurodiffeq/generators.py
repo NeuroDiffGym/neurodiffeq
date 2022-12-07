@@ -671,10 +671,8 @@ class StaticGenerator(BaseGenerator):
 class PredefinedGenerator(BaseGenerator):
     """A generator for generating points that are fixed and predefined.
 
-    :param xs: The x-dimension of the trianing points
-    :type xs: `torch.Tensor`
-    :param ys: The y-dimension of the training points
-    :type ys: `torch.Tensor`
+    :param xs: training points that will be returned
+    :type xs: Tuple[`torch.Tensor`]
     """
 
     def __init__(self, *xs):

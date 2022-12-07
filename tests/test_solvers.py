@@ -46,6 +46,7 @@ def test_legacies(solver, generators):
     with pytest.warns(FutureWarning):
         assert solver._batch_examples == solver._batch
 
+    # criterion with only two arguments (r, x) are deprecated
     with pytest.raises(TypeError), pytest.warns(FutureWarning):
         GenericSolver(
             diff_eqs=DIFF_EQS,
@@ -60,7 +61,7 @@ def test_legacies(solver, generators):
     class SolverWithLegacyAdditionalLoss(BaseSolver):
         def additional_loss(self, funcs, key):
             return 0
-
+    # overriding additional loss is deprecated
     with pytest.raises(TypeError), pytest.warns(FutureWarning):
         SolverWithLegacyAdditionalLoss(
             diff_eqs=DIFF_EQS,
@@ -71,6 +72,7 @@ def test_legacies(solver, generators):
             n_output_units=1,
         ).fit(1)
 
+    # the keyword shuffle is deprecated
     with pytest.warns(FutureWarning):
         GenericSolver(
             diff_eqs=DIFF_EQS,
@@ -80,6 +82,18 @@ def test_legacies(solver, generators):
             n_input_units=1,
             n_output_units=1,
             shuffle=True,
+        )
+
+    # the keyword criterion is deprecated
+    with pytest.warns(FutureWarning):
+        GenericSolver(
+            diff_eqs=DIFF_EQS,
+            conditions=CONDITIONS,
+            train_generator=generators['train'],
+            valid_generator=generators['valid'],
+            n_input_units=1,
+            n_output_units=1,
+            criterion='l2',
         )
 
 

@@ -18,7 +18,7 @@ from neurodiffeq.callbacks import OnFirstLocal, OnFirstGlobal, OnLastLocal, Peri
 from neurodiffeq.callbacks import ClosedIntervalGlobal, ClosedIntervalLocal, Random
 from neurodiffeq.callbacks import RepeatedMetricDown, RepeatedMetricUp, RepeatedMetricDiverge, RepeatedMetricConverge
 from neurodiffeq.callbacks import _RepeatedMetricChange
-from neurodiffeq.callbacks import SetCriterion, SetOptimizer
+from neurodiffeq.callbacks import SetLossFn, SetOptimizer
 from neurodiffeq.callbacks import EveCallback, StopCallback, ProgressBarCallBack
 from neurodiffeq.hypersolver import Hypersolver, Euler
 
@@ -38,7 +38,7 @@ def solver():
         conditions=[NoCondition()],
         t_min=0.0,
         t_max=1.0,
-        criterion='l2',
+        loss_fn='l2',
     )
 
 
@@ -349,41 +349,56 @@ def test_tensorboard_callback(solver, tmp_dir):
 
 
 @pytest.mark.parametrize(
-    argnames='criterion',
+    argnames='loss_fn',
     argvalues=['l1', torch.nn.modules.loss.L1Loss(), lambda r, f, x: torch.abs(r).mean()]
 )
-def test_set_criterion_callback_polymorphism(solver, criterion):
+def test_set_loss_fn_callback_polymorphism(solver, loss_fn):
     coords = torch.rand(10, 1, requires_grad=True)
     funcs = torch.exp(coords * 1.01)
     residuals = diff(funcs, coords) - funcs
 
-    callback = SetCriterion(criterion=criterion)
+    callback = SetLossFn(loss_fn=loss_fn)
     callback(solver)
-    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+    assert torch.allclose(solver.loss_fn(residuals, funcs, coords), torch.abs(residuals).mean())
 
 
-def test_set_criterion_callback_reset(solver):
+def test_set_loss_fn_callback_reset(solver):
     coords = torch.rand(10, 1, requires_grad=True)
     funcs = torch.exp(coords * 1.01)
     residuals = diff(funcs, coords) - funcs
 
     # w/o resetting
-    callback = SetCriterion(criterion='l1', reset=False)
+    callback = SetLossFn(loss_fn='l1', reset=False)
     callback(solver)
-    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+    assert torch.allclose(solver.loss_fn(residuals, funcs, coords), torch.abs(residuals).mean())
 
-    solver._set_criterion('l2')
+    solver._set_loss_fn('l2')
     callback(solver)
-    assert torch.allclose(solver.criterion(residuals, funcs, coords), (residuals ** 2).mean())
+    assert torch.allclose(solver.loss_fn(residuals, funcs, coords), (residuals ** 2).mean())
 
     # w/ resetting
-    callback = SetCriterion(criterion='l1', reset=True)
+    callback = SetLossFn(loss_fn='l1', reset=True)
     callback(solver)
-    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+    assert torch.allclose(solver.loss_fn(residuals, funcs, coords), torch.abs(residuals).mean())
 
-    solver._set_criterion('l2')
+    solver._set_loss_fn('l2')
     callback(solver)
-    assert torch.allclose(solver.criterion(residuals, funcs, coords), torch.abs(residuals).mean())
+    assert torch.allclose(solver.loss_fn(residuals, funcs, coords), torch.abs(residuals).mean())
+
+
+def test_set_loss_fn_callback_legacy_names(solver):
+    from neurodiffeq.callbacks import SetCriterion
+
+    with pytest.warns(FutureWarning):
+        callback = SetCriterion(loss_fn='l1', reset=False)
+        assert isinstance(callback, SetLossFn)
+
+    with pytest.warns(FutureWarning):
+        _ = SetLossFn(criterion='l1', reset=False)
+
+    with pytest.warns(FutureWarning):
+        callback = SetCriterion(criterion='l1', reset=False)
+        assert isinstance(callback, SetLossFn)
 
 
 def test_set_optimizer_polymorphism(solver):
