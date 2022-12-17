@@ -286,7 +286,7 @@ class PretrainedSolver():
             "generator": get_generator(self.generator),
             "sample_solution": sample_solution,
             "sample_loss": self.metrics_history['valid_loss'],
-            "criterion": get_source(self.criterion),
+            "loss_fn": get_source(self.loss_fn),
             "networks": get_networks(self),
             "optimizer": {
                 "name": self.optimizer.__class__.__name__,
@@ -296,7 +296,7 @@ class PretrainedSolver():
 
         save_dict = {
             "metrics": self.metrics_fn,
-            "criterion": self.criterion,
+            "loss_fn": self.loss_fn,
             "conditions": self.conditions,
             "global_epoch": self.global_epoch,  # loss_history
             "nets": self.nets,
@@ -460,7 +460,7 @@ class PretrainedSolver():
 
             solver = cls(ode_system=de_system,
                          conditions=cond,
-                         criterion=load_dict['criterion'],
+                         loss_fn=load_dict['loss_fn'],
                          metrics=load_dict['metrics'],
                          nets=nets,
                          optimizer=optimizer,
@@ -482,7 +482,7 @@ class PretrainedSolver():
                          train_generator=train_generator,
                          valid_generator=valid_generator,
                          optimizer=optimizer,
-                         criterion=load_dict['criterion'],
+                         loss_fn=load_dict['loss_fn'],
                          metrics=load_dict['metrics'])
 
         solver.metrics_history['train_loss'] = train_loss
