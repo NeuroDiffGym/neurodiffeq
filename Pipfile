@@ -19,6 +19,7 @@ dill = "*"
 jupyter = "*"
 requests = "*"
 tensorboard = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.8"

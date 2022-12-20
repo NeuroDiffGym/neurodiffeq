@@ -81,7 +81,7 @@ def get_file(url, name):
 
 def get_source(lambda_function):
     lambda_text = ""
-    
+
     try:
         source_lines, _ = inspect.getsourcelines(lambda_function)
         lambda_text = "".join([line.strip() for line in source_lines])
@@ -240,6 +240,7 @@ class SolverConfig():
     ode_system = None
     pde_system = None
     nets = None
+    best_nets = None
     optimizer = None
     optimizer_params = None
     train_generator = None
@@ -301,6 +302,7 @@ class PretrainedSolver():
             "conditions": self.conditions,
             "global_epoch": self.global_epoch,  # loss_history
             "nets": self.nets,
+            "best_nets": self.best_nets,
             "optimizer": self.optimizer,
             "optimizer_state": self.optimizer.state_dict(),
             "optimizer_class": optimizer_class,
@@ -419,6 +421,10 @@ class PretrainedSolver():
             nets = load_dict['nets']
         else:
             nets = config.nets
+        if config.best_nets == None:
+            best_nets = load_dict['best_nets']
+        else:
+            best_nets = config.best_nets
 
         # Loading user defined optimizer or optimizer from load file
 
@@ -485,6 +491,9 @@ class PretrainedSolver():
                          optimizer=optimizer,
                          loss_fn=load_dict['loss_fn'],
                          metrics=load_dict['metrics'])
+
+        if best_nets != None:
+            solver.best_nets = best_nets
 
         solver.metrics_history['train_loss'] = train_loss
         solver.metrics_history['valid_loss'] = valid_loss
