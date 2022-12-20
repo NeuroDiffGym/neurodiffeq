@@ -81,6 +81,7 @@ def get_file(url, name):
 
 def get_source(lambda_function):
     lambda_text = ""
+    
     try:
         source_lines, _ = inspect.getsourcelines(lambda_function)
         lambda_text = "".join([line.strip() for line in source_lines])
