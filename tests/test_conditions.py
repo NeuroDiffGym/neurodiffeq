@@ -165,6 +165,7 @@ def test_ivp(x0, y0, y1, ones, net11):
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
 
+# TODO parameterize the following test cases
 def test_bundle_ivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     # Regular IVP with no bundle:
     x = x0 * ones
@@ -228,6 +229,12 @@ def test_bundle_ivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     y = cond.enforce(net41, x, x_bundle, y_bundle, y_prime_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
+
+
+@pytest.mark.parametrize(argnames='illegal_name', argvalues=['magic', 't0', 'u1', 'u1prime'])
+def test_bundle_ivp__disallowed_params(x0, y0, y1, illegal_name):
+    with pytest.raises(ValueError):
+        BundleIVP(x0, y0, y1, bundle_params_lookup={illegal_name: 0})
 
 
 def test_ivp_legacy_signature():
@@ -309,6 +316,12 @@ def test_bundle_dirichlet_bvp(x0, y0, x1, y1, ones, t_0_bundle, u_0_bundle, t_1_
         y = cond.enforce(net, x1 * ones, *bundle_vals)
     z = bundle_vals[bundle_params_lookup['u_1']] if 'u_1' in bundle_params_lookup else y1
     assert all_close(y, z), 'y(x_1) != y_1'
+
+
+@pytest.mark.parametrize(argnames='illegal_name', argvalues=['magic', 'u0', 't0', 'u1', 't1'])
+def test_bundle_dirichlet_bvp__disallowed_params(x0, y0, x1, y1, illegal_name):
+    with pytest.raises(ValueError):
+        BundleDirichletBVP(x0, y0, x1, y1, bundle_params_lookup={illegal_name: 0})
 
 
 def test_bvp_legacy_signature():

@@ -76,7 +76,7 @@ class BaseCondition:
 
 
 class _BundleConditionMixin:
-    def __init__(self, bundle_params_lookup=None):
+    def __init__(self, bundle_params_lookup=None, allowed_params=None):
         """Mixin class for bundle conditions. Unlike other conditions, parameters of a bundle conditions are not fixed.
         For example, a regular `neurodiffeq.conditions.IVP` instance only allows fixed t_0 and u_0. But a bundle
         condition allows for t_0 and/or u_0 to be dynamically sampled by generators during training. One can use this to
@@ -84,12 +84,26 @@ class _BundleConditionMixin:
 
         :param bundle_params_lookup:
             A dictionary that maps bundle parameter name to its corresponding index.
-            For example, if bundle_params_lookup == {'t_0': 0, 'u_0': 1}, then the `thetas` passed to self.enforce()` must
-            contain two entries, with thetas[0] being a tensor of `t_0` and thetas[1] being a tensor of `u_0`.
-            Similarly, if bundle_params_lookup == {'t_0': 1, 'u_0': 0}, then the two entries in thetas should be swapped.
-            Defaults to empty dictionary.
+            For example, if bundle_params_lookup == {'t_0': 0, 'u_0': 1}, then the `thetas` passed to self.enforce()`
+            must contain two entries, with thetas[0] being a tensor of `t_0` and thetas[1] being a tensor of `u_0`.
+            Similarly, if bundle_params_lookup == {'t_0': 1, 'u_0': 0}, then the two entries in thetas should be
+            swapped. Defaults to empty dictionary.
         :type bundle_params_lookup: Dict[str, int]
+        :param allowed_params:
+            A collection of parameter names allowed in ``bundle_params_lookup``. If specified, an error will be raised
+            if ``bundle_params_lookup`` contains names that do not appear in ``allowed_params``.
+        :type allowed_params: Set[str] or List[str] or Tuple[str]
         """
+        if isinstance(allowed_params, str):
+            allowed_params = set(allowed_params)
+
+        if allowed_params:
+            illegal_params = set(bundle_params_lookup) - set(allowed_params)
+            if illegal_params:
+                raise ValueError(
+                    f"The following parameter(s) are not allowed in `bundle_parameters_lookup`: {illegal_params}.\n"
+                    f"Supported parameter name(s) are: {allowed_params}.")
+
         self.bundle_params_lookup = bundle_params_lookup or {}
 
     def _get_parameter(self, param_name, thetas, override_name=None):
@@ -281,7 +295,11 @@ class BundleIVP(BaseCondition, _BundleConditionMixin):
     @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
     def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_params_lookup=None):
         BaseCondition.__init__(self)
-        _BundleConditionMixin.__init__(self, bundle_params_lookup=bundle_params_lookup)
+        _BundleConditionMixin.__init__(
+            self,
+            bundle_params_lookup=bundle_params_lookup,
+            allowed_params=['t_0', 'u_0', 'u_0_prime'],
+        )
         self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
 
     def parameterize(self, output_tensor, t, *theta):
@@ -344,7 +362,11 @@ class BundleDirichletBVP(BaseCondition, _BundleConditionMixin):
 
     def __init__(self, t_0, u_0, t_1, u_1, bundle_params_lookup=None):
         BaseCondition.__init__(self)
-        _BundleConditionMixin.__init__(self, bundle_params_lookup=bundle_params_lookup)
+        _BundleConditionMixin.__init__(
+            self,
+            bundle_params_lookup=bundle_params_lookup,
+            allowed_params=['t_0', 'u_0', 't_1', 'u_1'],
+        )
         self.t_0, self.u_0, self.t_1, self.u_1 = t_0, u_0, t_1, u_1
 
     def parameterize(self, output_tensor, t, *theta):
