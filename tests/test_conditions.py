@@ -8,6 +8,7 @@ from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import BundleIVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
+from neurodiffeq.conditions import BundleDirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.conditions import DirichletBVPSpherical
 from neurodiffeq.conditions import InfDirichletBVPSpherical
@@ -164,7 +165,7 @@ def test_ivp(x0, y0, y1, ones, net11):
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
 
-def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
+def test_bundle_ivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     # Regular IVP with no bundle:
     x = x0 * ones
     cond = BundleIVP(x0, y0)
@@ -277,6 +278,37 @@ def test_dirichlet_bvp(x0, x1, y0, y1, ones, net11):
     x = x1 * ones
     y = cond.enforce(net11, x)
     assert all_close(y, y1), "y(x_1) != y_1"
+
+
+@pytest.mark.parametrize(argnames='t_0_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='u_0_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='t_1_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='u_1_bundle', argvalues=[True, False])
+def test_bundle_dirichlet_bvp(x0, y0, x1, y1, ones, t_0_bundle, u_0_bundle, t_1_bundle, u_1_bundle):
+    __params = ['t_0', 'u_0', 't_1', 'u_1']
+    __local_vars = locals()
+    bundled_params = [p for p in __params if __local_vars[p + '_bundle']]
+    bundle_vals = [torch.rand(ones.shape) for _ in bundled_params]
+    bundle_conditions = {p: idx for idx, p in enumerate(bundled_params)}
+
+    cond = BundleDirichletBVP(x0, y0, x1, y1, bundle_conditions=bundle_conditions)
+
+    n_bundle_parameters = sum([t_0_bundle, u_0_bundle, t_1_bundle, u_1_bundle])
+    net = FCNN(n_input_units=1 + n_bundle_parameters, n_output_units=1)
+
+    if t_0_bundle:
+        y = cond.enforce(net, bundle_vals[bundle_conditions['t_0']], *bundle_vals)
+    else:
+        y = cond.enforce(net, x0 * ones, *bundle_vals)
+    z = bundle_vals[bundle_conditions['u_0']] if 'u_0' in bundle_conditions else y0
+    assert all_close(y, z), 'y(x_0) != y_0'
+
+    if t_1_bundle:
+        y = cond.enforce(net, bundle_vals[bundle_conditions['t_1']], *bundle_vals)
+    else:
+        y = cond.enforce(net, x1 * ones, *bundle_vals)
+    z = bundle_vals[bundle_conditions['u_1']] if 'u_1' in bundle_conditions else y1
+    assert all_close(y, z), 'y(x_1) != y_1'
 
 
 def test_bvp_legacy_signature():
