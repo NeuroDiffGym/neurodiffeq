@@ -804,7 +804,7 @@ class MeshGenerator(BaseGenerator):
     All sub-generators must return tensors of the same shape, or a tuple of tensors of the same shape.
     The number of tensors returned by each sub-generator can be different, but the intent behind
     this class is to create an N dimensional generator from several 1 dimensional generators, so each input generator
-    should represents one of the dimensions of your problem. An exception is made for
+    should represent one of the dimensions of your problem. An exception is made for
     using a ``MeshGenerator`` as one of the inputs of another ``MeshGenerator``. In that case the original
     meshed generators are extracted from the input ``MeshGenerator``, and the final mesh is used using those
     (e.g ``MeshGenerator(MeshGenerator(g1, g2), g3)`` is equivalent to ``MeshGenerator(g1, g2, g3)``, where
