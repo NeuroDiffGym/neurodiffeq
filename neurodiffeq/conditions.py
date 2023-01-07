@@ -76,35 +76,35 @@ class BaseCondition:
 
 
 class _BundleConditionMixin:
-    def __init__(self, bundle_params_lookup=None, allowed_params=None):
+    def __init__(self, bundle_param_lookup=None, allowed_params=None):
         """Mixin class for bundle conditions. Unlike other conditions, parameters of a bundle conditions are not fixed.
         For example, a regular `neurodiffeq.conditions.IVP` instance only allows fixed t_0 and u_0. But a bundle
         condition allows for t_0 and/or u_0 to be dynamically sampled by generators during training. One can use this to
         learn a bundle of solutions (as a function of t_0 and/or u_0).
 
-        :param bundle_params_lookup:
+        :param bundle_param_lookup:
             A dictionary that maps bundle parameter name to its corresponding index.
-            For example, if bundle_params_lookup == {'t_0': 0, 'u_0': 1}, then the `thetas` passed to self.enforce()`
+            For example, if bundle_param_lookup == {'t_0': 0, 'u_0': 1}, then the `thetas` passed to self.enforce()`
             must contain two entries, with thetas[0] being a tensor of `t_0` and thetas[1] being a tensor of `u_0`.
-            Similarly, if bundle_params_lookup == {'t_0': 1, 'u_0': 0}, then the two entries in thetas should be
+            Similarly, if bundle_param_lookup == {'t_0': 1, 'u_0': 0}, then the two entries in thetas should be
             swapped. Defaults to empty dictionary.
-        :type bundle_params_lookup: Dict[str, int]
+        :type bundle_param_lookup: Dict[str, int]
         :param allowed_params:
-            A collection of parameter names allowed in ``bundle_params_lookup``. If specified, an error will be raised
-            if ``bundle_params_lookup`` contains names that do not appear in ``allowed_params``.
+            A collection of parameter names allowed in ``bundle_param_lookup``. If specified, an error will be raised
+            if ``bundle_param_lookup`` contains names that do not appear in ``allowed_params``.
         :type allowed_params: Set[str] or List[str] or Tuple[str]
         """
+        self.bundle_param_lookup = bundle_param_lookup or {}
+
         if isinstance(allowed_params, str):
             allowed_params = set(allowed_params)
 
         if allowed_params:
-            illegal_params = set(bundle_params_lookup) - set(allowed_params)
+            illegal_params = set(self.bundle_param_lookup) - set(allowed_params)
             if illegal_params:
                 raise ValueError(
                     f"The following parameter(s) are not allowed in `bundle_parameters_lookup`: {illegal_params}.\n"
                     f"Supported parameter name(s) are: {allowed_params}.")
-
-        self.bundle_params_lookup = bundle_params_lookup or {}
 
     def _get_parameter(self, param_name, thetas, override_name=None):
         """Private method to get a parameter by name (e.g. `t_0`).
@@ -112,26 +112,26 @@ class _BundleConditionMixin:
         Otherwise, return the default value (evaluated during instantiation).
 
         Example:
-        - If param_name == 't_0', and self.bundle_params_lookup['t_0'] == 0, the method will return `thetas[0]`.
-        - If `t_0` is not present in self.bundle_params_lookup, it will return `self.t_0`, or, self.some_other_attribute
+        - If param_name == 't_0', and self.bundle_param_lookup['t_0'] == 0, the method will return `thetas[0]`.
+        - If `t_0` is not present in self.bundle_param_lookup, it will return `self.t_0`, or, self.some_other_attribute
           if override_name is set to 'some_other_attribute'.
 
         :param param_name: Name of parameter to be used. E.g. `t_0`, `u_0` in the case of an initial value problem.
         :type param_name: str
         :param thetas:
-            Sequence of Bundle parameters. The order must follow what is specified in `self.bundle_params_lookup'.
-            For example, if self.bundle_params_lookup == {'t_0': 0, 'u_0': 1}, then thetas[0] must be `t_0`
+            Sequence of Bundle parameters. The order must follow what is specified in `self.bundle_param_lookup'.
+            For example, if self.bundle_param_lookup == {'t_0': 0, 'u_0': 1}, then thetas[0] must be `t_0`
             and thetas[1] must be `u_0`.
         :type thetas: Tuple[torch.Tensor]
         :param override_name:
-            Name to override `param_name` when `param_name` is not contained in `self.bundle_params_lookup`.
+            Name to override `param_name` when `param_name` is not contained in `self.bundle_param_lookup`.
             See example above to see how it is used.
         :type override_name: str
         :return: The parameter value specified by the bundle or its default value (evaluated during instantiation)
         :rtype: int or float or torch.Tensor
         """
-        if param_name in self.bundle_params_lookup:
-            return thetas[self.bundle_params_lookup[param_name]]
+        if param_name in self.bundle_param_lookup:
+            return thetas[self.bundle_param_lookup[param_name]]
         return getattr(self, override_name or param_name)
 
 
@@ -276,28 +276,28 @@ class BundleIVP(BaseCondition, _BundleConditionMixin):
     Here :math:`\boldsymbol{\theta}=(\theta_{1},\theta_{2},...,\theta_{n})\in\mathbb{R}^n`,
     where each :math:`\theta_i` represents a parameter, or a condition, of the ODE system that we want to solve.
 
-    :param t_0: The initial time. Ignored if present in `bundle_params_lookup`.
+    :param t_0: The initial time. Ignored if present in `bundle_param_lookup`.
     :type t_0: float
     :param u_0:
         The initial value of :math:`u`. :math:`u(t_0,\boldsymbol{\theta})=u_0`.
-        Ignored if present in `bundle_params_lookup`.
+        Ignored if present in `bundle_param_lookup`.
     :type u_0: float
     :param u_0_prime:
         The initial derivative of :math:`u` w.r.t. :math:`t`.
         :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0}(\boldsymbol{\theta}) = u_0'`.
         Defaults to None.
-        Ignored if present in `bundle_params_lookup`.
+        Ignored if present in `bundle_param_lookup`.
     :type u_0_prime: float, optional
-    :param bundle_params_lookup: See _BundleConditionMixin for details. Allowed keys are 't_0', 'u_0', and 'u_0_prime'.
-    :type bundle_params_lookup: Dict[str, int]
+    :param bundle_param_lookup: See _BundleConditionMixin for details. Allowed keys are 't_0', 'u_0', and 'u_0_prime'.
+    :type bundle_param_lookup: Dict[str, int]
     """
 
-    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime', bundle_conditions='bundle_params_lookup')
-    def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_params_lookup=None):
+    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime', bundle_conditions='bundle_param_lookup')
+    def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_param_lookup=None):
         BaseCondition.__init__(self)
         _BundleConditionMixin.__init__(
             self,
-            bundle_params_lookup=bundle_params_lookup,
+            bundle_param_lookup=bundle_param_lookup,
             allowed_params=['t_0', 'u_0', 'u_0_prime'],
         )
         self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
@@ -348,24 +348,24 @@ class BundleIVP(BaseCondition, _BundleConditionMixin):
 class BundleDirichletBVP(BaseCondition, _BundleConditionMixin):
     r"""A double-ended Dirichlet boundary condition: :math:`u(t_0)=u_0` and :math:`u(t_1)=u_1`.
 
-    :param t_0: The initial time. Ignored if 't_0' is present in bundle_params_lookup.
+    :param t_0: The initial time. Ignored if 't_0' is present in bundle_param_lookup.
     :type t_0: float
-    :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`. Ignored if 'u_0' is present in bundle_params_lookup.
+    :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`. Ignored if 'u_0' is present in bundle_param_lookup.
     :type u_0: float
-    :param t_1: The final time. Ignored if 't_1' is present in bundle_params_lookup.
+    :param t_1: The final time. Ignored if 't_1' is present in bundle_param_lookup.
     :type t_1: float
-    :param u_1: The initial value of :math:`u`. :math:`u(t_1)=u_1`. Ignored if 'u_1' is present in bundle_params_lookup.
+    :param u_1: The initial value of :math:`u`. :math:`u(t_1)=u_1`. Ignored if 'u_1' is present in bundle_param_lookup.
     :type u_1: float
-    :param bundle_params_lookup: See _BundleConditionMixin for details. Allowed keys are 't_0', 'u_0', 't_1', and 'u_1'.
-    :type bundle_params_lookup: Dict[str, int]
+    :param bundle_param_lookup: See _BundleConditionMixin for details. Allowed keys are 't_0', 'u_0', 't_1', and 'u_1'.
+    :type bundle_param_lookup: Dict[str, int]
     """
 
-    @deprecated_alias(bundle_conditions='bundle_params_lookup')
-    def __init__(self, t_0, u_0, t_1, u_1, bundle_params_lookup=None):
+    @deprecated_alias(bundle_conditions='bundle_param_lookup')
+    def __init__(self, t_0, u_0, t_1, u_1, bundle_param_lookup=None):
         BaseCondition.__init__(self)
         _BundleConditionMixin.__init__(
             self,
-            bundle_params_lookup=bundle_params_lookup,
+            bundle_param_lookup=bundle_param_lookup,
             allowed_params=['t_0', 'u_0', 't_1', 'u_1'],
         )
         self.t_0, self.u_0, self.t_1, self.u_1 = t_0, u_0, t_1, u_1

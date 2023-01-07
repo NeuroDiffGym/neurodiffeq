@@ -1196,14 +1196,14 @@ class BundleSolver1D(BaseSolver):
     :type t_max: float, optional
     :param theta_min:
         Lower bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        the order should match the one inferred by the values of the ``bundle_params_lookup`` input
+        the order should match the one inferred by the values of the ``bundle_param_lookup`` input
         in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
     :type theta_min: float or tuple, optional
     :param theta_max:
         Upper bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        the order should match the one inferred by the values of the ``bundle_params_lookup`` input
+        the order should match the one inferred by the values of the ``bundle_param_lookup`` input
         in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
