@@ -292,7 +292,7 @@ class BundleIVP(BaseCondition, _BundleConditionMixin):
     :type bundle_params_lookup: Dict[str, int]
     """
 
-    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
+    @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime', bundle_conditions='bundle_params_lookup')
     def __init__(self, t_0=None, u_0=None, u_0_prime=None, bundle_params_lookup=None):
         BaseCondition.__init__(self)
         _BundleConditionMixin.__init__(
@@ -360,6 +360,7 @@ class BundleDirichletBVP(BaseCondition, _BundleConditionMixin):
     :type bundle_params_lookup: Dict[str, int]
     """
 
+    @deprecated_alias(bundle_conditions='bundle_params_lookup')
     def __init__(self, t_0, u_0, t_1, u_1, bundle_params_lookup=None):
         BaseCondition.__init__(self)
         _BundleConditionMixin.__init__(

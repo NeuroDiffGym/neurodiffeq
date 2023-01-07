@@ -324,7 +324,13 @@ def test_bundle_dirichlet_bvp__disallowed_params(x0, y0, x1, y1, illegal_name):
         BundleDirichletBVP(x0, y0, x1, y1, bundle_params_lookup={illegal_name: 0})
 
 
-def test_bvp_legacy_signature():
+def test_bundle_conditions__legacy_signature(x0, y0, x1, y1):
+    with pytest.warns(FutureWarning):
+        BundleIVP(x0, y0, bundle_conditions={'t_0': 0})
+    with pytest.warns(FutureWarning):
+        BundleDirichletBVP(x0, y0, x1, y1, bundle_conditions={'t_0': 0})
+
+def test_bvp__legacy_signature():
     with warns(FutureWarning):
         DirichletBVP(t_0=0, t_1=0, x_0=0, x_1=0)
     with warns(FutureWarning):
