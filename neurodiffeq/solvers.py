@@ -1196,18 +1196,25 @@ class BundleSolver1D(BaseSolver):
     :type t_max: float, optional
     :param theta_min:
         Lower bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        the order should match the one inferred by the values of the ``bundle_param_lookup`` input
         in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
     :type theta_min: float or tuple, optional
     :param theta_max:
         Upper bound of input (parameters and/or conditions). If conditions are included in the bundle,
-        the order should match the one inferred by the values of the ``bundle_conditions`` input
+        the order should match the one inferred by the values of the ``bundle_param_lookup`` input
         in the ``neurodiffeq.conditions.BundleIVP``.
         Defaults to None.
         Ignored if ``train_generator`` and ``valid_generator`` are both set.
     :type theta_max: float or tuple, optional
+    :param eq_param_index:
+        Index (or indices) of bundle parameter that appears in the equation.
+        E.g., if there are 5 bundle parameters generated and the first (index 0) and last (index 4) parameters are used
+        in the equation, then eq_param_index should be (0, 4).
+        The signature of the original equation should have, in addition to functions to solve for and coordinates,
+        2 more parameters, corresponding to bundle parameters indexed at 0 and 4, in that order.
+    :type eq_param_index: int or tuple[int], optional
     :param nets:
         List of neural networks for parameterized solution.
         If provided, length of ``nets`` must equal that of ``conditions``
@@ -1216,11 +1223,13 @@ class BundleSolver1D(BaseSolver):
         Generator for sampling training points,
         which must provide a ``.get_examples()`` method and a ``.size`` field.
         ``train_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+        If provided, the generator must generate bundle parameters too.
     :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
     :param valid_generator:
         Generator for sampling validation points,
         which must provide a ``.get_examples()`` method and a ``.size`` field.
         ``valid_generator`` must be specified if ``t_min`` and ``t_max`` are not set.
+        If provided, the generator must generate bundle parameters too.
     :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
     :param analytic_solutions:
         Analytical solutions to be compared with neural net solutions.
@@ -1278,7 +1287,7 @@ class BundleSolver1D(BaseSolver):
     """
 
     def __init__(self, ode_system, conditions, t_min, t_max,
-                 theta_min=None, theta_max=None,
+                 theta_min=None, theta_max=None, eq_param_index=(),
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
@@ -1292,16 +1301,21 @@ class BundleSolver1D(BaseSolver):
 
         if isinstance(theta_min, (float, int)):
             theta_min = (theta_min,)
+        elif theta_min is None:
+            theta_min = ()
 
         if isinstance(theta_max, (float, int)):
             theta_max = (theta_max,)
+        elif theta_max is None:
+            theta_max = ()
 
-        if theta_min is None and theta_max is None:
-            r_min = (t_min,)
-            r_max = (t_max,)
-        else:
-            r_min = (t_min,) + theta_min
-            r_max = (t_max,) + theta_max
+        if len(theta_min) != len(theta_max):
+            raise ValueError(
+                f"length of theta_min and theta_max must be equal, " f"got {len(theta_min)} != {len(theta_max)}"
+            )
+
+        r_min = (t_min,) + tuple(theta_min)
+        r_max = (t_max,) + tuple(theta_max)
 
         n_input_units = len(r_min)
 
@@ -1315,26 +1329,28 @@ class BundleSolver1D(BaseSolver):
             for i in range(n_input_units - 1):
                 valid_generator ^= Generator1D(32, t_min=r_min[i + 1], t_max=r_max[i + 1], method='equally-spaced')
 
-        non_var = []
-        for c in conditions:
-            try:
-                bc = tuple(c.bundle_conditions.values())
-            except Exception:
-                bc = ()
-            for index in bc:
-                non_var.append(index)
-        non_var = list(set(non_var))
-
-        def non_var_filter(*variables):
-            variables = list(variables)
-            for i, n in enumerate(non_var):
-                del variables[len(conditions) + 1 + n - i]
-            return ode_system(*variables)
-
         self.r_min, self.r_max = r_min, r_max
 
+        # number of functions equals number of conditions supplied
+        N_FUNCTIONS = len(conditions)
+        # there is only 1 coordinate (usually time `t`) for ODEs
+        N_COORDS = 1
+
+        # Note: It is intentionally design in this way where `eq_param_index` and `self.eq_param_index`
+        # both contain values offset by `N_FUNCTIONS + N_COORDS`. The first one (not bound to `self`) is used for the
+        # `eq_param_filter` closure, while the second one (bound to `self`) is used for `_get_internal_variables()`.
+        eq_param_index = tuple(N_FUNCTIONS + N_COORDS + idx for idx in eq_param_index)
+        self.eq_param_index = eq_param_index
+
+        # TODO: check and warn if there are variables neither used by conditions nor by equations
+
+        def _diff_eqs_wrapper(*variables):
+            funcs_and_coords = variables[:N_FUNCTIONS + N_COORDS]
+            eq_params = tuple(variables[idx] for idx in eq_param_index)
+            return ode_system(*funcs_and_coords, *eq_params)
+
         super(BundleSolver1D, self).__init__(
-            diff_eqs=non_var_filter,
+            diff_eqs=_diff_eqs_wrapper,
             conditions=conditions,
             nets=nets,
             train_generator=train_generator,
@@ -1387,6 +1403,7 @@ class BundleSolver1D(BaseSolver):
         available_variables.update({
             'r_min': self.r_min,
             'r_max': self.r_max,
+            'eq_param_index': self.eq_param_index,
         })
         return available_variables
 

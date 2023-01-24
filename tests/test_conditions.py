@@ -8,6 +8,7 @@ from neurodiffeq.conditions import IVP
 from neurodiffeq.conditions import BundleIVP
 from neurodiffeq.conditions import EnsembleCondition
 from neurodiffeq.conditions import DirichletBVP
+from neurodiffeq.conditions import BundleDirichletBVP
 from neurodiffeq.conditions import DirichletBVP2D
 from neurodiffeq.conditions import DirichletBVPSpherical
 from neurodiffeq.conditions import InfDirichletBVPSpherical
@@ -164,7 +165,8 @@ def test_ivp(x0, y0, y1, ones, net11):
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
 
-def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
+# TODO parameterize the following test cases
+def test_bundle_ivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     # Regular IVP with no bundle:
     x = x0 * ones
     cond = BundleIVP(x0, y0)
@@ -178,24 +180,24 @@ def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
 
     # Bundle in u_0:
     y_bundle = y0 * lin
-    cond = BundleIVP(t_0=x0, bundle_conditions={'u_0': 0})
+    cond = BundleIVP(t_0=x0, bundle_param_lookup={'u_0': 0})
     y = cond.enforce(net21, x, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(t_0=x0, u_0_prime=y1, bundle_conditions={'u_0': 0})
+    cond = BundleIVP(t_0=x0, u_0_prime=y1, bundle_param_lookup={'u_0': 0})
     y = cond.enforce(net21, x, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in u_0_prime:
     y_prime_bundle = y1 * lin
-    cond = BundleIVP(t_0=x0, u_0=y0, bundle_conditions={'u_0_prime': 0})
+    cond = BundleIVP(t_0=x0, u_0=y0, bundle_param_lookup={'u_0_prime': 0})
     y = cond.enforce(net21, x, y_prime_bundle)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
 
     # Bundle in u_0 and u_0_prime:
-    cond = BundleIVP(t_0=x0, bundle_conditions={'u_0': 0, 'u_0_prime': 1})
+    cond = BundleIVP(t_0=x0, bundle_param_lookup={'u_0': 0, 'u_0_prime': 1})
     y = cond.enforce(net31, x, y_bundle, y_prime_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
@@ -203,30 +205,36 @@ def test_bundleivp(x0, y0, y1, ones, lin, net11, net21, net31, net41):
     # Bundle in t_0:
     x = x0 * lin
     x_bundle = x0 * lin
-    cond = BundleIVP(u_0=y0, bundle_conditions={'t_0': 0})
+    cond = BundleIVP(u_0=y0, bundle_param_lookup={'t_0': 0})
     y = cond.enforce(net21, x, x_bundle)
     assert torch.isclose(y, y0 * ones).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(u_0=y0, u_0_prime=y1, bundle_conditions={'t_0': 0})
+    cond = BundleIVP(u_0=y0, u_0_prime=y1, bundle_param_lookup={'t_0': 0})
     y = cond.enforce(net21, x, x_bundle)
     assert all_close(y, y0), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in t_0 and u_0:
-    cond = BundleIVP(bundle_conditions={'t_0': 0, 'u_0': 1})
+    cond = BundleIVP(bundle_param_lookup={'t_0': 0, 'u_0': 1})
     y = cond.enforce(net31, x, x_bundle, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
 
-    cond = BundleIVP(u_0_prime=y1, bundle_conditions={'t_0': 0, 'u_0': 1})
+    cond = BundleIVP(u_0_prime=y1, bundle_param_lookup={'t_0': 0, 'u_0': 1})
     y = cond.enforce(net31, x, x_bundle, y_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert all_close(diff(y, x), y1), "y'(x_0) != y'_0"
 
     # Bundle in t_0, u_0 and u_0_prime:
-    cond = BundleIVP(bundle_conditions={'t_0': 0, 'u_0': 1, 'u_0_prime': 2})
+    cond = BundleIVP(bundle_param_lookup={'t_0': 0, 'u_0': 1, 'u_0_prime': 2})
     y = cond.enforce(net41, x, x_bundle, y_bundle, y_prime_bundle)
     assert torch.isclose(y, y0 * lin).all(), "y(x_0) != y_0"
     assert torch.isclose(diff(y, x), y1 * lin).all(), "y'(x_0) != y'_0"
+
+
+@pytest.mark.parametrize(argnames='illegal_name', argvalues=['magic', 't0', 'u1', 'u1prime'])
+def test_bundle_ivp__disallowed_params(x0, y0, y1, illegal_name):
+    with pytest.raises(ValueError):
+        BundleIVP(x0, y0, y1, bundle_param_lookup={illegal_name: 0})
 
 
 def test_ivp_legacy_signature():
@@ -279,7 +287,50 @@ def test_dirichlet_bvp(x0, x1, y0, y1, ones, net11):
     assert all_close(y, y1), "y(x_1) != y_1"
 
 
-def test_bvp_legacy_signature():
+@pytest.mark.parametrize(argnames='t_0_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='u_0_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='t_1_bundle', argvalues=[True, False])
+@pytest.mark.parametrize(argnames='u_1_bundle', argvalues=[True, False])
+def test_bundle_dirichlet_bvp(x0, y0, x1, y1, ones, t_0_bundle, u_0_bundle, t_1_bundle, u_1_bundle):
+    __params = ['t_0', 'u_0', 't_1', 'u_1']
+    __local_vars = locals()
+    bundled_params = [p for p in __params if __local_vars[p + '_bundle']]
+    bundle_vals = [torch.rand(ones.shape) for _ in bundled_params]
+    bundle_param_lookup = {p: idx for idx, p in enumerate(bundled_params)}
+
+    cond = BundleDirichletBVP(x0, y0, x1, y1, bundle_param_lookup=bundle_param_lookup)
+
+    n_bundle_parameters = sum([t_0_bundle, u_0_bundle, t_1_bundle, u_1_bundle])
+    net = FCNN(n_input_units=1 + n_bundle_parameters, n_output_units=1)
+
+    if t_0_bundle:
+        y = cond.enforce(net, bundle_vals[bundle_param_lookup['t_0']], *bundle_vals)
+    else:
+        y = cond.enforce(net, x0 * ones, *bundle_vals)
+    z = bundle_vals[bundle_param_lookup['u_0']] if 'u_0' in bundle_param_lookup else y0
+    assert all_close(y, z), 'y(x_0) != y_0'
+
+    if t_1_bundle:
+        y = cond.enforce(net, bundle_vals[bundle_param_lookup['t_1']], *bundle_vals)
+    else:
+        y = cond.enforce(net, x1 * ones, *bundle_vals)
+    z = bundle_vals[bundle_param_lookup['u_1']] if 'u_1' in bundle_param_lookup else y1
+    assert all_close(y, z), 'y(x_1) != y_1'
+
+
+@pytest.mark.parametrize(argnames='illegal_name', argvalues=['magic', 'u0', 't0', 'u1', 't1'])
+def test_bundle_dirichlet_bvp__disallowed_params(x0, y0, x1, y1, illegal_name):
+    with pytest.raises(ValueError):
+        BundleDirichletBVP(x0, y0, x1, y1, bundle_param_lookup={illegal_name: 0})
+
+
+def test_bundle_conditions__legacy_signature(x0, y0, x1, y1):
+    with pytest.warns(FutureWarning):
+        BundleIVP(x0, y0, bundle_conditions={'t_0': 0})
+    with pytest.warns(FutureWarning):
+        BundleDirichletBVP(x0, y0, x1, y1, bundle_conditions={'t_0': 0})
+
+def test_bvp__legacy_signature():
     with warns(FutureWarning):
         DirichletBVP(t_0=0, t_1=0, x_0=0, x_1=0)
     with warns(FutureWarning):
