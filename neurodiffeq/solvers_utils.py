@@ -296,11 +296,11 @@ class PretrainedSolver():
                 optimizer_class = self.optimizer.__class__
 
         # Get Diff equations details
-        if self.__class__.__name__ == "Solver1D":
+        if self.__class__.__name__ == "Solver1D" or self.__class__.__bases__[0].__name__ == "Solver1D":
             sample_solution = get_sample_solution1D(self)
-        elif self.__class__.__name__ == "Solver2D":
+        elif self.__class__.__name__ == "Solver2D" or self.__class__.__bases__[0].__name__ == "Solver2D":
             sample_solution = get_sample_solution2D(self)
-        elif self.__class__.__name__ == "BundleSolver1D":
+        elif self.__class__.__name__ == "BundleSolver1D" or self.__class__.__bases__[0].__name__ == "BundleSolver1D":
             sample_solution = get_sample_solutionBundle1D(self)
         else:
             sample_solution = None #Temp Fix to avoid error, until conditions made for all solvers
@@ -337,6 +337,7 @@ class PretrainedSolver():
             "valid_loss_history": self.metrics_history['valid_loss'],
             "type": self.__class__,
             "type_name": self.__class__.__name__,
+            "parent_type_name": self.__class__.__bases__[0].__name__,
             "solver": self
         }
 
@@ -482,7 +483,7 @@ class PretrainedSolver():
                 optimizer = load_dict['optimizer']
 
         # Initiate a new Solver
-        if load_dict["type_name"] == "Solver1D":
+        if load_dict["type_name"] == "Solver1D" or load_dict["parent_type_name"] == "Solver1D":
             # t min/max
             t_min = load_dict['generator']['train'].__dict__[
                 'generator'].__dict__['t_min']
@@ -499,7 +500,7 @@ class PretrainedSolver():
                          valid_generator=valid_generator,
                          t_min=t_min,
                          t_max=t_max)
-        elif load_dict["type_name"] == "Solver2D":
+        elif load_dict["type_name"] == "Solver2D" or load_dict["parent_type_name"] == "Solver2D":
             xy_min = load_dict['generator']['train'].__dict__[
                 'generator'].__dict__['xy_min']
             xy_max = load_dict['generator']['train'].__dict__[
@@ -515,7 +516,7 @@ class PretrainedSolver():
                          optimizer=optimizer,
                          loss_fn=load_dict['loss_fn'],
                          metrics=load_dict['metrics'])
-        elif load_dict["type_name"] == "BundleSolver1D":
+        elif load_dict["type_name"] == "BundleSolver1D" or load_dict["parent_type_name"] == "BundleSolver1D":
             t_min = load_dict['solver'].r_min[0]
             t_max = load_dict['solver'].r_max[0]
 
