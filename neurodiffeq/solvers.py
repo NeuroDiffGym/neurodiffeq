@@ -192,6 +192,12 @@ class BaseSolver(ABC, PretrainedSolver):
         self.n_batches = make_pair_dict(train=n_batches_train, valid=n_batches_valid)
         # current batch of samples, kept for additional_loss term to use
         self._batch = make_pair_dict()
+        if self.n_batches['valid'] == 0 and _requires_closure(self.optimizer):
+            warnings.warn(f"Setting n_batches_valid=0 will update lowest_loss and best_net with training loss "
+                          f"instead of validation loss. "
+                          f"This is a problem for {self.optimizer.__class__} optimizer "
+                          f"because it updates the parameters before the training loss computed. "
+                          f"This leads to potentially worse solution in `best_net`!", RuntimeWarning)
         # current network with lowest loss
         self.best_nets = None
         # current lowest loss
@@ -402,11 +408,14 @@ class BaseSolver(ABC, PretrainedSolver):
         # calculate mean loss of all batches and register to history
         self._update_history(epoch_loss / self.n_batches[key], 'loss', key)
 
+        # If validation is performed, update the best network with the validation loss
+        # Otherwise, try to update the best network with the training loss
+        if key == 'valid' or self.n_batches['valid'] == 0:
+            self._update_best(key)
+
         # perform the optimizer step after all batches are run (if optimizer.step doesn't require `closure`)
         if key == 'train' and not _requires_closure(self.optimizer):
             self._do_optimizer_step()
-        if key == 'valid':
-            self._update_best()
 
         # calculate average metrics across batches and register to history
         for name in self.metrics_fn:
@@ -421,11 +430,11 @@ class BaseSolver(ABC, PretrainedSolver):
         r"""Run a validation epoch and update history."""
         self._run_epoch('valid')
 
-    def _update_best(self):
+    def _update_best(self, key):
         r"""Update ``self.lowest_loss`` and ``self.best_nets``
-        if current validation loss is lower than ``self.lowest_loss``
+        if current training/validation loss is lower than ``self.lowest_loss``
         """
-        current_loss = self.metrics_history['valid_loss'][-1]
+        current_loss = self.metrics_history[key + '_loss'][-1]
         if (self.lowest_loss is None) or current_loss < self.lowest_loss:
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
@@ -605,8 +614,9 @@ class BaseSolver(ABC, PretrainedSolver):
         :type to_numpy: bool
         :param best:
             If set to False, the network from the most recent epoch will be used to evaluate the residuals.
-            If set to True, the network from the epoch with the lowest validation loss will be used to evaluate the
-            residuals. Defaults to True.
+            If set to True, the network from the epoch with the lowest validation loss
+            (or training loss, if there's no validation) will be used to evaluate the residuals.
+            Defaults to True.
         :type best: bool
         :param no_reshape: If set to True, no reshaping will be performed on output. Defaults to False.
         :type no_reshape: bool
