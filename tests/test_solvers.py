@@ -261,3 +261,39 @@ def test_legacy_max_degree_in_solution_spherical_harmonics():
             conditions=[NoCondition()],
             max_degree=4,
         )
+
+
+def test_best_nets_with_training(generators):
+    solver = GenericSolver(
+        diff_eqs=DIFF_EQS,
+        conditions=CONDITIONS,
+        train_generator=generators['train'],
+        valid_generator=generators['valid'],
+        n_input_units=1,
+        n_output_units=1,
+        n_batches_valid=0,
+    )
+    assert solver.best_nets is None and solver.lowest_loss is None
+    solver.fit(1)
+    assert solver.best_nets is not None and solver.lowest_loss is not None
+
+    nets = [FCNN()]
+    optim = torch.optim.LBFGS(nets[0].parameters(), lr=1e-3)
+    with pytest.warns(RuntimeWarning):
+        solver = GenericSolver(
+            diff_eqs=DIFF_EQS,
+            conditions=CONDITIONS,
+            train_generator=generators['train'],
+            valid_generator=generators['valid'],
+            n_input_units=1,
+            n_output_units=1,
+            n_batches_valid=0,
+            nets=nets,
+            optimizer=optim,
+        )
+    assert solver.best_nets is None and solver.lowest_loss is None
+    solver.fit(1)
+    assert solver.best_nets is not None and solver.lowest_loss is not None
+
+
+
