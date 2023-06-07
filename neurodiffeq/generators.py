@@ -1016,3 +1016,46 @@ class SamplerGenerator(BaseGenerator):
             generator=self.generator,
         ))
         return d
+
+
+class BrownianGenerator(BaseGenerator):
+    """
+    A generator for generating time samples :math:`t` and standard Brownian motion samples :math:`W_t` where:
+
+    - :math:`t \sim U(0, T)`
+    - :math:`W_t \sim N(0, t)`
+    - :math:`Cov(W_s, W_t) = \min(s, t)`
+
+    :param size: The number of points to generate each time ``get_examples()`` is called. Defaults to 8.
+    :type size: int
+    :param T: The time length. Defaults to 1.0.
+    :type T: float
+    """
+
+    def __init__(self, size=8, T=1.0):
+        """
+        Initializes the BrownianGenerator with the given size and T.
+        """
+        super(BrownianGenerator, self).__init__()
+        self.size = size
+        self.T = T
+
+    def get_examples(self):
+        """
+        :returns: A tuple containing the sample of :math:`t` and sample of :math:`W_t`, both of shape (size,).
+        :rtype: tuple[torch.Tensor, torch.Tensor]
+        """
+        t_sample = torch.rand(self.size, requires_grad=True) * self.T
+        t_np = t_sample.detach().cpu().numpy()
+        sigma = np.minimum.outer(t_np, t_np)
+        Wt_sample = torch.tensor(
+            np.linalg.cholesky(sigma) @ np.random.normal(size=len(t_np)),
+            requires_grad=True,
+        )
+
+        return t_sample, Wt_sample
+
+    def _internal_vars(self) -> dict:
+        d = super(BrownianGenerator, self)._internal_vars()
+        d.update(dict(size=self.size, T=self.T))
+        return d
