@@ -300,6 +300,7 @@ class SetLossFn(ActionCallback):
 
 SetCriterion = warn_deprecate_class(SetLossFn)
 
+
 class SetOptimizer(ActionCallback):
     r"""A callback that sets the optimizer of the solver. Best used together with a condition callback.
 

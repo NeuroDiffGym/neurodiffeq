@@ -1,3 +1,4 @@
+import traceback
 import math
 import torch
 import warnings
@@ -804,7 +805,7 @@ class MetricsMonitor(BaseMonitor):
         self.ax2.set_ylabel('metrics')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
-        # if there're not custom metrics, then there won't be any labels in this axis
+        # if there're no custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax2.legend()
 
@@ -866,9 +867,15 @@ class StreamPlotMonitor2D(BaseMonitor):
         kwargs = dict(color=norms.transpose())
         kwargs.update(self.stream_kwargs)
         stream = ax.streamplot(self.xs_plot[:, 0], self.ys_plot[0, :], us.transpose(), vs.transpose(), **kwargs)
+        # FIXME new versions of matplotlib will raise AttributeError when removing old colorbar
+        # cf. https://github.com/matplotlib/matplotlib/issues/22257#issuecomment-1015391596
         if self.cbs[cb_idx] is not None:
-            self.cbs[cb_idx].remove()
-        self.cbs[cb_idx] = self.fig.colorbar(stream.lines, ax=ax)
+            try:
+                self.cbs[cb_idx].remove()
+            except Exception as e:
+                print(e)
+                traceback.print_exc()
+        self.cbs[cb_idx] = plt.colorbar(stream.lines, ax=ax)
         if self.equal_aspect:
             ax.set_aspect('equal', adjustable='box')
         ax.set_xlim(*self.xlim)
