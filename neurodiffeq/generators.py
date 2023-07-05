@@ -1059,3 +1059,53 @@ class BrownianGenerator(BaseGenerator):
         d = super(BrownianGenerator, self)._internal_vars()
         d.update(dict(size=self.size, T=self.T))
         return d
+    
+
+
+class UniBrownianGenerator(BaseGenerator):
+    """
+    Generate examples of unifomed :math:`t` and :math:`W_t`, where:
+
+    - :math:`t \sim U(0, T)`
+    - :math:`W_t \sim U(-3\sqrt{t}, 3\sqrt{t})`
+
+    This generator is used to generate samples uniformly within the 99.5% confidence interval, which can be used as training points when solving a SDE.
+
+    :param size: The number of examples to generate. Default is 8.
+    :type size: int
+    :param T: The time horizon. Default is 1.0.
+    :type T: float
+    """
+
+    def __init__(self, size=8, T=1.0):
+        """
+        Initializes the UniBrownianGenerator with the given size and T.
+        """
+        super(UniBrownianGenerator, self).__init__()
+        self.size = size
+        self.T = T
+
+    def get_examples(self):
+        """
+        :returns: A tuple containing the sample of :math:`t` and sample of :math:`W_t`, both of shape (size,).
+        :rtype: tuple[torch.Tensor, torch.Tensor]
+        """
+        sample_t = torch.rand(self.size, requires_grad=True) * self.T
+        sample_Bt = (2 * torch.rand(self.size, requires_grad=True) - 1) * (
+            3 * np.sqrt(self.T)
+        )
+        filtered_t = sample_t[
+            (-3 * torch.sqrt(sample_t) < sample_Bt)
+            & (sample_Bt < 3 * torch.sqrt(sample_t))
+        ]
+        filtered_Bt = sample_Bt[
+            (-3 * torch.sqrt(sample_t) < sample_Bt)
+            & (sample_Bt < 3 * torch.sqrt(sample_t))
+        ]
+
+        return filtered_t, filtered_Bt
+
+    def _internal_vars(self) -> dict:
+        d = super(UniBrownianGenerator, self)._internal_vars()
+        d.update(dict(size=self.size, T=self.T))
+        return d
