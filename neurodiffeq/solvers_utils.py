@@ -110,6 +110,10 @@ def get_parameters(lambda_function):
             for i, c in enumerate(co_names):
                 if c != "diff" and c != "torch":
                     parameters[c] = gbs[c]
+        try:
+            del parameters['ode_system']
+        except:
+            pass
     except:
         pass
 
@@ -139,15 +143,30 @@ def get_conditions(conditions):
 def get_generator(generator):
     gen_dict = {}
     try:
-        gen_dict = generator["train"].__dict__['generator'].__dict__.copy()
-        if "examples" in gen_dict:
-            del gen_dict['examples']
+        generators = generator["train"].__dict__['generator'].__dict__.copy()
+        if len(generators['generators'])!=1:
+            gen_dict['n_generators'] = len(generators['generators'])
+            size = [generators['generators'][i].__dict__['size'] for i in range(len(generators['generators']))]
+            t_min = [generators['generators'][i].__dict__['t_min'] for i in range(len(generators['generators']))]
+            t_max = [generators['generators'][i].__dict__['t_max'] for i in range(len(generators['generators']))]
+            method = [generators['generators'][i].__dict__['method'] for i in range(len(generators['generators']))]
+            noise_std = [generators['generators'][i].__dict__['noise_std'] for i in range(len(generators['generators']))]
+            gen_dict['size'] = ', '.join(str(i) for i in size)
+            gen_dict['t_min'] = ', '.join(str(i) for i in t_min)
+            gen_dict['t_max'] = ', '.join(str(i) for i in t_max)
+            gen_dict['method'] = ', '.join(str(i) for i in method)
+            gen_dict['noise_std'] = ', '.join(str(i) for i in noise_std)
 
-        if "grid_x" in gen_dict:
-            del gen_dict['grid_x']
-        if "grid_y" in gen_dict:
-            del gen_dict['grid_y']
-        del gen_dict['getter']
+        else:
+            gen_dict = generator["train"].__dict__['generator'].__dict__.copy()
+            if "examples" in gen_dict:
+                del gen_dict['examples']
+
+            if "grid_x" in gen_dict:
+                del gen_dict['grid_x']
+            if "grid_y" in gen_dict:
+                del gen_dict['grid_y']
+            del gen_dict['getter']
     except:
         pass
     return gen_dict
@@ -204,24 +223,30 @@ def get_sample_solution2D(solver):
     return sample_solution_curve
 
 def get_sample_solutionBundle1D(solver):
-    sample_solution_curve = []
-    try:
-        t = np.linspace(solver.r_min[0], solver.r_max[0], 10 *
-                        (int(solver.r_max[0]-solver.r_min[0])))
+
+    inputs = solver.generator['train'].get_examples()
+    values = [inputs[i] for i in range(1, len(inputs))]
+    sample_solution = solver.get_solution()(inputs[0], *values)
+    sample_solution_curve = [inputs[0].tolist(), sample_solution.tolist()]
+
+    # try:
+    #     t = np.linspace(solver.r_min[0], solver.r_max[0], 10 *
+    #                     (int(solver.r_max[0]-solver.r_min[0])))
         
-        values = [(random.random()*(solver.r_max[i]-solver.r_min[i]) + solver.r_min[i])*np.ones(len(t)) for i in range(1, len(solver.r_min))]
-        sample_solution = solver.get_solution()(t, *values)
+    #     values = [(random.random()*(solver.r_max[i]-solver.r_min[i]) + solver.r_min[i])*np.ones(len(t)) for i in range(1, len(solver.r_min))]
+    #     sample_solution = solver.get_solution()(t, *values)
 
-        if not isinstance(sample_solution, list):
-            sample_solution = [sample_solution]
+    #     if not isinstance(sample_solution, list):
+    #         sample_solution = [sample_solution]
 
-        for i in range(len(sample_solution)):
-            sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
+    #     for i in range(len(sample_solution)):
+    #         sample_solution[i] = sample_solution[i].cpu().detach().numpy().tolist()
 
-        sample_solution_curve = [t.tolist(), sample_solution]
-    except:
-        pass
+    #     sample_solution_curve = [t.tolist(), sample_solution]
+    # except:
+    #     pass
     return sample_solution_curve
+
 
 def get_networks(solver):
     networks = []
@@ -319,6 +344,7 @@ class PretrainedSolver():
                 "params": self.optimizer.state_dict()['param_groups']
             },
         }
+
 
         save_dict = {
             "metrics": self.metrics_fn,
