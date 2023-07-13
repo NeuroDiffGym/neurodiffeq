@@ -5,6 +5,7 @@ from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
+from IPython.display import display, clear_output
 
 import torch
 import torch.nn as nn
@@ -471,27 +472,27 @@ class BaseSolver(ABC, PretrainedSolver):
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')  # pragma: no cover
 
-        if tqdm_file is None:
-            loop = range(max_epochs)
-        else:
-            loop = tqdm(
+        if tqdm_file is not None:
+            self.loop = tqdm(
                 range(max_epochs),
+                #total = max_epochs,
                 desc='Training Progress',
-                colour='blue',
+                #colour='blue',
                 file=tqdm_file,
-                dynamic_ncols=True,
+                dynamic_ncols=True
             )
 
-        for local_epoch in loop:
+        for local_epoch in self.loop:
             # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
+                self.loop.close()
                 break
 
             # register local epoch (starting from 1 instead of 0) so it can be accessed by callbacks
             self.local_epoch = local_epoch + 1
             self.run_train_epoch()
             self.run_valid_epoch()
-
+            #self.loop.update(1)
             for cb in callbacks:
                 cb(self)
 

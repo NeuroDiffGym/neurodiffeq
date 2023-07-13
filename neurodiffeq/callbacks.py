@@ -100,11 +100,11 @@ class MonitorCallback(ActionCallback):
             _safe_mkdir(fig_dir)
 
     def __call__(self, solver):
-        self.monitor.check(
-            solver.nets,
-            solver.conditions,
-            history=solver.metrics_history,
-        )
+        self.monitor.check(solver)
+        #     solver.nets,
+        #     solver.conditions,
+        #     history=solver.metrics_history,
+        # )
         if self.fig_dir:
             pic_path = os.path.join(self.fig_dir, f"epoch-{solver.global_epoch}.{self.format}")
             self.monitor.fig.savefig(pic_path, bbox_inches='tight')
