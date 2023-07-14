@@ -1164,3 +1164,49 @@ class InfDirichletBVPSphericalBasis(BaseCondition):
         return self.R_0 * torch.exp(-self.order * dr) + \
                self.R_inf * torch.tanh(dr) + \
                torch.exp(-self.order * dr) * torch.tanh(dr) * output_tensor
+
+
+
+class BrownianIVP(BaseCondition):
+    """
+    Represents a Brownian initial value condition :math:`X_{t=0} = X_0`.
+
+    :param u_0: The initial value of :math:`X_t` at time :math:`t=0`.
+    """
+
+    def __init__(self, u_0):
+        super().__init__()
+        self.X_0 = u_0
+
+    def parameterize(self, output_tensor, t, Bt):
+        """
+        Re-parameterizes outputs such that the initial value condition is satisfied.
+        
+        The re-parameterization is
+        :math:`u(t, B_t) = u_0 + (1-e^{-t}) \mathrm{ANN}(t, B_t)` and :math:`\mathrm{ANN}` is the neural network.
+        
+        Why there is no condition on :math:`B_t`? Because the constraint :math:`B_0 = 0` is implemented in `BrownianGenerator()` and `UniBrownianGenerator()`.
+
+        :param output_tensor: The output tensor.
+        :type output_tensor: `torch.Tensor`
+        :param t: Input variable :math:`t` to the networks. It's time samples generated from generator.
+        :type t: `torch.Tensor`
+        :param Bt: Input variable :math:`B_t` to the networks. It's brownian motion samples generated from generator. This one is just a placeholder parameter and need not to be set mannualy because constraint on :math:`B_t` is already encoded in generator. We just need to set the impose on :math:`t` (0-th parameter).
+        :type Bt: `torch.Tensor`
+        :return: The parameterized tensor.
+        :rtype: `torch.Tensor`
+        """
+        return self.X_0 + (1 - torch.exp(-t)) * output_tensor
+
+    def set_impose_on(self, ith_unit=0):
+        r"""**[DEPRECATED]** When training several functions with a single, multi-output network, this method is called
+        (by a `Solver` class or a `solve` function) to keep track of which output is being parameterized.
+
+        :param ith_unit: The index of network output to be parameterized.
+        :type ith_unit: int
+
+        .. note::
+            This method is deprecated and retained for backward compatibility only. Users interested in enforcing
+            conditions on multi-output networks should consider using a ``neurodiffeq.conditions.EnsembleCondition``.
+        """
+        return super().set_impose_on(ith_unit)
