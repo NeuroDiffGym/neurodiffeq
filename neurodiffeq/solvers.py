@@ -19,8 +19,11 @@ from .generators import SamplerGenerator
 from .generators import Generator1D
 from .generators import Generator2D
 from .generators import GeneratorND
+from .generators import BrownianGenerator
+from .generators import UniBrownianGenerator
 from .function_basis import RealSphericalHarmonics
 from .conditions import BaseCondition
+from .conditions import BrownianIVP
 from .neurodiffeq import safe_diff as diff
 from .losses import _losses
 
@@ -1589,4 +1592,204 @@ class Solver2D(BaseSolver):
             'xy_min': self.xy_min,
             'xy_max': self.xy_max,
         })
+        return available_variables
+
+
+class StochasticSolver1D(BaseSolver):
+    r"""A solver class for solving Stochastic Differential Equation (SDE), specifically Ito's process:
+
+    :math:`dX_t = \mu(X_t,t,B_t)dt + \sigma(X_t,t,B_t)dB_t` with initial value :math:`X_0`.
+
+    :param mu_func:
+        The drift function :math:`\mu(X_t,t,B_t)`. It should take in three arguments: X, t, B and returns the function value.
+
+        .. code-block:: python3
+
+            # example 1
+            lambda X, t, B: 1/2*X
+            # example 2
+            def my_mu_func(X, t, B):
+                return 1-X
+    :type mu_func: callable
+    :param sigma_func:
+        The diffusion function :math:`\sigma(X_t,t,B_t)`. It should take in three arguments: X, t, B and returns the function value.
+
+        .. code-block:: python3
+
+            # example 1
+            lambda X, t, B: 1/2*X
+            # example 2
+            def my_sigma_func(X, t, B):
+                return 1-X
+    :type sigma_func: callable
+    :param init_value:
+        The initial value of the Ito's process :math:`X_0`.
+    :type init_value: float
+    :param T:
+        The time span of the process we want to solve. The training points will be generated within :math:`[0,T]`
+    :type T: float
+    :param nets:
+        List of neural networks for parameterized solution.
+        If provided, length of ``nets`` must equal that of ``conditions``
+    :type nets: list[torch.nn.Module], optional
+    :param train_generator:
+        Generator for sampling training points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``train_generator`` must be specified if ``T`` is not set. By default we use ``BrownianGenerator()``.
+    :type train_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param valid_generator:
+        Generator for sampling validation points,
+        which must provide a ``.get_examples()`` method and a ``.size`` field.
+        ``valid_generator`` must be specified if ``T`` is not set. By default we use ``UniBrownianGenerator()``.
+    :type valid_generator: `neurodiffeq.generators.BaseGenerator`, optional
+    :param analytic_solutions:
+        Analytical solutions to be compared with neural net solutions.
+        It maps a torch.Tensor to a tuple of function values.
+        Output shape should match that of ``nets``.
+    :type analytic_solutions: callable, optional
+    :param optimizer:
+        Optimizer to be used for training.
+        Defaults to a ``torch.optim.Adam`` instance that trains on all parameters of ``nets``.
+    :type optimizer: ``torch.nn.optim.Optimizer``, optional
+    :param loss_fn:
+        The loss function used for training.
+
+        - If a str, must be present in the keys of `neurodiffeq.losses._losses`.
+        - If a `torch.nn.modules.loss._Loss` instance, just pass the instance.
+        - If any other callable, it must map
+          A) a residual tensor (shape `(n_points, n_equations)`),
+          B) a function values tuple (length `n_funcs`, each element a tensor of shape `(n_points, 1)`), and
+          C) a coordinate values tuple (length `n_coords`, each element a tensor of shape `(n_coords, 1)`
+          to a tensor of empty shape (i.e. a scalar). The returned tensor must be connected to the computational graph,
+          so that backpropagation can be performed.
+
+    :type loss_fn:
+        str or `torch.nn.moduesl.loss._Loss` or callable
+    :param n_batches_train:
+        Number of batches to train in every epoch, where batch-size equals ``train_generator.size``.
+        Defaults to 1.
+    :type n_batches_train: int, optional
+    :param n_batches_valid:
+        Number of batches to validate in every epoch, where batch-size equals ``valid_generator.size``.
+        Defaults to 4.
+    :type n_batches_valid: int, optional
+    :param metrics:
+        Additional metrics to be logged (besides loss). ``metrics`` should be a dict where
+
+        - Keys are metric names (e.g. 'analytic_mse');
+        - Values are functions (callables) that computes the metric value.
+          These functions must accept the same input as the drift and diffusion function, i.e. X, t, B.
+
+    :type metrics: dict[str, callable], optional
+    :param batch_size:
+        **[DEPRECATED and IGNORED]**
+        Each batch will use all samples generated.
+        Please specify ``n_batches_train`` and ``n_batches_valid`` instead.
+    :type batch_size: int
+    :param shuffle:
+        **[DEPRECATED and IGNORED]**
+        Shuffling should be performed by generators.
+    :type shuffle: bool
+    """
+
+    def __init__(
+        self,
+        mu_func,
+        sigma_func,
+        init_value,
+        T,
+        nets=None,
+        train_generator=None,
+        valid_generator=None,
+        analytic_solutions=None,
+        optimizer=None,
+        loss_fn=None,
+        n_batches_train=1,
+        n_batches_valid=4,
+        metrics=None,
+        # deprecated arguments are listed below
+        batch_size=None,
+        shuffle=None,
+    ):
+        # write in internal variable
+        self.init_value = init_value
+        self.T = T
+        self.mu_func = mu_func
+        self.sigma_func = sigma_func
+
+        # construct the sde system
+        sde_system = lambda X, t, B: [
+            diff(X, t, 1) + 1 / 2 * diff(X, B, 2) - mu_func(X, t, B),
+            diff(X, B, 1) - sigma_func(X, t, B),
+        ]
+
+        if train_generator is None:
+            train_generator = UniBrownianGenerator(size=512, T=T)
+        if valid_generator is None:
+            valid_generator = BrownianGenerator(size=512, T=T)
+
+        # to formulate initial condition
+        mycondition = BrownianIVP(u_0=init_value)
+        mycondition.set_impose_on(0)
+        conditions = [mycondition]
+
+        super(StochasticSolver1D, self).__init__(
+            diff_eqs=sde_system,
+            conditions=conditions,
+            nets=nets,
+            train_generator=train_generator,
+            valid_generator=valid_generator,
+            analytic_solutions=analytic_solutions,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            n_batches_train=n_batches_train,
+            n_batches_valid=n_batches_valid,
+            metrics=metrics,
+            n_input_units=2,
+            n_output_units=1,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
+
+    def get_solution(self, copy=True, best=True):
+        r"""Get a (callable) solution object. See this usage example:
+
+        .. code-block:: python3
+
+            solution = solver.get_solution()
+            point_coords = train_generator.get_examples()
+            value_at_points = solution(point_coords)
+
+        :param copy:
+            Whether to make a copy of the networks so that subsequent training doesn't affect the solution;
+            Defaults to True.
+        :type copy: bool
+        :param best:
+            Whether to return the solution with lowest loss instead of the solution after the last epoch.
+            Defaults to True.
+        :type best: bool
+        :return:
+            A solution object which can be called.
+            To evaluate the solution on certain points,
+            you should pass the coordinates vector(s) to the returned solution.
+        :rtype: BaseSolution
+        """
+        nets = self.best_nets if best else self.nets
+        conditions = self.conditions
+        if copy:
+            nets = deepcopy(nets)
+            conditions = deepcopy(conditions)
+
+        return Solution2D(nets, conditions)
+
+    def _get_internal_variables(self):
+        available_variables = super(StochasticSolver1D, self)._get_internal_variables()
+        available_variables.update(
+            {
+                "init_value": self.init_value,
+                "T": self.T,
+                "mu_func": self.mu_func,
+                "sigma_func": self.sigma_func,
+            }
+        )
         return available_variables
