@@ -1628,9 +1628,12 @@ class StochasticSolver1D(BaseSolver):
     :param T:
         The time span of the process we want to solve. The training points will be generated within :math:`[0,T]`
     :type T: float
-    :param num_sample:
-        The number of samples generated on time interval :math:`[0,T]`. Default to 512.
-    :type num_sample: int
+    :param n_sample_train:
+        The number of training samples generated on time interval :math:`[0,T]`. Default to 512.
+    :type n_sample_train: int
+    :param n_sample_valid:
+        The number of validation samples generated on time interval :math:`[0,T]`. Default to 512.
+    :type n_sample_valid: int
     :param nets:
         List of neural networks for parameterized solution.
         If provided, length of ``nets`` must equal that of ``conditions``
@@ -1701,7 +1704,8 @@ class StochasticSolver1D(BaseSolver):
         sigma_func,
         init_value,
         T,
-        num_sample=512,
+        n_sample_train=512,
+        n_sample_valid=512,
         nets=None,
         train_generator=None,
         valid_generator=None,
@@ -1736,8 +1740,8 @@ class StochasticSolver1D(BaseSolver):
             diff_eqs=sde_system,
             conditions=conditions,
             nets=nets,
-            train_generator=UniBrownianGenerator(size=num_sample, T=T),
-            valid_generator=BrownianGenerator(size=num_sample, T=T),
+            train_generator=UniBrownianGenerator(size=n_sample_train, T=T),
+            valid_generator=BrownianGenerator(size=n_sample_valid, T=T),
             analytic_solutions=analytic_solutions,
             optimizer=optimizer,
             loss_fn=loss_fn,
