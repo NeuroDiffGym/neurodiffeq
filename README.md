@@ -20,7 +20,7 @@
 
 ------
 
-**🔥🔥🔥Did you know that neurodiffeq supports solution bundles and can be used to solve reverse problems? [See here](#Solution Bundle and Reverse Problems)!**
+**🔥🔥🔥Did you know that neurodiffeq supports solution bundles and can be used to solve reverse problems? [See here](#solution-bundle-and-reverse-problems)!**
 
 :mortar_board: **Already familiar with neurodiffeq?** :point_down: **[Jump to FAQs](#faq).**
 
