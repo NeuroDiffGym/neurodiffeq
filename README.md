@@ -20,6 +20,8 @@
 
 ------
 
+**🔥🔥🔥Did you know that neurodiffeq supports solution bundles and can be used to solve reverse problems? [See here](#Solution Bundle and Reverse Problems)!**
+
 :mortar_board: **Already familiar with neurodiffeq?** :point_down: **[Jump to FAQs](#faq).**
 
 ------
@@ -247,6 +249,101 @@ Here, `g` will be a generator which yields 1024 points in a 2-D rectangle `(2,3)
 |                      `g1`                       |                      `g2`                       |                          `g1 * g2`                           |
 | :---------------------------------------------: | :---------------------------------------------: | :----------------------------------------------------------: |
 | ![generator2d-1](resources/generator-ens-1.jpg) | ![generator2d-2](resources/generator-ens-2.jpg) | ![generator2d-concat](resources/generator-ens-ensembled.jpg) |
+
+# Solution Bundle and Reverse Problems
+
+Sometimes, it is interesting to solve a ***bundle*** of equations at once. For example, you may want to solve differential equations of the form `du/dt + λu = 0` under the initial condition `u(0) = U0`. You may want to solve this for all `λ` and `U0` at once, by treating them as inputs to the neural networks. 
+
+One such application is for chemical reactions, where the reaction rate is unknown. Different reaction rates correspond to different solutions, and only one solution matches observed data points. You maybe interested in first solving for a bundle of solutions, and then determining the best reaction rates (aka equation parameters). The second step is known as the ***inverse problem***. 
+
+Here's an example of how to do this using `neurodiffeq`:
+
+1. Let's say we have an equation `du/dt + λu = 0` and initial condition `u(0) = U0` where `λ` and `U0` are unknown constants. We also have a set of observations `t_obs` and `u_obs`. We first import `BundleSolver` and `BundleIVP` which is necessary to obtaining a solution bundle:
+
+   ```python
+   from neurodiffeq.conditions import BundleIVP
+   from neurodiffeq.solvers import BundleSolver1D
+   
+   import matplotlib.pyplot as plt
+   import numpy as np
+   import torch
+   from neurodiffeq import diff
+   ```
+
+2. We determine the domain of input `t`, as well as the domain of parameters  `λ` and `U0`. We also need to make a decision of the order of the parameters. Namely, which should be the first parameter, and which should be the second. **For the purpose of this demo, we choose `λ` to be the first parameter (index 0), and `U0` to be the second (index 1). It is very important to keep track of the indices of the parameters.**
+
+   ```python
+   T_MIN, T_MAX = 0, 1
+   LAMBDA_MIN,  LAMBDA_MAX = 3, 5  # first parameter,  index = 0
+   U0_MIN, U0_MAX = 0.2, 0.6       # second parameter, index = 1
+   ```
+
+3. We then define the `conditions` and `solver` as usual, except that we use `BundleIVP` and `BundleSolver1D` instead of `IVP` and `Solver1D`. The interface of these two is very similar to `IVP` and `Solver1D`. You can find out more in the [API reference](https://neurodiffeq.readthedocs.io/en/latest/api.html). 
+
+   ```python
+   # equation parameters comes after inputs (usually temporal and spatial coordinates)
+   diff_eq = lambda u, t, lmd: [diff(u, t) + lmd * u]
+   
+   # The keyword argument must be named "u_0" in BundleIVP. If you use anything else, e.g. `y0`, `u0`, etc., it won't work.
+   conditions = [
+       BundleIVP(t_0=0, u_0=None, bundle_param_lookup={'u_0': 1})   # u_0 has index 1
+   ]
+   
+   solver = BundleSolver1D(
+       ode_system=diff_eq,
+       conditions=conditions,
+       t_min=T_MIN, t_max=T_MAX, 
+       theta_min=[LAMBDA_MIN, U0_MIN],  # λ has index 0; u_0 has index 1
+       theta_max=[LAMBDA_MAX, U0_MAX],  # λ has index 0; u_0 has index 1
+       eq_param_index=(0,),  					 # λ is the only equation parameter, which has index 0
+       n_batches_valid=1,
+   )
+   ```
+
+   Since **`λ` is a parameter in the equation** and **`U0` is a parameter in the initial condition**, we must include `λ` in the `diff_eq` and `U0` in the condition. If a parameter is present in both the equation and the condition, it must be included in both places. **All elements of `conditions` passed to `BundleSovler1D` must be `Bundle*` conditions, even if they don't have parameters.**
+
+4. Now, we can train it and obtain the solution as we normally would. 
+
+   ```python
+   solver.fit(max_epochs=1000)
+   solution = solver.get_solution(best=True)
+   ```
+
+   The solution expects three inputs - `t`, `λ` and `U0`. All inputs must have the same shape. For example, if you are interested in fixing `λ=4` and `U0=0.4` and plotting the solution `u` against `t ∈ [0,1]` , you can do the following
+
+   ```python
+   t = np.linspace(0, 1)
+   lmd = 4 * np.ones_like(t)
+   u0 = 0.4 * np.ones_like(t)
+   
+   u = solution(t, lmd, u0, to_numpy=True)
+   
+   import matplotlib.pyplot as plt
+   plt.plot(t, u)
+   ```
+
+5. Once you have a bundled `solution`, you can find a set of parameters `(λ, U0)` that matches observed data points `(t_i, u_i)` most closely. This is achieved using simple gradient descent. In the following toy example, we assume there are only three data points `u(0.2) = 0.273`, `u(0.5)=0.129`, and `u(0.8) = 0.0609`. The following is classical PyTorch workflow.
+
+   ```python
+   # observed data points
+   t_obs = torch.tensor([0.2, 0.5, 0.8]).reshape(-1, 1)
+   u_obs = torch.tensor([0.273, 0.129, 0.0609]).reshape(-1, 1)
+   
+   # random intialization of λ and U0; keep track of their gradient
+   lmd_tensor = torch.rand(1) * (LAMBDA_MAX - LAMBDA_MIN) + LAMBDA_MIN
+   u0_tensor = torch.rand(1) * (U0_MAX - U0_MIN) + U0_MIN
+   adam = torch.optim.Adam([lmd_tensor.requires_grad_(True), u0_tensor.requires_grad_(True)], lr=1e-2)
+   
+   # run gradient descent for 10000 epochs
+   for _ in range(10000):
+       output = solution(t_obs, lmd_tensor * torch.ones_like(t_obs), u0_tensor * torch.ones_like(t_obs))
+       loss = ((output - u_obs) ** 2).mean()
+       loss.backward()
+       adam.step()
+       adam.zero_grad()
+      
+   print(f"λ = {lmd_tensor.item()}, U0={u0_tensor.item()}, loss = {loss.item()}")
+   ```
 
 # FAQ
 
