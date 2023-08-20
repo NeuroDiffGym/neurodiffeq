@@ -20,7 +20,7 @@
 
 ------
 
-**🔥🔥🔥Did you know that neurodiffeq supports solution bundles and can be used to solve reverse problems? [See here](#Solution Bundle and Reverse Problems)!**
+**🔥🔥🔥Did you know that neurodiffeq supports solution bundles and can be used to solve reverse problems? [See here](#solution-bundle-and-reverse-problems)!**
 
 :mortar_board: **Already familiar with neurodiffeq?** :point_down: **[Jump to FAQs](#faq).**
 
@@ -274,7 +274,7 @@ Here's an example of how to do this using `neurodiffeq`:
 
    ```python
    T_MIN, T_MAX = 0, 1
-   LAMBDA_MIN,  LAMBDA_MAX = 3, 5  # first parameter,  index = 0
+   LAMBDA_MIN, LAMBDA_MAX = 3, 5  # first parameter,  index = 0
    U0_MIN, U0_MAX = 0.2, 0.6       # second parameter, index = 1
    ```
 
@@ -286,7 +286,7 @@ Here's an example of how to do this using `neurodiffeq`:
    
    # The keyword argument must be named "u_0" in BundleIVP. If you use anything else, e.g. `y0`, `u0`, etc., it won't work.
    conditions = [
-       BundleIVP(t_0=0, u_0=None, bundle_param_lookup={'u_0': 1})   # u_0 has index 1
+       BundleIVP(t_0=0, u_0=None, bundle_param_lookup={'u_0': 1})  # u_0 has index 1
    ]
    
    solver = BundleSolver1D(
@@ -295,7 +295,7 @@ Here's an example of how to do this using `neurodiffeq`:
        t_min=T_MIN, t_max=T_MAX, 
        theta_min=[LAMBDA_MIN, U0_MIN],  # λ has index 0; u_0 has index 1
        theta_max=[LAMBDA_MAX, U0_MAX],  # λ has index 0; u_0 has index 1
-       eq_param_index=(0,),  					 # λ is the only equation parameter, which has index 0
+       eq_param_index=(0,),             # λ is the only equation parameter, which has index 0
        n_batches_valid=1,
    )
    ```
