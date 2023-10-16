@@ -4,12 +4,13 @@ import warnings
 from pathlib import Path
 import numpy as np
 import torch
+import re
 
 
 def set_tensor_type(device=None, float_bits=32):
     """Set the default torch tensor type to be used with neurodiffeq.
 
-    :param device: Either "cpu" or "cuda" ("gpu"); defaults to "cuda" if available.
+    :param device: Either "cpu", "cuda" or "cuda:x" ("gpu") where "x" is the device number; defaults to "cuda" if available.
     :type device: str
     :param float_bits: Length of float numbers. Either 32 (float) or 64 (double); defaults to 32.
     :type float_bits: int
@@ -21,22 +22,23 @@ def set_tensor_type(device=None, float_bits=32):
     if not isinstance(float_bits, int):
         raise ValueError(f"float_bits must be int, got {type(float_bits)}")
     if float_bits == 32:
-        tensor_str = "FloatTensor"
+        torch.set_default_dtype(torch.float32)
     elif float_bits == 64:
-        tensor_str = "DoubleTensor"
+        torch.set_default_dtype(torch.float64)
     else:
         raise ValueError(f"float_bits must be 32 or 64, got {float_bits}")
 
     if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    if device == "cpu":
-        type_string = f"torch.{tensor_str}"
-    elif device in ["cuda", "gpu"]:
-        type_string = f"torch.cuda.{tensor_str}"
-    else:
-        raise ValueError(f"Unknown device '{device}'; device must be either 'cuda' or 'cpu'")
+        if torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+    
+    cuda_regex = re.compile(r'cuda(?::\d+)?')
+    if device != "cpu" and not cuda_regex.match(device):
+        raise ValueError(f"Unknown device '{device}'; device must be either 'cuda', 'cuda:x' where x is the device number, 'cpu'")
 
-    torch.set_default_tensor_type(type_string)
+    torch.set_default_device(device)
 
 
 def safe_mkdir(path):
