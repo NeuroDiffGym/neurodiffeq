@@ -5,6 +5,7 @@ from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import deepcopy
+from ordered_set import OrderedSet
 
 import torch
 import torch.nn as nn
@@ -178,7 +179,7 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'train__' + name: [] for name in self.metrics_fn})
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
-        self.optimizer = optimizer if optimizer else Adam(set(chain.from_iterable(n.parameters() for n in self.nets)))
+        self.optimizer = optimizer if optimizer else Adam(OrderedSet(chain.from_iterable(n.parameters() for n in self.nets)))
         self._set_loss_fn(loss_fn)
 
         def make_pair_dict(train=None, valid=None):
