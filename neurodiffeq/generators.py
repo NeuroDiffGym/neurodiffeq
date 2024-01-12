@@ -4,6 +4,12 @@ import torch
 import numpy as np
 from typing import List
 
+def _chebyshev_uniform(a, b, n):
+    unif_sample = torch.linspace(0, np.pi, n)
+    nodes = torch.cos(unif_sample)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
 
 def _chebyshev_first(a, b, n):
     nodes = torch.cos(((torch.arange(n) + 0.5) / n) * np.pi)
@@ -11,13 +17,11 @@ def _chebyshev_first(a, b, n):
     nodes.requires_grad_(True)
     return nodes
 
-
 def _chebyshev_second(a, b, n):
     nodes = torch.cos(torch.arange(n) / float(n - 1) * np.pi)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
-
 
 def _compute_log_negative(t_min, t_max, whence):
     if t_min <= 0 or t_max <= 0:
@@ -108,6 +112,7 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
+        - If set to 'chebyshev_uniform', the points are uniformly sampled between 0 and π, transformed into chebyshev nodes of the first kind, and mapped to (t_min, t_max).
         - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
         - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
 
@@ -148,6 +153,9 @@ class Generator1D(BaseGenerator):
             start, end = _compute_log_negative(t_min, t_max, self.__class__)
             self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
+        elif method in ['chebyshev_uniform']:
+            self.examples = _chebyshev_uniform(t_min, t_max, size)
+            self.getter = lambda: self.examples        
         elif method in ['chebyshev', 'chebyshev1']:
             self.examples = _chebyshev_first(t_min, t_max, size)
             self.getter = lambda: self.examples
@@ -333,13 +341,17 @@ class Generator3D(BaseGenerator):
             x = _chebyshev_second(xyz_min[0], xyz_max[0], grid[0])
             y = _chebyshev_second(xyz_min[1], xyz_max[1], grid[1])
             z = _chebyshev_second(xyz_min[2], xyz_max[2], grid[2])
+        elif method == 'chebyshev_uniform':
+            x = _chebyshev_uniform(xyz_min[0], xyz_max[0], grid[0])
+            y = _chebyshev_uniform(xyz_min[1], xyz_max[1], grid[1])
+            z = _chebyshev_uniform(xyz_min[2], xyz_max[2], grid[2])
         else:
             raise ValueError(f"Unknown method: {method}")
 
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z, indexing='ij')
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
-        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2']:
+        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2', 'chebyshev_uniform']:
             self.getter = lambda: (self.grid_x, self.grid_y, self.grid_z)
         elif method == 'equally-spaced-noisy':
             self.noise_xmean = torch.zeros(self.size)
