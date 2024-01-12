@@ -5,7 +5,7 @@ import numpy as np
 from typing import List
 
 def _chebyshev_uniform(a, b, n):
-    unif_sample = torch.linspace(0, np.pi, n)
+    unif_sample = torch.rand(n) * np.pi
     nodes = torch.cos(unif_sample)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
@@ -112,7 +112,7 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
-        - If set to 'chebyshev_uniform', the points are uniformly sampled between 0 and π, transformed into chebyshev nodes of the first kind, and mapped to (t_min, t_max).
+        - If set to 'chebyshev_uniform', the points are randomly sampled from an uniform distribution between 0 and π, transformed into chebyshev nodes of the first kind, and mapped to (t_min, t_max).
         - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
         - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
 
