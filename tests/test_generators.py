@@ -136,6 +136,11 @@ def test_generator1d():
     x = generator.getter()
     assert _check_shape_and_grad(generator, size, x)
 
+    generator = Generator1D(size=size, t_min=0.1, t_max=2.0, method='chebyshev_noisy',
+                            noise_std=0.01)
+    x = generator.getter()
+    assert _check_shape_and_grad(generator, size, x)
+    
     with raises(ValueError):
         generator = Generator1D(size=size, t_min=0.0, t_max=2.0, method='magic')
 
