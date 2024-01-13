@@ -173,3 +173,37 @@ class Swish(nn.Module):
 
     def forward(self, x):
         return x * torch.sigmoid(self.beta * x)
+
+class APTx(nn.Module):
+    r"""The APTx (Alpha Plus Tanh Times) activation function: :math:`\mathrm{APTx}(x)= (\alpha + \tanh{(\beta x)}) \gamma x` 
+        behaves similar to  the MISH activation function, but requires lesser mathematical operations to
+        compute. The lesser computational requirements of APTx does speed up the
+        model training, and thus also reduces the hardware requirement for the deep
+        learning model
+    :param alpha: The :math:`\alpha` parameter in the APTx activation.
+    :type alpha: float
+    :param beta: The :math:`\beta` parameter in the APTx activation.
+    :type beta: float
+    :param gamma: The :math:`\gamma` parameter in the APTx activation.
+    :type gamma: float
+    :param trainable: Whether scalar :math:`\beta` can be trained
+    :type trainable: bool
+    """
+
+    def __init__(self, alpha=1.0, beta=1.0, gamma=1.0, trainable=False):
+        super(APTx, self).__init__()
+        alpha = float(alpha)
+        beta = float(beta)
+        gamma = float(gamma)
+        self.trainable = trainable
+        if trainable:
+            self.alpha = nn.Parameter(torch.tensor(alpha))
+            self.beta = nn.Parameter(torch.tensor(beta))
+            self.gamma = nn.Parameter(torch.tensor(gamma))
+        else:
+            self.alpha = alpha
+            self.beta = beta
+            self.gamma = gamma
+
+    def forward(self, x):
+        return (self.alpha + torch.nn.functional.tanh(self.beta*x))*self.gamma*x
