@@ -19,6 +19,15 @@ def _chebyshev_second(a, b, n):
     return nodes
 
 
+def _latin_hypercube(a, b, n):
+    intervals = torch.linspace(a, b, steps=n + 1)
+    points = torch.rand(n) * (intervals[1] - intervals[0])
+    points += intervals[:-1]
+    points = points[torch.randperm(n)]
+    points.requires_grad_(True)
+    return points
+
+
 def _compute_log_negative(t_min, t_max, whence):
     if t_min <= 0 or t_max <= 0:
         suggested_t_min = 10 ** t_min
@@ -110,6 +119,7 @@ class Generator1D(BaseGenerator):
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
         - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
         - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
+        - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling from t_min to t_max.
 
         defaults to 'uniform'.
     :type method: str, optional
@@ -154,6 +164,9 @@ class Generator1D(BaseGenerator):
         elif method == 'chebyshev2':
             self.examples = _chebyshev_second(t_min, t_max, size)
             self.getter = lambda: self.examples
+        elif method == 'latin-hypercube':
+            self.examples = _latin_hypercube(t_min, t_max, size)
+            self.getter = lambda: self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -196,6 +209,7 @@ class Generator2D(BaseGenerator):
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
             - If set to 'chebyshev' or 'chebyshev1', the points will be 2-D chebyshev points of the first kind.
             - If set to 'chebyshev2', the points will be 2-D chebyshev points of the second kind.
+            - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -255,6 +269,12 @@ class Generator2D(BaseGenerator):
             grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
+        elif method == 'latin-hypercube':
+            x = _latin_hypercube(xy_min[0], xy_max[0], grid[0])
+            y = _latin_hypercube(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
+            self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
+            self.getter = lambda: (self.grid_x, self.grid_y)
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -300,6 +320,7 @@ class Generator3D(BaseGenerator):
             - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
             - If set to 'chebyshev' or 'chebyshev1', the points will be 3-D chebyshev points of the first kind.
             - If set to 'chebyshev2', the points will be 3-D chebyshev points of the second kind.
+            - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling
 
             Defaults to 'equally-spaced-noisy'.
         :type method: str, optional
@@ -333,13 +354,17 @@ class Generator3D(BaseGenerator):
             x = _chebyshev_second(xyz_min[0], xyz_max[0], grid[0])
             y = _chebyshev_second(xyz_min[1], xyz_max[1], grid[1])
             z = _chebyshev_second(xyz_min[2], xyz_max[2], grid[2])
+        elif method == 'latin-hypercube':
+            x = _latin_hypercube(xyz_min[0], xyz_max[0], grid[0])
+            y = _latin_hypercube(xyz_min[1], xyz_max[1], grid[1])
+            z = _latin_hypercube(xyz_min[2], xyz_max[2], grid[2])
         else:
             raise ValueError(f"Unknown method: {method}")
 
         grid_x, grid_y, grid_z = torch.meshgrid(x, y, z, indexing='ij')
         self.grid_x, self.grid_y, self.grid_z = grid_x.flatten(), grid_y.flatten(), grid_z.flatten()
 
-        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2']:
+        if method in ['equally-spaced', 'chebyshev', 'chebyshev1', 'chebyshev2', 'latin-hypercube']:
             self.getter = lambda: (self.grid_x, self.grid_y, self.grid_z)
         elif method == 'equally-spaced-noisy':
             self.noise_xmean = torch.zeros(self.size)
