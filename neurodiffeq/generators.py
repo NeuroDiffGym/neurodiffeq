@@ -4,6 +4,20 @@ import torch
 import numpy as np
 from typing import List
 
+def _chebyshev_noisy(a, b, n, std):
+    sample = torch.linspace(0, np.pi, n)
+    sample_noisy = sample + torch.normal(mean=0, std=std)
+    nodes = torch.cos(sample_noisy)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
+def _chebyshev_uniform(a, b, n):
+    unif_sample = torch.rand(n) * np.pi
+    nodes = torch.cos(unif_sample)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
 
 def _chebyshev_first(a, b, n):
     nodes = torch.cos(((torch.arange(n) + 0.5) / n) * np.pi)
@@ -11,13 +25,11 @@ def _chebyshev_first(a, b, n):
     nodes.requires_grad_(True)
     return nodes
 
-
 def _chebyshev_second(a, b, n):
     nodes = torch.cos(torch.arange(n) / float(n - 1) * np.pi)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
-
 
 def _compute_log_negative(t_min, t_max, whence):
     if t_min <= 0 or t_max <= 0:
@@ -108,8 +120,11 @@ class Generator1D(BaseGenerator):
         - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
         - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
         - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
+        - If set to 'chebyshev_uniform', the points are randomly sampled from an uniform distribution between 0 and π, transformed into chebyshev nodes of the first kind, and mapped to (t_min, t_max).
         - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
         - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
+        - If set to 'chebyshev_noisy', a normal noise will be added to chebyshev nodes of the first kind over (t_min, t_max).
+
 
         defaults to 'uniform'.
     :type method: str, optional
@@ -148,11 +163,17 @@ class Generator1D(BaseGenerator):
             start, end = _compute_log_negative(t_min, t_max, self.__class__)
             self.examples = torch.logspace(start, end, self.size, requires_grad=True)
             self.getter = lambda: torch.normal(mean=self.examples, std=self.noise_std)
+        elif method in ['chebyshev_uniform']:
+            self.examples = _chebyshev_uniform(t_min, t_max, size)
+            self.getter = lambda: self.examples        
         elif method in ['chebyshev', 'chebyshev1']:
             self.examples = _chebyshev_first(t_min, t_max, size)
             self.getter = lambda: self.examples
         elif method == 'chebyshev2':
             self.examples = _chebyshev_second(t_min, t_max, size)
+            self.getter = lambda: self.examples
+        elif method == 'chebyshev_noisy':
+            self.examples = _chebyshev_noisy(t_min, t_max, size, self.noise_std)
             self.getter = lambda: self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
