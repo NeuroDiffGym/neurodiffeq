@@ -530,7 +530,9 @@ class PretrainedSolver():
                          t_min=t_min,
                          t_max=t_max,
                          theta_min=tuple(load_dict['solver'].r_min[1:]),
-                         theta_max=tuple(load_dict['solver'].r_max[1:]))
+                         theta_max=tuple(load_dict['solver'].r_max[1:]),
+                         eq_param_index=load_dict['solver'].eq_param_index
+            )
 
         if best_nets != None:
             solver.best_nets = best_nets
