@@ -18,6 +18,12 @@ def _chebyshev_second(a, b, n):
     nodes.requires_grad_(True)
     return nodes
 
+def _chebyshev_second_noisy(a, b, n):
+    nodes = torch.cos((torch.arange(n) + (torch.randint(-1,2,(n,))*torch.rand(n)*(b-a)))/ float(n - 1) * np.pi)
+    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes.requires_grad_(True)
+    return nodes
+
 
 def _latin_hypercube(a, b, n):
     intervals = torch.linspace(a, b, steps=n + 1)
@@ -164,9 +170,12 @@ class Generator1D(BaseGenerator):
         elif method == 'chebyshev2':
             self.examples = _chebyshev_second(t_min, t_max, size)
             self.getter = lambda: self.examples
+        elif method == 'chebyshev2-noisy':
+            self.examples = lambda: _chebyshev_second_noisy(t_min, t_max, size)
+            self.getter = self.examples
         elif method == 'latin-hypercube':
-            self.examples = _latin_hypercube(t_min, t_max, size)
-            self.getter = lambda: self.examples
+            self.examples = lambda: _latin_hypercube(t_min, t_max, size)
+            self.getter = self.examples
         else:
             raise ValueError(f'Unknown method: {method}')
 
@@ -269,14 +278,28 @@ class Generator2D(BaseGenerator):
             grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
+        elif method == 'chebyshev2-noisy':
+            self.getter = self.generate(xy_min, xy_max, grid, method='chebyshev2-noisy')
         elif method == 'latin-hypercube':
-            x = _latin_hypercube(xy_min[0], xy_max[0], grid[0])
-            y = _latin_hypercube(xy_min[1], xy_max[1], grid[1])
+            x = lambda: _latin_hypercube(xy_min[0], xy_max[0], grid[0])
+            y = lambda: _latin_hypercube(xy_min[1], xy_max[1], grid[1])
             grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
         else:
             raise ValueError(f'Unknown method: {method}')
+
+    def generate(self, xy_min, xy_max, grid, method='chebyshev2-noisy'):
+        if method == 'chebyshev2-noisy':
+            x = _chebyshev_second_noisy(xy_min[0], xy_max[0], grid[0])
+            y = _chebyshev_second_noisy(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
+            return (grid_x.flatten(), grid_y.flatten())
+        elif method == 'latin-hypercube':
+            x = _latin_hypercube(xy_min[0], xy_max[0], grid[0])
+            y = _latin_hypercube(xy_min[1], xy_max[1], grid[1])
+            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
+            return (grid_x.flatten(), grid_y.flatten())
 
     def get_examples(self):
         return self.getter()
