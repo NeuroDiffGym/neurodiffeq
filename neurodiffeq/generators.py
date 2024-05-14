@@ -19,7 +19,7 @@ def _chebyshev_second(a, b, n):
     return nodes
 
 def _chebyshev_second_noisy(a, b, n):
-    nodes = torch.cos((torch.arange(n) + (torch.randint(-1,2,(n,))*torch.rand(n)*(b-a)))/ float(n - 1) * np.pi)
+    nodes = torch.cos((torch.arange(n) + (torch.rand(n) * 2 - 1)) / float(n - 1) * np.pi)
     nodes = ((a + b) + (b - a) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
