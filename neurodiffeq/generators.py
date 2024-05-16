@@ -281,8 +281,8 @@ class Generator2D(BaseGenerator):
         elif method == 'chebyshev2-noisy':
             self.getter = self.generate(xy_min, xy_max, grid, method='chebyshev2-noisy')
         elif method == 'latin-hypercube':
-            x = lambda: _latin_hypercube(xy_min[0], xy_max[0], grid[0])
-            y = lambda: _latin_hypercube(xy_min[1], xy_max[1], grid[1])
+            x = _latin_hypercube(xy_min[0], xy_max[0], grid[0])
+            y = _latin_hypercube(xy_min[1], xy_max[1], grid[1])
             grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
             self.grid_x, self.grid_y = grid_x.flatten(), grid_y.flatten()
             self.getter = lambda: (self.grid_x, self.grid_y)
