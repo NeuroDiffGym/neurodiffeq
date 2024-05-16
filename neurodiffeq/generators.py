@@ -171,11 +171,9 @@ class Generator1D(BaseGenerator):
             self.examples = _chebyshev_second(t_min, t_max, size)
             self.getter = lambda: self.examples
         elif method == 'chebyshev2-noisy':
-            self.examples = lambda: _chebyshev_second_noisy(t_min, t_max, size)
-            self.getter = self.examples
+            self.getter = lambda: _chebyshev_second_noisy(t_min, t_max, size)
         elif method == 'latin-hypercube':
-            self.examples = lambda: _latin_hypercube(t_min, t_max, size)
-            self.getter = self.examples
+            self.getter = lambda: _latin_hypercube(t_min, t_max, size)
         else:
             raise ValueError(f'Unknown method: {method}')
 
