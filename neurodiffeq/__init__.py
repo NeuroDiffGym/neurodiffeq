@@ -23,3 +23,5 @@ _set_tensor_type(float_bits=64)
 
 # Turn on future warning by default
 warnings.simplefilter('always', FutureWarning)
+
+__version__ = "0.6.3-dev"
