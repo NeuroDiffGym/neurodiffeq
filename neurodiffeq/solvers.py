@@ -440,7 +440,7 @@ class BaseSolver(ABC, PretrainedSolver):
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
 
-    def fit(self, max_epochs, callbacks=(), tqdm_file=sys.stderr, **kwargs):
+    def fit(self, max_epochs, callbacks=(), tqdm_file='default', **kwargs):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
 
         If ``callbacks`` is passed, callbacks are run, one at a time,
@@ -471,19 +471,21 @@ class BaseSolver(ABC, PretrainedSolver):
             callbacks = [monitor.to_callback()] + list(callbacks)
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')  # pragma: no cover
-
-        if tqdm_file is None:
-            loop = range(max_epochs)
-        else:
+        
+        flag = True
+        if 'default' in str(tqdm_file):
             loop = tqdm(
-                range(max_epochs),
+                total = max_epochs,
                 desc='Training Progress',
                 colour='blue',
-                file=tqdm_file,
                 dynamic_ncols=True,
             )
+        elif tqdm_file is not None:
+            loop = tqdm_file
+        else:
+            flag = False
 
-        for local_epoch in loop:
+        for local_epoch in range(max_epochs):
             # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
                 break
@@ -495,6 +497,8 @@ class BaseSolver(ABC, PretrainedSolver):
 
             for cb in callbacks:
                 cb(self)
+            if flag:
+                loop.update(1)
 
     @abstractmethod
     def get_solution(self, copy=True, best=True):
