@@ -7,6 +7,7 @@ from neurodiffeq.networks import Resnet
 from neurodiffeq.networks import MonomialNN
 from neurodiffeq.networks import SinActv
 from neurodiffeq.networks import Swish
+from neurodiffeq.networks import APTx
 
 MAGIC = 42
 torch.manual_seed(MAGIC)
@@ -147,3 +148,21 @@ def test_swish():
     assert len(list(f.parameters())) == 1
     assert list(f.parameters())[0].shape == ()
     assert torch.isclose(f(x), x * torch.sigmoid(beta * x)).all()
+
+
+
+def test_APTx():
+    x = torch.rand(10, 5)
+
+    f = APTx()
+    print(list(f.parameters()))
+    assert len(list(f.parameters())) == 0
+    assert torch.isclose(f(x),  (1 + torch.nn.Tanh()(x))*x ).all()
+
+    alpha = 1.0
+    beta = 1.0
+    gamma = 0.5
+    f = APTx(alpha,beta,gamma, trainable=True)
+    assert len(list(f.parameters())) == 3
+    assert list(f.parameters())[0].shape == ()
+    assert torch.isclose(f(x),  (alpha + torch.nn.Tanh()(beta*x))*gamma*x ).all()

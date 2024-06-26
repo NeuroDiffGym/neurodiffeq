@@ -7,20 +7,20 @@ from typing import List
 
 def _chebyshev_first(a, b, n):
     nodes = torch.cos(((torch.arange(n) + 0.5) / n) * np.pi)
-    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes = ((a + b) + (a - b) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
 
 
 def _chebyshev_second(a, b, n):
     nodes = torch.cos(torch.arange(n) / float(n - 1) * np.pi)
-    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes = ((a + b) + (a - b) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
 
 def _chebyshev_second_noisy(a, b, n):
     nodes = torch.cos((torch.arange(n) + (torch.rand(n) * 2 - 1)) / float(n - 1) * np.pi)
-    nodes = ((a + b) + (b - a) * nodes) / 2
+    nodes = ((a + b) + (a - b) * nodes) / 2
     nodes.requires_grad_(True)
     return nodes
 
