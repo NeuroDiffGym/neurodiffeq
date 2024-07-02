@@ -190,13 +190,13 @@ class APTx(nn.Module):
     :type trainable: bool
     """
 
-    def __init__(self, alpha=1.0, beta=1.0, gamma=1.0, trainable=False):
+    def __init__(self, alpha=1.0, beta=1.0, gamma=0.5, trainable=False):
         super(APTx, self).__init__()
         alpha = float(alpha)
         beta = float(beta)
         gamma = float(gamma)
         self.trainable = trainable
-        if trainable:
+        if self.trainable:
             self.alpha = nn.Parameter(torch.tensor(alpha))
             self.beta = nn.Parameter(torch.tensor(beta))
             self.gamma = nn.Parameter(torch.tensor(gamma))
