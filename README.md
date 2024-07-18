@@ -76,6 +76,8 @@ from neurodiffeq import diff
 from neurodiffeq.solvers import Solver1D, Solver2D
 from neurodiffeq.conditions import IVP, DirichletBVP2D
 from neurodiffeq.networks import FCNN, SinActv
+import numpy as np
+import torch
 ```
 
 ### ODE System Example
@@ -97,6 +99,7 @@ solution = solver.get_solution()
 `solution` is a callable object, you can pass in numpy arrays or torch tensors to it like
 
 ```python
+t = np.arange(0.1, 12.0, step=0.1)
 u, v = solution(t, to_numpy=True)  # t can be np.ndarray or torch.Tensor
 ```
 
@@ -132,6 +135,8 @@ solution = solver.get_solution()
 The signature of `solution` for a 2D PDE is slightly different from that of an ODE. Again, it takes in either numpy arrays or torch tensors.
 
 ```python
+x = np.arange(0.0, 1.0, step=0.01)
+y = np.arange(0.0, 1.0, step=0.01)
 u = solution(x, y, to_numpy=True)
 ```
 Evaluating u on `[0,1] × [0,1]` yields the following plots
@@ -223,6 +228,8 @@ Note that when both `train_generator` and `valid_generator` are specified, `t_mi
 Another nice feature of the generators is that you can concatenate them, for example 
 
 ```python
+from neurodiffeq.generators import Generator2D
+
 g1 = Generator2D((16, 16), xy_min=(0, 0), xy_max=(1, 1))
 g2 = Generator2D((16, 16), xy_min=(1, 1), xy_max=(2, 2))
 g = g1 + g2
@@ -335,14 +342,13 @@ Here's an example of how to do this using `neurodiffeq`:
    adam = torch.optim.Adam([lmd_tensor.requires_grad_(True), u0_tensor.requires_grad_(True)], lr=1e-2)
    
    # run gradient descent for 10000 epochs
-   for _ in range(10000):
-       output = solution(t_obs, lmd_tensor * torch.ones_like(t_obs), u0_tensor * torch.ones_like(t_obs))
-       loss = ((output - u_obs) ** 2).mean()
-       loss.backward()
-       adam.step()
-       adam.zero_grad()
-      
-   print(f"λ = {lmd_tensor.item()}, U0={u0_tensor.item()}, loss = {loss.item()}")
+    for _ in range(10000):
+        output = solution(t_obs, lmd_tensor * torch.ones_like(t_obs), u0_tensor * torch.ones_like(t_obs))
+        loss = ((output - u_obs) ** 2).mean()
+        loss.backward()
+        adam.step()
+        adam.zero_grad()
+        print(f"λ = {lmd_tensor.item()}, U0={u0_tensor.item()}, loss = {loss.item()}")
    ```
 
 # FAQ
