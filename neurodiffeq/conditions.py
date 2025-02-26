@@ -262,6 +262,11 @@ class IVP(BaseCondition):
         :rtype: `torch.Tensor`
         """
         if self.u_0_prime is None:
+            if isinstance(self.u_0, list):
+                parameterized = torch.zeros_like(output_tensor) 
+                for i in range(len(self.u_0)):
+                    parameterized[:, i] = (self.u_0[i] + (1 - torch.exp(-t + self.t_0)) * output_tensor[:, i].view(-1, 1))[:, 0]                
+                return parameterized
             return self.u_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
         else:
             return self.u_0 + (t - self.t_0) * self.u_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
