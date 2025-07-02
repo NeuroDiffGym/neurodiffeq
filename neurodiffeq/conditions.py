@@ -230,13 +230,15 @@ class IVP(BaseCondition):
 
     :param t_0: The initial time.
     :type t_0: float
-    :param u_0: The initial value of :math:`u`. :math:`u(t_0)=u_0`.
-    :type u_0: float
+    :param u_0: If a float, this is the initial value of :math:`u`. :math:`u(t_0)=u_0`. If a callable, this is the
+        :math:`u(t_0, x, y, ...)=u_0(x, y, ...)` function that takes additional tensors as inputs.
+    :type u_0: float or callable.
     :param u_0_prime:
         The initial derivative of :math:`u` w.r.t. :math:`t`.
         :math:`\displaystyle\frac{\partial u}{\partial t}\bigg|_{t = t_0} = u_0'`.
+        Similar to `u_0` this can be a function of additional tensors, i.e., `u_0_prime(x, y, ...)`.
         Defaults to None.
-    :type u_0_prime: float, optional
+    :type u_0_prime: float or callable, optional
     """
 
     @deprecated_alias(x_0='u_0', x_0_prime='u_0_prime')
@@ -244,7 +246,7 @@ class IVP(BaseCondition):
         super().__init__()
         self.t_0, self.u_0, self.u_0_prime = t_0, u_0, u_0_prime
 
-    def parameterize(self, output_tensor, t):
+    def parameterize(self, output_tensor, t, *additional_tensors):
         r"""Re-parameterizes outputs such that the Dirichlet/Neumann condition is satisfied.
 
         - For Dirichlet condition, the re-parameterization is
@@ -258,13 +260,18 @@ class IVP(BaseCondition):
         :type output_tensor: `torch.Tensor`
         :param t: Input to the neural network; i.e., sampled time-points; i.e., independent variables.
         :type t: `torch.Tensor`
+        :param additional_tensors: Additional inputs to the neural network. If u_0 or u_0_prime are `callable`s,
+            the additional tensors will be passed to u_0 and u_0_prime.
+        :type additional_tensors: `torch.Tensor`
         :return: The re-parameterized output of the network.
         :rtype: `torch.Tensor`
         """
+        u_0 = self.u_0(*additional_tensors) if callable(self.u_0) else self.u_0
         if self.u_0_prime is None:
-            return self.u_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
+            return u_0 + (1 - torch.exp(-t + self.t_0)) * output_tensor
         else:
-            return self.u_0 + (t - self.t_0) * self.u_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
+            u_0_prime = self.u_0_prime(*additional_tensors) if callable(self.u_0_prime) else self.u_0_prime
+            return u_0 + (t - self.t_0) * u_0_prime + ((1 - torch.exp(-t + self.t_0)) ** 2) * output_tensor
 
 
 class BundleIVP(BaseCondition, _BundleConditionMixin):
