@@ -1,10 +1,13 @@
 import os
 import random
 import warnings
+import logging
 from pathlib import Path
 import numpy as np
 import torch
 import re
+
+utils_logger = logging.getLogger('neurodiffeq.utils')
 
 
 def set_tensor_type(device=None, float_bits=32):
@@ -39,6 +42,8 @@ def set_tensor_type(device=None, float_bits=32):
         raise ValueError(f"Unknown device '{device}'; device must be either 'cuda', 'cuda:x' where x is the device number, 'cpu'")
 
     torch.set_default_device(device)
+    
+    utils_logger.info(f"Set tensor type: device={device}, float_bits={float_bits}")
 
 
 def safe_mkdir(path):
@@ -58,6 +63,8 @@ def set_seed(seed_value, ignore_numpy=False, ignore_torch=False, ignore_random=F
     :param ignore_random: If True, the seed for `random` will not be set. Defaults to False.
     :type ignore_random: bool
     """
+    utils_logger.info(f"Setting random seed: {seed_value} (numpy: {not ignore_numpy}, torch: {not ignore_torch}, random: {not ignore_random})")
+    
     if not ignore_numpy:
         np.random.seed(seed_value)
     if not ignore_torch:

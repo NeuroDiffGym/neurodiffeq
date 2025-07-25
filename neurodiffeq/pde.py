@@ -1,5 +1,6 @@
 import torch
 import warnings
+import logging
 import torch.optim as optim
 import torch.nn as nn
 
@@ -18,6 +19,8 @@ from .monitors import Monitor2D
 from .solvers import Solution2D
 from .solvers import Solver2D
 from copy import deepcopy
+
+pde_logger = logging.getLogger('neurodiffeq.pde')
 
 ExampleGenerator2D = warn_deprecate_class(Generator2D)
 PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
@@ -286,6 +289,9 @@ def solve2D_system(
         "The `solve2D_system` function is deprecated, use a `neurodiffeq.solvers.Solver2D` instance instead",
         FutureWarning,
     )
+    
+    pde_logger.info(f"Solving 2D PDE system with {len(conditions)} equations for {max_epochs} epochs")
+    
     if single_net and nets:
         raise ValueError('Only one of net and nets should be specified')
 

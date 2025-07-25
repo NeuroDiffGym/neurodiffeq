@@ -1,7 +1,10 @@
 import torch
+import logging
 from torch import sin, cos
 from torch import autograd
 from .neurodiffeq import safe_diff as diff
+
+operators_logger = logging.getLogger('neurodiffeq.operators')
 
 
 def _split_u_x(*us_xs):
@@ -24,13 +27,24 @@ def grad(u, *xs):
     :return: A tuple of :math:`\frac{\partial u}{\partial x_1}`, ..., :math:`\frac{\partial u}{\partial x_n}`
     :rtype: List[`torch.Tensor`]
     """
-    grads = []
-    for x, g in zip(xs, autograd.grad(u, xs, grad_outputs=torch.ones_like(u), create_graph=True, allow_unused=True)):
-        if g is None:
-            grads.append(torch.zeros_like(x, requires_grad=True))
-        else:
-            grads.append(g.requires_grad_(True))
-    return grads
+    try:
+        grads = []
+        for x, g in zip(xs, autograd.grad(u, xs, grad_outputs=torch.ones_like(u), create_graph=True, allow_unused=True)):
+            if g is None:
+                grads.append(torch.zeros_like(x, requires_grad=True))
+                if operators_logger.isEnabledFor(logging.DEBUG):
+                    operators_logger.debug(f"Gradient w.r.t. {x.shape} is None, using zeros")
+            else:
+                grads.append(g.requires_grad_(True))
+        
+        if operators_logger.isEnabledFor(logging.DEBUG):
+            grad_norms = [g.norm().item() for g in grads]
+            operators_logger.debug(f"Computed gradients with norms: {grad_norms}")
+        
+        return grads
+    except Exception as e:
+        operators_logger.error(f"Error computing gradient: {e}")
+        raise
 
 
 def div(*us_xs):

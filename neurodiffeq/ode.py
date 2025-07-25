@@ -1,6 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 
 import torch
 import torch.nn as nn
@@ -14,6 +15,8 @@ from .conditions import NoCondition, IVP, DirichletBVP
 from .solvers import Solver1D
 from copy import deepcopy
 import warnings
+
+ode_logger = logging.getLogger('neurodiffeq.ode')
 
 ExampleGenerator = warn_deprecate_class(Generator1D)
 Monitor = warn_deprecate_class(Monitor1D)
@@ -261,6 +264,9 @@ def solve_system(
         "The `solve_system` function is deprecated, use a `neurodiffeq.solvers.Solver1D` instance instead",
         FutureWarning,
     )
+    
+    ode_logger.info(f"Solving ODE system with {len(conditions)} equations for {max_epochs} epochs")
+    
     if single_net and nets:
         raise ValueError('Only one of net and nets should be specified')
 

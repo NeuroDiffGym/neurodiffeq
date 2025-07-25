@@ -2,6 +2,7 @@ import traceback
 import math
 import torch
 import warnings
+import logging
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -9,6 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import seaborn as sns
 from abc import ABC, abstractmethod
+
+monitors_logger = logging.getLogger('neurodiffeq.monitors')
 
 from ._version_utils import deprecated_alias
 from .function_basis import RealSphericalHarmonics as _RealSphericalHarmonics
@@ -40,8 +43,11 @@ class BaseMonitor(ABC):
         self.check_every = check_every or 100
         self.fig = ...
         self.using_non_gui_backend = (matplotlib.get_backend() == 'agg')
+        
+        monitors_logger.debug(f"Initialized {self.__class__.__name__}: check_every={self.check_every}, backend={matplotlib.get_backend()}")
 
         if matplotlib.get_backend() == 'module://ipykernel.pylab.backend_inline':
+            monitors_logger.warning("Using jupyter inline backend - plots may not update properly")
             warnings.warn(
                 "You seem to be using jupyter notebook with '%matplotlib inline' "
                 "which can lead to monitor plots not updating. "
@@ -705,6 +711,12 @@ class Monitor2D(BaseMonitor):
         .. note::
             `check` is meant to be called by the function `solve2D`.
         """
+        
+        try:
+            monitors_logger.debug(f"Monitor2D check: {len(nets)} networks, {len(conditions)} conditions")
+        except Exception as e:
+            monitors_logger.error(f"Error during monitor check: {e}")
+            return
 
         if not self.fig:
             # initialize the figure and axes here so that the Monitor knows the number of dependent variables and

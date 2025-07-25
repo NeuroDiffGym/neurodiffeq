@@ -2,7 +2,10 @@
 """
 import torch
 import numpy as np
+import logging
 from typing import List
+
+generators_logger = logging.getLogger('neurodiffeq.generators')
 
 
 def _chebyshev_first(a, b, n):
@@ -143,6 +146,8 @@ class Generator1D(BaseGenerator):
         self.size = size
         self.t_min, self.t_max = t_min, t_max
         self.method = method
+        
+        generators_logger.debug(f"Initialized Generator1D: size={size}, t_min={t_min}, t_max={t_max}, method={method}")
         if noise_std:
             self.noise_std = noise_std
         else:

@@ -1,6 +1,7 @@
 import sys
 import warnings
 import inspect
+import logging
 from inspect import signature
 from abc import ABC, abstractmethod
 from itertools import chain
@@ -24,6 +25,8 @@ from .function_basis import RealSphericalHarmonics
 from .conditions import BaseCondition
 from .neurodiffeq import safe_diff as diff
 from .losses import _losses
+
+logger = logging.getLogger('neurodiffeq.solvers')
 
 
 def _requires_closure(optimizer):
@@ -133,13 +136,18 @@ class BaseSolver(ABC, PretrainedSolver):
         self.diff_eqs = diff_eqs
         self.conditions = conditions
         self.n_funcs = len(conditions)
+        
+        logger.info(f"Initializing solver with {self.n_funcs} functions")
+        
         if nets is None:
             self.nets = [
                 FCNN(n_input_units=n_input_units, n_output_units=n_output_units, hidden_units=(32, 32), actv=nn.Tanh)
                 for _ in range(self.n_funcs)
             ]
+            logger.info(f"Created {len(self.nets)} default FCNN networks")
         else:
             self.nets = nets
+            logger.info(f"Using {len(self.nets)} provided networks")
 
         if train_generator is None:
             raise ValueError("train_generator must be specified")
@@ -180,7 +188,10 @@ class BaseSolver(ABC, PretrainedSolver):
         self.metrics_history.update({'valid__' + name: [] for name in self.metrics_fn})
 
         self.optimizer = optimizer if optimizer else Adam(OrderedSet(chain.from_iterable(n.parameters() for n in self.nets)))
+        logger.info(f"Using optimizer: {type(self.optimizer).__name__}")
+        
         self._set_loss_fn(loss_fn)
+        logger.info(f"Loss function: {self.loss_fn}")
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -437,8 +448,13 @@ class BaseSolver(ABC, PretrainedSolver):
         """
         current_loss = self.metrics_history[key + '_loss'][-1]
         if (self.lowest_loss is None) or current_loss < self.lowest_loss:
+            previous_best = self.lowest_loss
             self.lowest_loss = current_loss
             self.best_nets = deepcopy(self.nets)
+            if previous_best is not None:
+                logger.debug(f"New best model found: {key}_loss improved from {previous_best:.6f} to {current_loss:.6f}")
+            else:
+                logger.debug(f"Initial best model set: {key}_loss = {current_loss:.6f}")
 
     def fit(self, max_epochs, callbacks=(), tqdm_file=sys.stderr, **kwargs):
         r"""Run multiple epochs of training and validation, update best loss at the end of each epoch.
@@ -463,6 +479,8 @@ class BaseSolver(ABC, PretrainedSolver):
         """
         self._stop_training = False
         self._max_local_epoch = max_epochs
+        
+        logger.info(f"Starting training for {max_epochs} epochs")
 
         monitor = kwargs.pop('monitor', None)
         if monitor:
@@ -486,12 +504,19 @@ class BaseSolver(ABC, PretrainedSolver):
         for local_epoch in loop:
             # stop training if self._stop_training is set to True by a callback
             if self._stop_training:
+                logger.info(f"Training stopped early at epoch {local_epoch + 1}")
                 break
 
             # register local epoch (starting from 1 instead of 0) so it can be accessed by callbacks
             self.local_epoch = local_epoch + 1
             self.run_train_epoch()
             self.run_valid_epoch()
+            
+            # Log progress every 10% or at specific intervals
+            if local_epoch == 0 or (local_epoch + 1) % max(1, max_epochs // 10) == 0 or local_epoch == max_epochs - 1:
+                train_loss = self.metrics_history['train_loss'][-1] if self.metrics_history['train_loss'] else 'N/A'
+                valid_loss = self.metrics_history['valid_loss'][-1] if self.metrics_history['valid_loss'] else 'N/A'
+                logger.info(f"Epoch {local_epoch + 1}/{max_epochs}: train_loss={train_loss:.6f}, valid_loss={valid_loss:.6f}")
 
             for cb in callbacks:
                 cb(self)
