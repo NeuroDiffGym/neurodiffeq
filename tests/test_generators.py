@@ -57,7 +57,17 @@ def _check_boundary(xs, xs_min, xs_max):
     return True
 
 
+def _to_flat_numpy(z):
+    if isinstance(z, torch.Tensor):
+        return z.detach().cpu().numpy().reshape(-1)
+    if isinstance(z, np.ndarray):
+        return z.reshape(-1)
+    return list(z)
+
+
 def _check_iterable_equal(x, y, eps=1e-5):
+    x = _to_flat_numpy(x)
+    y = _to_flat_numpy(y)
     for a, b in zip(x, y):
         if abs(float(a) - float(b)) > eps:
             print(f"Different values: {a} != {b}", file=sys.stderr)

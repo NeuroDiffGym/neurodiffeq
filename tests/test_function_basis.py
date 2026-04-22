@@ -9,7 +9,14 @@ from neurodiffeq.function_basis import ZonalSphericalHarmonics
 from neurodiffeq.function_basis import ZonalSphericalHarmonicsLaplacian
 from neurodiffeq.neurodiffeq import safe_diff as diff
 from scipy.special import legendre  # legendre polynomials
-from scipy.special import sph_harm  # spherical harmonics
+try:
+    from scipy.special import sph_harm  # spherical harmonics (removed in scipy 1.17)
+except ImportError:
+    from scipy.special import sph_harm_y
+
+    def sph_harm(m, n, theta, phi):
+        # scipy.special.sph_harm_y(n, m, theta, phi) swaps theta/phi roles relative to sph_harm
+        return sph_harm_y(n, m, phi, theta)
 
 
 @pytest.fixture

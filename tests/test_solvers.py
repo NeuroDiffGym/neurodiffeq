@@ -58,7 +58,7 @@ def test_legacies(solver, generators):
             n_output_units=1,
         ).fit(1)
 
-    class SolverWithLegacyAdditionalLoss(BaseSolver):
+    class SolverWithLegacyAdditionalLoss(GenericSolver):
         def additional_loss(self, funcs, key):
             return 0
     # overriding additional loss is deprecated

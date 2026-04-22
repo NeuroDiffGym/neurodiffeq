@@ -157,7 +157,7 @@ def test_APTx():
     f = APTx()
     print(list(f.parameters()))
     assert len(list(f.parameters())) == 0
-    assert torch.isclose(f(x),  (1 + torch.nn.Tanh()(x))*x ).all()
+    assert torch.isclose(f(x),  (1 + torch.nn.Tanh()(x))*0.5*x ).all()
 
     alpha = 1.0
     beta = 1.0

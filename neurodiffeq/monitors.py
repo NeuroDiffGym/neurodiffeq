@@ -339,6 +339,12 @@ class MonitorSpherical(BaseMonitor):
 
     # _update_contourf cannot be defined as a static method since it depends on self.contourf_plot_available
     def _update_contourf(self, var_name, ax, u, colorbar_index):
+        if self.cbs[colorbar_index]:
+            try:
+                self.cbs[colorbar_index].remove()
+            except (AttributeError, KeyError):
+                pass
+            self.cbs[colorbar_index] = None
         ax.clear()
         ax.set_xlabel('$\\phi$')
         ax.set_ylabel('$\\theta$')
@@ -362,8 +368,6 @@ class MonitorSpherical(BaseMonitor):
             # use matshow() to plot a heatmap instead
             cax = ax.matshow(u, cmap='magma', interpolation='nearest')
 
-        if self.cbs[colorbar_index]:
-            self.cbs[colorbar_index].remove()
         self.cbs[colorbar_index] = self.fig.colorbar(cax, ax=ax)
 
     @staticmethod
@@ -731,12 +735,16 @@ class Monitor2D(BaseMonitor):
         ]
 
         for i, (ax, u, con) in enumerate(zip(self.axs[:-2], us, conditions)):
+            if self.cbs[i] is not None:
+                try:
+                    self.cbs[i].remove()
+                except (AttributeError, KeyError):
+                    pass
+                self.cbs[i] = None
             ax.clear()
             u = u.detach().cpu().numpy().flatten()
             if self.solution_style == 'heatmap':
                 cs = self._create_contour(ax, self.xs_plot, self.ys_plot, u, con)
-                if self.cbs[i] is not None:
-                    self.cbs[i].remove()
                 self.cbs[i] = self.fig.colorbar(cs, format='%.0e', ax=ax)
                 ax.set_title(f'u[{i}](x, y)')
             elif self.solution_style == 'curves':

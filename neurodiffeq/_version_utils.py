@@ -42,7 +42,7 @@ def deprecated_alias(**aliases):
 def _rename_kwargs(func_name, kwargs, aliases):
     for alias, new in aliases.items():
         if alias in kwargs:
+            warnings.warn(f'The argument `{alias}` is deprecated for {func_name}; use `{new}` instead.', FutureWarning)
             if new in kwargs:
                 raise KeyError(f'{func_name} received both `{alias}` (deprecated) and `{new}` (recommended)')
-            warnings.warn(f'The argument `{alias}` is deprecated for {func_name}; use `{new}` instead.', FutureWarning)
             kwargs[new] = kwargs.pop(alias)
