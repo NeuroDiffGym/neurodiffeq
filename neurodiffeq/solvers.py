@@ -1357,7 +1357,7 @@ class BundleSolver1D(BaseSolver):
 
         def _diff_eqs_wrapper(*variables):
             funcs_and_coords = variables[:N_FUNCTIONS + N_COORDS]
-            eq_params = tuple(variables[idx] for idx in eq_param_index)
+            eq_params = tuple(variables[idx] for idx in self.eq_param_index)
             return ode_system(*funcs_and_coords, *eq_params)
 
         super(BundleSolver1D, self).__init__(
