@@ -1,8 +1,11 @@
 import numpy as np
 import torch
 import warnings
+import logging
 from .neurodiffeq import safe_diff as diff
 from ._version_utils import deprecated_alias
+
+conditions_logger = logging.getLogger('neurodiffeq.conditions')
 
 
 class BaseCondition:
@@ -48,6 +51,8 @@ class BaseCondition:
         :return: The re-parameterized output, where the condition is automatically satisfied.
         :rtype: `torch.Tensor`
         """
+        if conditions_logger.isEnabledFor(logging.DEBUG):
+            conditions_logger.debug(f"Enforcing {self.__class__.__name__} condition on {coordinates[0].shape[0]} points")
         # concatenate the coordinates and pass to network
         network_output = net(torch.cat(coordinates, dim=1))
         # if `ith_unit` is set, the condition will only be enforced on the i-th output unit
@@ -165,13 +170,18 @@ class EnsembleCondition(BaseCondition):
 
     def __init__(self, *sub_conditions, force=False):
         super(EnsembleCondition, self).__init__()
+        
+        conditions_logger.debug(f"Creating EnsembleCondition with {len(sub_conditions)} sub-conditions")
+        
         for i, c in enumerate(sub_conditions):
             if c.__class__.enforce != BaseCondition.enforce:
                 msg = f"{c.__class__.__name__} (index={i})'s overrides BaseCondition's `.enforce` method. " \
                       f"Ensembl'ing is likely not going to work."
                 if force:
+                    conditions_logger.warning(f"Forcing ensemble creation despite override: {msg}")
                     warnings.warn(msg)
                 else:
+                    conditions_logger.error(f"Cannot create ensemble: {msg}")
                     raise ValueError(msg + "\nTry with `force=True` if you know what you are doing.")
 
         self.conditions = sub_conditions

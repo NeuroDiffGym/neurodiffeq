@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
+import logging
 from warnings import warn
+
+networks_logger = logging.getLogger('neurodiffeq.networks')
 
 
 class FCNN(nn.Module):
@@ -64,6 +67,8 @@ class FCNN(nn.Module):
         # There's not activation in after the last layer
         layers.append(nn.Linear(units[-1], n_output_units))
         self.NN = torch.nn.Sequential(*layers)
+        
+        networks_logger.debug(f"Initialized FCNN: input={n_input_units}, output={n_output_units}, hidden={hidden_units}")
 
     def forward(self, t):
         x = self.NN(t)
