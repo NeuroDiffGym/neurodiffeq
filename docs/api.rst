@@ -21,6 +21,7 @@ API Reference
     :show-inheritance:
     :inherited-members:
     :members:
+    :private-members:
 
 `neurodiffeq.solvers`
 ------------------------------------------------------
