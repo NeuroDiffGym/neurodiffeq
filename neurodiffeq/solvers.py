@@ -109,14 +109,18 @@ class BaseSolver(ABC, PretrainedSolver):
         Shuffling should be performed by generators.
     :type shuffle: bool
     """
-
+    RESIDUAL = "residual_loss"
+    ADDITIONAL = "additional_loss"
+    LOSS_COMPONENT_KEYS = (RESIDUAL, ADDITIONAL)
+    
     @deprecated_alias(criterion='loss_fn')
     def __init__(self, diff_eqs, conditions,
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None,
                  optimizer=None, loss_fn=None, n_batches_train=1, n_batches_valid=4,
                  metrics=None, n_input_units=None, n_output_units=None,
                  # deprecated arguments are listed below
-                 shuffle=None, batch_size=None):
+                 shuffle=None, batch_size=None,
+                 track_loss_components: bool = False):
         # deprecate argument `shuffle`
         if shuffle:
             warnings.warn(
@@ -147,7 +151,17 @@ class BaseSolver(ABC, PretrainedSolver):
         if valid_generator is None:
             raise ValueError("valid_generator must be specified")
 
-        self.metrics_fn = metrics if metrics else {}
+        self.metrics_fn = dict(metrics) if metrics else {}
+            
+        if track_loss_components:
+            self.skip_metrics = set(self.LOSS_COMPONENT_KEYS)
+            self.metrics_fn.update({
+                k: lambda *args: torch.tensor(0.0) # placeholder to register metric
+                for k in self.LOSS_COMPONENT_KEYS
+            })
+        else:
+            self.skip_metrics = set()
+        
         # For backward compatibility with the legacy `analytic_solutions` argument
         if analytic_solutions:
             warnings.warn(
@@ -181,6 +195,8 @@ class BaseSolver(ABC, PretrainedSolver):
 
         self.optimizer = optimizer if optimizer else Adam(OrderedSet(chain.from_iterable(n.parameters() for n in self.nets)))
         self._set_loss_fn(loss_fn)
+        
+        self.track_loss_components = track_loss_components
 
         def make_pair_dict(train=None, valid=None):
             return {'train': train, 'valid': valid}
@@ -349,6 +365,10 @@ class BaseSolver(ABC, PretrainedSolver):
         .. note::
             The optimization step is only performed after all batches are run.
         """
+        
+        if self.track_loss_components and not callable(getattr(self, "additional_loss", None)):
+            raise ValueError("additional_loss must be defined when track_loss_components=True")
+        
         if self.n_batches[key] <= 0:
             # XXX maybe we should append NaN to metric history?
             return
@@ -356,6 +376,12 @@ class BaseSolver(ABC, PretrainedSolver):
         epoch_loss = 0.0
         batch_loss = 0.0
         metric_values = {name: 0.0 for name in self.metrics_fn}
+        
+        # --- Set cumulative loss components ---
+        if self.track_loss_components:
+            component_sums = {
+                k: 0.0 for k in self.LOSS_COMPONENT_KEYS
+            }
 
         # Zero the gradient only once, before running the batches. Gradients of different batches are accumulated.
         if key == 'train' and not _requires_closure(self.optimizer):
@@ -373,21 +399,37 @@ class BaseSolver(ABC, PretrainedSolver):
                 funcs = [
                     self.compute_func_val(n, c, *batch) for n, c in zip(self.nets, self.conditions)
                 ]
-
+                
                 for name in self.metrics_fn:
+                    if name in self.skip_metrics:
+                        continue
                     value = self.metrics_fn[name](*funcs, *batch).item()
                     metric_values[name] += value
+                
+                def _ensure_tensor(x, ref):
+                    if torch.is_tensor(x):
+                        return x
+                    return torch.tensor(x, dtype=torch.float32, device=ref.device)
+                    
                 residuals = self.diff_eqs(*funcs, *batch)
                 residuals = torch.cat(residuals, dim=1)
                 try:
-                    loss = self.loss_fn(residuals, funcs, batch) + self.additional_loss(residuals, funcs, batch)
+                    main_loss = _ensure_tensor(self.loss_fn(residuals, funcs, batch), residuals) 
+                    extra_loss =  _ensure_tensor(self.additional_loss(residuals, funcs, batch), residuals)
                 except TypeError as e:
                     warnings.warn(
                         "You might need to update your code. "
                         "Since v0.4.0; both `criterion` and `additional_loss` requires three inputs: "
                         "`residual`, `funcs`, and `coords`. See documentation for more.", FutureWarning)
                     raise e
-
+                
+                loss = main_loss + extra_loss
+                
+                # --- populate diagnostics ---
+                if self.track_loss_components:
+                    component_sums[self.RESIDUAL] += main_loss.item()
+                    component_sums[self.ADDITIONAL] += extra_loss.item()
+                
                 # accumulate gradients before the current graph is collected as garbage
                 if key == 'train':
                     loss.backward()
@@ -420,8 +462,15 @@ class BaseSolver(ABC, PretrainedSolver):
 
         # calculate average metrics across batches and register to history
         for name in self.metrics_fn:
+            if name in self.skip_metrics:
+                continue
             self._update_history(
                 metric_values[name] / self.n_batches[key], name, key)
+        
+        if self.track_loss_components:
+            for k in component_sums:
+                avg_loss_term = component_sums[k] / self.n_batches[key]
+                self._update_history(avg_loss_term, k, key)
 
     def run_train_epoch(self):
         r"""Run a training epoch, update history, and perform gradient descent."""
@@ -644,6 +693,8 @@ class BaseSolver(ABC, PretrainedSolver):
         if to_numpy:
             residuals = [r.detach().cpu().numpy() for r in residuals]
         return residuals if len(residuals) > 1 else residuals[0]
+        
+    
 
 
 class BaseSolution(ABC):
@@ -856,7 +907,7 @@ class SolverSpherical(BaseSolver):
                  optimizer=None, loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, enforcer=None,
                  n_output_units=1,
                  # deprecated arguments are listed below
-                 shuffle=None, batch_size=None):
+                 shuffle=None, batch_size=None, track_loss_components: bool = False):
 
         if train_generator is None or valid_generator is None:
             if r_min is None or r_max is None:
@@ -889,6 +940,7 @@ class SolverSpherical(BaseSolver):
             n_output_units=n_output_units,
             shuffle=shuffle,
             batch_size=batch_size,
+            track_loss_components=track_loss_components
         )
 
     def _auto_enforce(self, net, cond, *coordinates):
@@ -1108,7 +1160,7 @@ class Solver1D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=None):
+                 batch_size=None, shuffle=None, track_loss_components: bool = False):
 
         if train_generator is None or valid_generator is None:
             if t_min is None or t_max is None:
@@ -1139,6 +1191,7 @@ class Solver1D(BaseSolver):
             n_output_units=n_output_units,
             shuffle=shuffle,
             batch_size=batch_size,
+            track_loss_components=track_loss_components
         )
 
     def get_solution(self, copy=True, best=True):
@@ -1302,7 +1355,7 @@ class BundleSolver1D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=None):
+                 batch_size=None, shuffle=None, track_loss_components: bool = False):
 
         if train_generator is None or valid_generator is None:
             if t_min is None or t_max is None:
@@ -1376,6 +1429,7 @@ class BundleSolver1D(BaseSolver):
             n_output_units=n_output_units,
             shuffle=shuffle,
             batch_size=batch_size,
+            track_loss_components=track_loss_components
         )
 
     def get_solution(self, copy=True, best=True):
@@ -1520,7 +1574,7 @@ class Solver2D(BaseSolver):
                  nets=None, train_generator=None, valid_generator=None, analytic_solutions=None, optimizer=None,
                  loss_fn=None, n_batches_train=1, n_batches_valid=4, metrics=None, n_output_units=1,
                  # deprecated arguments are listed below
-                 batch_size=None, shuffle=None):
+                 batch_size=None, shuffle=None, track_loss_components: bool = False):
 
         if train_generator is None or valid_generator is None:
             if xy_min is None or xy_max is None:
@@ -1551,6 +1605,7 @@ class Solver2D(BaseSolver):
             n_output_units=n_output_units,
             shuffle=shuffle,
             batch_size=batch_size,
+            track_loss_components=track_loss_components
         )
 
     def get_solution(self, copy=True, best=True):
